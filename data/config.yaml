@@ -1,0 +1,27 @@
+{
+  instance: "Fill the path to the instance file",
+  outdir: "",
+  method: "ih",
+  tcount: 1,
+  tmax: 0,
+  vga: {
+    max-group: 0,
+    gglimit: 0,
+    galimit: 0
+  },
+  vga_chaining: {
+    batchl: 300,
+    tts: 120,
+    mtbp: 0,
+    cmg: 0.005,
+    cbs: 0,
+    skip-vga-plan-export: false,
+    mcc: 0,
+    max_delay: -1
+  },
+  halns: {
+    iter: 100000,
+    init: "",
+    time_limit: 0
+  }
+}

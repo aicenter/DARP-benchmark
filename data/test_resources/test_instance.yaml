@@ -1,0 +1,22 @@
+area_dir: ../../../
+area_id: 12
+demand:
+  dataset:
+    - 2
+    - 3
+    - 4
+    - 5
+  filepath: ./trips.di
+  max_time: '2022-03-11 18:05:00'
+  min_time: '2022-03-11 18:00:00'
+  mode: load
+  positions_set: 1
+map:
+  SRID: 4326
+  SRID_plane: 32618
+max_prolongation: 300
+save_shp: true
+vehicles:
+  start_time: '2022-03-11 17:45:00'
+  vehicle_capacity: 4
+  vehicle_to_request_ratio: 0.7

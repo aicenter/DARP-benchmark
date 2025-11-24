@@ -1,0 +1,121 @@
+{
+    "plan": {
+        "departure_time": 64246,
+        "arrival_time": 65300,
+        "cost": 1054,
+        "actions": [
+            {
+                "arrival_time": 0,
+                "departure_time": 64246,
+                "type": "depot",
+                "min_time": 62940,
+                "max_time": 86400
+            },
+            {
+                "arrival_time": 65087,
+                "departure_time": 65087,
+                "type": "pickup",
+                "min_time": 65087,
+                "max_time": 65267,
+                "request": 0
+            },
+            {
+                "arrival_time": 65300,
+                "departure_time": 65300,
+                "type": "drop_off",
+                "min_time": 65300,
+                "max_time": 65480,
+                "request": 0
+            }
+        ]
+    },
+    "request": {
+        "index": 1,
+        "pickup": {
+            "type": "pickup",
+            "min_time": 64859,
+            "max_time": 65039
+        },
+        "dropoff": {
+            "type": "drop_off",
+            "min_time": 64999,
+            "max_time": 65179
+        }
+    },
+    "dm": [
+        [
+            0,
+            841,
+            895,
+            923,
+            888
+        ],
+        [
+            858,
+            0,
+            213,
+            170,
+            47
+        ],
+        [
+            911,
+            187,
+            0,
+            307,
+            211
+        ],
+        [
+            937,
+            173,
+            307,
+            0,
+            140
+        ],
+        [
+            886,
+            53,
+            242,
+            139,
+            0
+        ]
+    ],
+    "expected_plan": {
+        "departure_time": 63936,
+        "arrival_time": 65300,
+        "cost": 1329,
+        "actions": [
+            {
+                "arrival_time": 64859,
+                "departure_time": 64859,
+                "type": "pickup",
+                "min_time": 64859,
+                "max_time": 65039,
+                "request": 1
+            },
+            {
+                "arrival_time": 64999,
+                "departure_time": 64999,
+                "type": "drop_off",
+                "min_time": 64999,
+                "max_time": 65179,
+                "request": 1
+            },
+            {
+                "arrival_time": 65052,
+                "departure_time": 65087,
+                "type": "pickup",
+                "min_time": 65087,
+                "max_time": 65267,
+                "request": 0
+            },
+            {
+                "arrival_time": 65300,
+                "departure_time": 65300,
+                "type": "drop_off",
+                "min_time": 65300,
+                "max_time": 65480,
+                "request": 0
+            }
+        ]
+    }
+}

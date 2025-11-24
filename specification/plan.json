@@ -1,0 +1,54 @@
+{ 
+	"$schema": "https://json-schema.org/draft/2020-12/schema",
+	"type": "array",
+	"items": {
+		"type": "object",
+		"properties": {
+			"cost": {"type": "number"},
+			"vehicle": {
+				"type": "object",
+				"properties": {
+					"index": {"type": "number"},
+					"id": {"type": "string"},
+					"init_position": {"$ref": "file:location.json"},
+					"capacity": {"type": "number"}
+				},
+				"required": ["capacity"],
+				"anyOf": [
+					"required": ["index"],
+					"required": ["id"]
+				]
+			},
+			"departure_time": {"type": "number"},
+			"arrival_time": {"type": "number"},
+			"actions": {
+				"type": "array",
+				"items": {
+					"type": "object",
+					"properties": {
+						"arrival_time": {"type": "number"},
+						"departure_time": {"type": "number"},
+						"action": {
+							"type": "object",
+							"properties": {
+								"id": {"type": "number"},
+								"request_index": {"type": "number"},
+								"type": {
+									"type": "string",
+									"enum": ["pickup", "drop_off"]
+								},
+								"position": {"$ref": "file:location.json"},
+								"min_time": {"type": "number"},
+								"max_time": {"type": "number"},
+								"service_duration": {"type": "number"}
+							},
+							"required": ["request_index", "type", "position", "max_time"]
+						}
+					},
+					"required": ["action"]
+				}
+			}
+		},
+		"required": ["vehicle", "actions"]
+	}
+}

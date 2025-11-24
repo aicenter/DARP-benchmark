@@ -1,0 +1,4 @@
+instance: ../instance/config.yaml
+method: ih
+outdir: .
+#timeout: 600.0

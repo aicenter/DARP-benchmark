@@ -1,0 +1,65 @@
+# manual build dir
+build
+
+# Visual Studio
+**/.vs/*
+# we want to keep the run configuration
+# !.vs/launch.vs.json
+CMakeSettings.json
+out/
+*.pyproj
+*.sln
+
+# ClLion
+.idea/
+cmake-build-*/
+
+# vscode
+.vscode/
+
+# cursor
+build-vscode
+
+# Python
+cache
+.ipynb_checkpoints
+## compiled files
+*.pyc
+## installation files
+python/darpbenchmark.egg-info/
+
+# CMake manual build folders
+
+
+# logs
+gurobi.log
+python/darpbenchmark/test/model.lp
+model.sol
+
+# data
+dm.csv
+data/results/
+
+# Instance and Demand Generation Cache
+/python/darpbenchmark/demand_generation/cache
+/python/darpbenchmark/demand_generation/output/hel_30k_200_5000
+/python/darpbenchmark/demand_generation/input
+/python/darpbenchmark/instance_generation/cache
+/python/darpbenchmark/instance_generation/input
+/python/darpbenchmark/instance_generation/output/hel_30k_200_5000
+
+# Other
+breakers/
+include/
+vtune/
+config.ini
+/BUILD/
+
+# RCI runners and sizing
+time
+unfinished_runs.txt
+tmp
+
+
+
+

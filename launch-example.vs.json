@@ -1,0 +1,432 @@
+{
+  "version": "0.2.1",
+  "defaults": {},
+  "configurations": [
+    {
+      "type": "default",
+      "project": "CMakeLists.txt",
+      "projectTarget": "DARP-benchmark.exe",
+      "name": "IH Cordeau first scenario",
+      "args": [
+        "-i",
+        "\"O:/AIC data/chairelogistique.hec.ca/data/darp/tabu/pr01\"",
+        "-o",
+        "\"C:\\Workspaces\\AIC\\darp-benchmark\\data\\results\\ih\\Cordeau_2003\"",
+        "-m",
+        "ih"
+      ]
+    },
+    {
+      "type": "default",
+      "project": "CMakeLists.txt",
+      "projectTarget": "DARP-benchmark.exe",
+      "name": "Run Cordeau scenario 6",
+      "args": [
+        "-i",
+        "\"O:/AIC data/chairelogistique.hec.ca/data/darp/tabu/pr06\"",
+        "-o",
+        "solutions",
+        "-m",
+        "ih"
+      ]
+    },
+    {
+      "type": "default",
+      "project": "CMakeLists.txt",
+      "projectTarget": "DARP-benchmark.exe",
+      "name": "VGA Cordeau first scenario",
+      "args": [
+        "-i",
+        "\"O:/AIC data/chairelogistique.hec.ca/data/darp/tabu/pr01\"",
+        "-o",
+        "\"C:\\Workspaces\\AIC\\darp-benchmark\\data\\results\\vga\\Cordeau_2003\"",
+        "-m",
+        "vga"
+      ]
+    },
+    {
+      "type": "default",
+      "project": "CMakeLists.txt",
+      "projectTarget": "DARP-benchmark.exe",
+      "name": "HALNS Cordeau first scenario",
+      "args": [
+        "-i",
+        "\"O:/AIC data/chairelogistique.hec.ca/data/darp/tabu/pr01\"",
+        "-o",
+        "\"C:\\Workspaces\\AIC\\darp-benchmark\\data\\results\\halns\\Cordeau_2003\"",
+        "-m",
+        "halns"
+      ]
+    },
+    {
+      "type": "default",
+      "project": "CMakeLists.txt",
+      "projectTarget": "DARP-benchmark.exe",
+      "name": "VGA Cordeau first scenario 10 trials",
+      "args": [
+        "-i",
+        "\"O:/AIC data/chairelogistique.hec.ca/data/darp/tabu/pr01\"",
+        "-o",
+        "\"C:\\Workspaces\\AIC\\darp-benchmark\\data\\results\\vga\\Cordeau_2003\\v11\"",
+        "-m",
+        "vga",
+        "-c",
+        10
+      ]
+    },
+    {
+      "type": "default",
+      "project": "CMakeLists.txt",
+      "projectTarget": "DARP-benchmark.exe",
+      "name": "IH Cordeau first scenario 10 trials",
+      "args": [
+        "-i",
+        "\"O:/AIC data/chairelogistique.hec.ca/data/darp/tabu/pr01\"",
+        "-o",
+        "\"C:\\Workspaces\\AIC\\darp-benchmark\\data\\results\\ih\\Cordeau_2003\\v0\"",
+        "-m",
+        "ih",
+        "-c",
+        10
+      ]
+    },
+    {
+      "type": "default",
+      "project": "CMakeLists.txt",
+      "projectTarget": "DARP-benchmark.exe",
+      "name": "VGA Cordeau first scenario test two requests",
+      "args": [
+        "-i",
+        "\"C:\\Workspaces\\AIC\\darp-benchmark\\data/instances\\test\\pr01-two_requests\"",
+        "-o",
+        "\"C:\\Workspaces\\AIC\\darp-benchmark\\data\\results\\vga\\Cordeau_2003\"",
+        "-m",
+        "vga"
+      ]
+    },
+    {
+      "type": "default",
+      "project": "CMakeLists.txt",
+      "projectTarget": "test_run.exe",
+      "name": "Debug Tests",
+      "args": [
+        "--gtest_break_on_failure",
+        "--gtest_catch_exceptions=0",
+        "--gtest_filter=HALNS_test.evalute*"
+      ]
+    },
+    {
+      "type": "default",
+      "project": "CMakeLists.txt",
+      "projectTarget": "DARP-benchmark.exe",
+      "name": "VGA Cordeau first scenario Amodsim node",
+      "args": [
+        "-i",
+        "\"C:\\Workspaces\\AIC\\darp-benchmark\\data\\instances\\Amodsim/test/instance\"",
+        "-o",
+        "\"C:\\Workspaces\\AIC\\darp-benchmark\\data\\results\\vga\\test\"",
+        "-m",
+        "vga",
+        "-t",
+        "amodsim"
+      ]
+    },
+    {
+      "type": "default",
+      "project": "CMakeLists.txt",
+      "projectTarget": "DARP-benchmark.exe",
+      "name": "VGA manhattan",
+      "args": [
+        "-i",
+        "\"C:\\Workspaces\\AIC\\darp-benchmark\\data\\instances\\Amodsim/manhattan\"",
+        "-o",
+        "\"C:\\Workspaces\\AIC\\darp-benchmark\\data\\results\\vga\\manhattan\"",
+        "-m",
+        "vga",
+        "-t",
+        "amodsim",
+        "-d",
+        "\"O:\\AIC data\\maps/manhattan.csv\""
+      ]
+    },
+    {
+      "type": "default",
+      "project": "CMakeLists.txt",
+      "projectTarget": "DARP-benchmark.exe",
+      "name": "VGA manhattan test",
+      "args": [
+        "-i",
+        "\"C:\\Workspaces\\AIC\\darp-benchmark\\data\\instances\\Amodsim/test/manhattan-7.00-7.10.txt\"",
+        "-o",
+        "\"C:\\Workspaces\\AIC\\darp-benchmark\\data\\results\\vga\\manhattan\"",
+        "-m",
+        "vga",
+        "-t",
+        "amodsim",
+        "-d",
+        "\"O:\\AIC data\\maps/manhattan.csv\""
+      ]
+    },
+    {
+      "type": "default",
+      "project": "CMakeLists.txt",
+      "projectTarget": "DARP-benchmark.exe",
+      "name": "VGA helsinky real vehicles",
+      "args": [
+        "-i",
+        "\"C:\\Workspaces\\AIC\\darp-benchmark\\data\\instances\\amodsim_helsinky\\helsinki-test\"",
+        "-o",
+        "\"C:\\Workspaces\\AIC\\darp-benchmark\\data\\results\\vga\\helsinky\"",
+        "-m",
+        "vga",
+        "-t",
+        "amodsim"
+      ]
+    },
+    {
+      "type": "default",
+      "project": "CMakeLists.txt",
+      "projectTarget": "DARP-benchmark.exe",
+      "name": "VGA Luze real vehicles",
+      "args": [
+        "-i",
+        "\"C:\\AIC Experiment Data\\DARP\\Luze\\instance.di\"",
+        "-o",
+        "\"C:\\Workspaces\\AIC\\darp-benchmark\\data\\results\\vga\\Luze\"",
+        "-m",
+        "vga",
+        "-t",
+        "amodsim"
+      ]
+    },
+    {
+      "type": "default",
+      "project": "CMakeLists.txt",
+      "projectTarget": "DARP-benchmark.exe",
+      "name": "VGA Plzen real vehicles",
+      "args": [
+        "-i",
+        "\"C:\\AIC Experiment Data\\DARP\\Plzen\\instance.di\"",
+        "-o",
+        "\"C:\\Workspaces\\AIC\\darp-benchmark\\data\\results\\vga\\Plzen\"",
+        "-m",
+        "vga",
+        "-t",
+        "amodsim"
+      ]
+    },
+    {
+      "type": "default",
+      "project": "CMakeLists.txt",
+      "projectTarget": "DARP-benchmark.exe",
+      "name": "IH Luze real vehicles",
+      "args": [
+        "-i",
+        "\"C:\\AIC Experiment Data\\DARP\\Luze\\instance.di\"",
+        "-o",
+        "\"C:\\Workspaces\\AIC\\darp-benchmark\\data\\results\\ih\\Luze\"",
+        "-m",
+        "ih",
+        "-t",
+        "amodsim"
+      ]
+    },
+    {
+      "type": "default",
+      "project": "CMakeLists.txt",
+      "projectTarget": "DARP-benchmark.exe",
+      "name": "HALNS Luze real vehicles",
+      "args": [
+        "-i",
+        "\"C:\\AIC Experiment Data\\DARP\\Luze\\instance-test.di\"",
+        "-o",
+        "\"C:\\Workspaces\\AIC\\darp-benchmark\\data\\results\\halns\\Luze\"",
+        "-m",
+        "halns",
+        "-t",
+        "amodsim"
+      ]
+    },
+    {
+      "type": "default",
+      "project": "CMakeLists.txt",
+      "projectTarget": "DARP-benchmark.exe",
+      "name": "IH computational time benchmark Luze",
+      "args": [
+        "-i",
+        "\"C:\\AIC Experiment Data\\DARP\\Luze\\instance-red.di\"",
+        "-o",
+        "\"C:\\Workspaces\\AIC\\darp-benchmark\\data\\results\\ih\\Luze-red-benchmark\\v1\"",
+        "-m",
+        "ih",
+        "-t",
+        "amodsim",
+        "-c",
+        10
+      ]
+    },
+    {
+      "type": "default",
+      "project": "CMakeLists.txt",
+      "projectTarget": "DARP-benchmark.exe",
+      "name": "IH Plzen real vehicles",
+      "args": [
+        "-i",
+        "\"C:\\AIC Experiment Data\\DARP\\Plzen\\instance.di\"",
+        "-o",
+        "\"C:\\Workspaces\\AIC\\darp-benchmark\\data\\results\\ih\\Plzen\"",
+        "-m",
+        "ih",
+        "-t",
+        "amodsim"
+      ]
+    },
+    {
+      "type": "default",
+      "project": "CMakeLists.txt",
+      "projectTarget": "DARP-benchmark.exe",
+      "name": "VGA for chaining export",
+      "args": [
+        "-i",
+        "\"C:\\AIC Experiment Data\\DARP\\Plzen\\instance-4.di\"",
+        "-o",
+        "\"C:\\Workspaces\\AIC\\darp-benchmark\\data\\results\\vga\\Plzen-test_export\"",
+        "-m",
+        "vga",
+        "-t",
+        "amodsim",
+        "-b",
+        "600"
+      ]
+    },
+    {
+      "type": "default",
+      "project": "CMakeLists.txt",
+      "projectTarget": "DARP-benchmark.exe",
+      "name": "VGA Luze - for chaining export - nb",
+      "args": [
+        "-i",
+        "\"C:\\AIC Data/Experiment Data\\DARP\\Luze\\instance-test-2.di\"",
+        "-o",
+        "\"C:\\Workspaces\\AIC\\darp-benchmark\\data\\results\\vga\\Luze-test_export\"",
+        "-m",
+        "vga",
+        "-t",
+        "amodsim",
+        "-b",
+        "900"
+      ]
+    },
+    {
+      "type": "default",
+      "project": "CMakeLists.txt",
+      "projectTarget": "chaining_tester.exe",
+      "name": "Chaining Tester",
+      "args": [
+        "-p",
+        "\"C:\\AIC Experiment Data\\DARP\\Plzen/vga_plans-4.json\"",
+        "-d",
+        "\"C:\\AIC Experiment Data\\DARP\\Plzen\\dm.csv\"",
+        "-v",
+        "5",
+        "-t",
+        "180",
+        "--plan-count",
+        "500",
+        "--run-old"
+      ]
+    },
+    {
+      "type": "default",
+      "project": "CMakeLists.txt",
+      "projectTarget": "chaining_tester.exe",
+      "name": "Chaining Tester - nb",
+      "args": [
+        "-p",
+        "C:\\Workspaces\\AIC\\DARP-benchmark\\out\\build\\x64-Release/vga_plans-red.json",
+        "-d",
+        "\"C:\\AIC Data/Experiment Data\\DARP\\Luze\\dm.csv\"",
+        "-v",
+        "5",
+        "-t",
+        "180"
+      ]
+    },
+    {
+      "type": "default",
+      "project": "CMakeLists.txt",
+      "projectTarget": "DARP-benchmark.exe",
+      "name": "IH test Plzen",
+      "args": [
+        "-i",
+        "\"C:\\AIC Experiment Data\\DARP\\Plzen\\instance-4.di\"",
+        "-o",
+        "\"C:\\Workspaces\\AIC\\darp-benchmark\\data\\results\\ih\\Plzen-test\"",
+        "-m",
+        "ih",
+        "-t",
+        "amodsim"
+      ]
+    },
+    {
+      "type": "default",
+      "project": "CMakeLists.txt",
+      "projectTarget": "DARP-benchmark.exe",
+      "name": "VGA test Plzen",
+      "args": [
+        "-i",
+        "\"C:\\AIC Experiment Data\\DARP\\Plzen\\instance-max_delay_7_min.di\"",
+        "-o",
+        "\"C:\\Workspaces\\AIC\\darp-benchmark\\data\\results\\vga\\Plzen-test\"",
+        "-m",
+        "vga",
+        "-t",
+        "amodsim",
+        "--tts",
+        "180",
+        "-g",
+        10,
+        "-b",
+        500,
+        "--mtbp",
+        240,
+        "--cmg",
+        0.01
+      ]
+    },
+    {
+      "type": "default",
+      "project": "CMakeLists.txt",
+      "projectTarget": "DARP-benchmark.exe",
+      "name": "VGA benchmark run",
+      "args": [
+        "-i",
+        "\"C:\\AIC Experiment Data\\DARP\\VGA_benchmark\\instance-trips-max_delay_180-time_to_start_120-vehicle_capacity_4.di\"",
+        "-o",
+        "\"C:\\Workspaces\\AIC\\darp-benchmark\\data\\results\\vga\\VGA_benchmark\"",
+        "-m",
+        "vga",
+        "-t",
+        "amodsim",
+        "--tts",
+        "180",
+        "-g",
+        10
+      ]
+    },
+    {
+      "type": "default",
+      "project": "CMakeLists.txt",
+      "projectTarget": "DARP-benchmark.exe",
+      "name": "VGA test real demand IH",
+      "args": [
+        "-i",
+        "\"C:\\Google Drive/AIC Experiment Data/DARP/Real demand and speeds/NYC/experiments/final_experiments/05_min/config.yaml\"",
+        "-o",
+        "\"C:\\AIC Experiment Data\\DARP/Results/ihtest\"",
+        "-m",
+        "ih"
+      ]
+    }
+  ]
+}

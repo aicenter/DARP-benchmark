@@ -1,0 +1,48 @@
+from pathlib import Path
+import shutil
+import os
+import stat
+import re
+
+# result_dir = Path(r'C:\Google Drive\AIC Experiment Data\DARP\final\Results')
+result_dir = Path(r'/home/fiedlda1/Experiment Data\DARP\final\Results')
+
+dry_run = False
+# dry_run = True
+
+
+delete_sol_path = Path(r'/home/fiedlda1/Experiment Data/DARP/final/todo.txt')
+
+exclude_files = re.compile('config.yaml$')
+
+folders_to_delete = None
+# files_to_delete = 'halns*/*'
+files_to_delete = []
+
+if delete_sol_path:
+    with open(delete_sol_path, 'r') as del_list:
+        for sol_to_delete in del_list:
+            path = Path(sol_to_delete.rstrip())
+            if path.is_file():
+                path = path.parent
+            for file in path.glob('*'):
+                if not exclude_files.match(file.name):
+                    files_to_delete.append(file)
+else:
+    for file in result_dir.rglob(f'{files_to_delete}'):
+        if not exclude_files.match(file.name):
+            files_to_delete.append(file)
+
+if files_to_delete:
+    for file in files_to_delete:
+        print(f"Deleting file {file}")
+
+        if not dry_run:
+            file.unlink()
+
+if folders_to_delete:
+    for file in result_dir.rglob(f'{folders_to_delete}'):
+        print(f"Deleting folder {file}")
+
+        if not dry_run:
+            shutil.rmtree(file, onerror=lambda func, path, _: (os.chmod(path, stat.S_IWRITE), func(path)))

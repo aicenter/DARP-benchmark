@@ -1,0 +1,31 @@
+{
+    "plans":
+    [
+        {
+            "id": 0,
+            "departure_time": 1000,
+            "arrival_time": 1600,
+            "max_delay": 19000,
+            "delay_reserve": 340
+        },
+        {
+            "id": 1,
+            "departure_time": 1000,
+            "arrival_time": 25600,
+            "max_delay": 9400,
+            "delay_reserve": 23740
+        },
+        {
+            "id": 2,
+            "departure_time": 40000,
+            "arrival_time": 41600,
+            "max_delay": 44800,
+            "delay_reserve": 40340
+        }
+    ],
+    "travel_times":[
+        [0, 0, 60],
+        [60, 0, 60],
+        [60, 0, 0]
+    ]
+}

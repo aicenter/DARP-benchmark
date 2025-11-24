@@ -1,0 +1,20 @@
+area_dir: /home/mrkosja1/darp/instances/Instances/DC
+area_id: 22
+demand:
+  dataset:
+  - 7
+  filepath: ./trips.di
+  max_time: '2022-04-05 18:05:00'
+  min_time: '2022-04-05 18:00:00'
+  mode: load
+  positions_set: 4
+  time_set: 2
+map:
+  SRID: 4326
+  SRID_plane: 32618
+max_prolongation: 180
+save_shp: true
+vehicles:
+  start_time: '2022-04-05 17:49:00'
+  vehicle_capacity: 4
+  vehicle_to_request_ratio: 1

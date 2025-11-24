@@ -1,0 +1,122 @@
+{
+    "plan": {
+        "departure_time": 64246,
+        "arrival_time": 65300,
+		"cost": 1054,
+        "actions": [
+            {
+                "arrival_time": 0,
+                "departure_time": 64246,
+                "type": "depot",
+                "min_time": 62940,
+                "max_time": 86400
+            },
+            {
+                "arrival_time": 65087,
+                "departure_time": 65087,
+                "type": "pickup",
+                "min_time": 65087,
+                "max_time": 65267,
+				"request": 0
+            },
+            {
+                "arrival_time": 65300,
+                "departure_time": 65300,
+                "type": "drop_off",
+                "min_time": 65300,
+                "max_time": 65480,
+				"request": 0
+            }
+        ]
+    },
+	"request": {
+		"index": 1,
+		"pickup": {
+			"type": "pickup",
+			"min_time": 64889,
+			"max_time": 65069
+		},
+		"dropoff": {
+			"type": "drop_off",
+			"min_time": 64939,
+			"max_time": 65119
+		}
+	},
+	"dm": [
+		[
+			0,
+			841,
+			895,
+			851,
+			896
+		],
+		[
+			858,
+			0,
+			213,
+			276,
+			250
+		],
+		[
+			911,
+			187,
+			0,
+			404,
+			377
+		],
+		[
+			851,
+			268,
+			366,
+			0,
+			50
+		],
+		[
+			897,
+			243,
+			344,
+			50,
+			0
+		]
+	],
+	"expected_plan":{
+		"departure_time": 64038,
+		"arrival_time": 65395,
+		"cost": 1357,
+		"actions": [
+			{
+				"arrival_time": 64889,
+				"departure_time": 64889,
+				"type": "pickup",
+				"min_time": 64889,
+				"max_time": 65069,
+				"request": 1
+			},
+			{
+				"arrival_time": 64939,
+				"departure_time": 64939,
+				"type": "drop_off",
+				"min_time": 64939,
+				"max_time": 65119,
+				"request": 1
+			},
+			{
+				"arrival_time": 65182,
+				"departure_time": 65182,
+				"type": "pickup",
+				"min_time": 65087,
+				"max_time": 65267,
+				"request": 0
+			},
+			{
+				"arrival_time": 65395,
+				"departure_time": 65395,
+				"type": "drop_off",
+				"min_time": 65300,
+				"max_time": 65480,
+				"request": 0
+			}
+		]
+	}
+
+}

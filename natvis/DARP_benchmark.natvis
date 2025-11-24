@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<AutoVisualizer xmlns = "http://schemas.microsoft.com/vstudio/debugger/natvis/2010">
+  <!--<Type Name = "Action_type">
+    --><!--<DisplayString Condition="action.type == Action_type::pickup">pickup</DisplayString>--><!--
+    <DisplayString>{Action_type}</DisplayString>
+  </Type>-->
+  <!--<Type Name = "Request&lt;*&gt;">
+    <DisplayString>{index}</DisplayString>
+  </Type>-->
+  <Type Name="Action&lt;*&gt;">
+    <DisplayString Condition="action_type==Action_type::depot">Depot node at node {node}</DisplayString>
+  </Type>
+  <Type Name="Service_action&lt;*&gt;">
+    <DisplayString Condition="action_type==Action_type::pickup">Pick up req {request->index} at node {node}</DisplayString>
+    <DisplayString>Drop off req {request->index} at node {node}</DisplayString>
+  </Type>
+  <Type Name="Request&lt;*&gt;">
+    <DisplayString>Request {index}</DisplayString>
+  </Type>
+  <Type Name="ActionData&lt;*&gt;">
+    <DisplayString>{action}, depart at {departure_time}</DisplayString>
+  </Type>
+  <Type Name="VehiclePlan&lt;*&gt;">
+    <DisplayString>Plan for veh {(*vehicle._Ptr).index} (size: {actions.size()})</DisplayString>
+  </Type>
+  <!--<Type Name = "Arc&lt;*&gt;">
+    <DisplayString Condition="type==Type::CONNECTION">Connection arc from {from} to {to} with cost {cost}</DisplayString>
+  </Type>-->
+  <Type Name="DARP::Arc">
+    <DisplayString>Arc {name}, type: {type}</DisplayString>
+  </Type>
+  <Type Name="DARP::Vertex">
+    <DisplayString>Vertex {name}</DisplayString>
+  </Type>
+   <Type Name="DARP::test::Sorted_view&lt;*&gt;">
+      <DisplayString>size = {indexes.size()}</DisplayString>
+      <Expand>
+        <CustomListItems>
+			<Variable Name="i" InitialValue="0" />
+			<Size>indexes.size()</Size>
+            <Loop>
+                <Break Condition="i == indexes.size()" />
+                <Item>objects[indexes[i]]</Item>
+                <Exec>++i</Exec>
+            </Loop>
+        </CustomListItems>
+      </Expand>
+    </Type>
+    <Type Name="tm">
+		<DisplayString>{tm_year}-{tm_mon}-{tm_mday} {tm_hour}:{tm_min}:{tm_sec}</DisplayString>
+	</Type>
+	<!--<Type Name="DARP_benchmark_reader">
+		<DisplayString>path: {}</DisplayString>
+	</Type>-->
+</AutoVisualizer>
