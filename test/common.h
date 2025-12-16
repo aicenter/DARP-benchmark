@@ -11,6 +11,7 @@
 #include "../src/DARP_benchmark_node.h"
 #include "../src/common.h"
 #include "../src/solver/IH/IH_vehicle_plan_builder.h"
+#include "../src/Solution.h"
 
 /*
  * Old test aggregate structures
@@ -383,6 +384,33 @@ void check_plan_list_equal(const std::vector<P>& computed_plans, const std::vect
 	for (unsigned i = 0; i < computed_plans.size(); ++i) {
 		check_plans_equal<N>(computed_plans[i], expected_plans[i]);
 	}
+}
+
+/**
+ * @brief Checks if two solutions are equal
+ * @tparam N node type
+ * @tparam P plan type
+ * @param computed_solution computed solution
+ * @param expected_solution expected solution
+ */
+template<typename N, class P = VehiclePlan<N>>
+void check_solutions_equal(
+	const Solution<N, P>& computed_solution,
+	const Solution<N, P>& expected_solution
+) {
+	ASSERT_EQ(computed_solution.is_feasible(), expected_solution.is_feasible());
+	EXPECT_EQ(computed_solution.get_cost(), expected_solution.get_cost());
+	ASSERT_EQ(computed_solution.get_dropped_request_count(), expected_solution.get_dropped_request_count());
+	
+	// Compare dropped requests by index
+	const auto& computed_dropped = computed_solution.get_dropped_requests();
+	const auto& expected_dropped = expected_solution.get_dropped_requests();
+	for (size_t i = 0; i < computed_dropped.size(); ++i) {
+		EXPECT_EQ(computed_dropped[i]->get_index(), expected_dropped[i]->get_index());
+	}
+	
+	// Compare plans
+	check_plan_list_equal<N, P>(computed_solution.get_plans(), expected_solution.get_plans());
 }
 
 template<class N>

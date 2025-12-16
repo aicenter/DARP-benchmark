@@ -1,0 +1,49 @@
+password_config_file: ./secrets.yaml
+schema: public
+srid: 32631
+area_id: 1
+log_level: DEBUG
+speeds: false
+
+db: {
+    username: postgres,
+    db_host: localhost,
+    db_name: rgt,
+    db_server_port: 5432,
+}
+
+area: {
+    name: Chyše,
+    boundary_source: overpass
+}
+
+importer: {
+    activated: false,
+    input_file: ./andorra-latest-filtered.osm,
+    force: true,
+    schema: importer,
+    style_file: pipeline,
+    pgpass: true,
+    pgpass_file: "~/pgpass.conf",
+}
+
+overpass_importer: {
+    activated: false,
+}
+
+contraction: {
+    activated: false
+}
+
+strong_components: {
+    activated: false
+}
+
+export: {
+    activated: false,
+    dir: ./
+}
+
+dm_generator: {
+    activated: true
+}

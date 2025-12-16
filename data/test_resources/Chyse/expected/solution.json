@@ -1,0 +1,126 @@
+{
+    "feasible": true,
+    "cost": 401,
+    "cost_minutes": 7,
+    "plans": [
+        {
+            "cost": 88,
+            "vehicle": {
+                "index": 0,
+                "init_position": {
+                    "index": 4
+                },
+                "capacity": 4
+            },
+            "departure_time": 0,
+            "arrival_time": 88,
+            "actions": [
+                {
+                    "arrival_time": 0,
+                    "departure_time": 0,
+                    "action": {
+                        "id": 0,
+                        "request_index": 0,
+                        "type": "pickup",
+                        "position": {
+                            "index": 4
+                        },
+                        "min_time": 0,
+                        "max_time": 300,
+                        "service_duration": 0
+                    }
+                },
+                {
+                    "arrival_time": 47,
+                    "departure_time": 47,
+                    "action": {
+                        "id": 2,
+                        "request_index": 1,
+                        "type": "pickup",
+                        "position": {
+                            "index": 31
+                        },
+                        "min_time": 5,
+                        "max_time": 305,
+                        "service_duration": 0
+                    }
+                },
+                {
+                    "arrival_time": 88,
+                    "departure_time": 88,
+                    "action": {
+                        "id": 3,
+                        "request_index": 1,
+                        "type": "drop_off",
+                        "position": {
+                            "index": 8
+                        },
+                        "min_time": 46,
+                        "max_time": 346,
+                        "service_duration": 0
+                    }
+                },
+                {
+                    "arrival_time": 88,
+                    "departure_time": 88,
+                    "action": {
+                        "id": 1,
+                        "request_index": 0,
+                        "type": "drop_off",
+                        "position": {
+                            "index": 8
+                        },
+                        "min_time": 88,
+                        "max_time": 388,
+                        "service_duration": 0
+                    }
+                }
+            ]
+        },
+        {
+            "cost": 313,
+            "vehicle": {
+                "index": 1,
+                "init_position": {
+                    "index": 6
+                },
+                "capacity": 4
+            },
+            "departure_time": 0,
+            "arrival_time": 313,
+            "actions": [
+                {
+                    "arrival_time": 93,
+                    "departure_time": 93,
+                    "action": {
+                        "id": 4,
+                        "request_index": 2,
+                        "type": "pickup",
+                        "position": {
+                            "index": 32
+                        },
+                        "min_time": 30,
+                        "max_time": 330,
+                        "service_duration": 0
+                    }
+                },
+                {
+                    "arrival_time": 313,
+                    "departure_time": 313,
+                    "action": {
+                        "id": 5,
+                        "request_index": 2,
+                        "type": "drop_off",
+                        "position": {
+                            "index": 26
+                        },
+                        "min_time": 250,
+                        "max_time": 550,
+                        "service_duration": 0
+                    }
+                }
+            ]
+        }
+    ],
+    "dropped_requests": []
+}

@@ -7,9 +7,11 @@
 #include "DARP_benchmark_reader.h"
 
 #include "inout.h"
+#include "travel_time_provider/CSV_reader.h"
 #include "travel_time_provider/Distance_matrix_travel_time_provider.h"
 #include "travel_time_provider/HDF_reader.h"
 
+namespace fs = std::filesystem;
 
 
 DARP_instance<Amodsim_node> DARP_benchmark_reader::read(std::filesystem::path instance_filepath) {
@@ -20,20 +22,35 @@ DARP_instance<Amodsim_node> DARP_benchmark_reader::read(std::filesystem::path in
 	auto configuration = internal::load_instance_configuration(config);
 
     // dm loading
-    std::string dm_filepath;
+    fs::path dm_filepath;
     if(config["dm_filepath"]) {
-	    dm_filepath = config["dm_filepath"].as<std::string>();
+	    dm_filepath = fs::path(config["dm_filepath"].as<std::string>());
     }
-    else if(config["area_dir"]) {
-        dm_filepath = fmt::format("{}/dm.h5", config["area_dir"].as<std::string>());
-    }
-    // if not specified, the distance matrix is loaded from file dm.csv located in the same directory as the instance
-    // file
-    else {
-        dm_filepath = std::filesystem::path(instance_filepath).remove_filename().string() + "dm.csv";
-    }
+	else {
+		fs::path dm_dir;
+		if(config["area_dir"]) {
+			dm_dir = fs::path(config["area_dir"].as<std::string>());
+		}
+		// if not specified, the distance matrix is loaded from file dm.csv located in the same directory as the instance
+		// file
+		else {
+			dm_dir = instance_filepath.parent_path();
+		}
+		auto hdf_filepath = dm_dir / "dm.h5";
+		if(fs::exists(hdf_filepath)) {
+			spdlog::info("Found dm.h5 file in area directory, using HDF reader.");
+			dm_filepath = hdf_filepath;
+		}
+		else {
+			spdlog::info("dm.h5 file not found in area directory, using CSV reader.");
+			dm_filepath = dm_dir / "dm.csv";
+		}
+	}
+    std::unique_ptr<Distance_matrix_reader> dm_reader = dm_filepath.extension() == ".h5"
+	    ? static_cast<std::unique_ptr<Distance_matrix_reader>>(std::make_unique<HDF_reader>())
+	    : std::make_unique<CSV_reader>();
     std::shared_ptr<Distance_matrix_node_travel_time_provider<Amodsim_node>> travel_cost_provider
-            {new Distance_matrix_node_travel_time_provider<Amodsim_node>(HDF_reader(), dm_filepath)};
+            {new Distance_matrix_node_travel_time_provider<Amodsim_node>(*dm_reader, dm_filepath.string())};
 
     // vehicle loading
 	auto vehicles = std::make_unique<std::vector<Vehicle<Amodsim_node>>>();
@@ -52,7 +69,7 @@ DARP_instance<Amodsim_node> DARP_benchmark_reader::read(std::filesystem::path in
     auto requests = load_requests(config, std::static_pointer_cast<Travel_time_provider<Amodsim_node>>(travel_cost_provider));
 
     return {
-		std::move(requests), 
+		std::move(requests),
 		std::move(vehicles),
         std::static_pointer_cast<Travel_time_provider<Amodsim_node>>(travel_cost_provider),
 		configuration

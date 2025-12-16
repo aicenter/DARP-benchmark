@@ -152,6 +152,7 @@ add_executable(test_run
 	src/serialization.cpp
 	test/IH/common.tpp
 	test/Single_vehicle_DARP_common.cpp
+	test/functional_tests.cpp
 )
 
 #header include
@@ -194,6 +195,8 @@ copy_master_config(TARGET_NAMES DARP-benchmark test_run)
 
 include(GoogleTest)
 gtest_discover_tests(test_run)
+
+add_dependencies(test_run DARP-benchmark)
 
 # Copy the data to build dir
 add_custom_command(TARGET test_run POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/data/ $<TARGET_FILE_DIR:test_run>)

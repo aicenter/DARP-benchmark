@@ -1,0 +1,6 @@
+area_dir: ./
+demand:
+  filepath: ./requests.csv
+max_prolongation: 300
+vehicles:
+  start_time: 2025-12-16 00:00:00
