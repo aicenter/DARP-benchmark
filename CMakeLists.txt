@@ -16,7 +16,7 @@ find_package(Boost CONFIG REQUIRED)
 find_package(indicators CONFIG REQUIRED)
 find_package(yaml-cpp CONFIG REQUIRED)
 find_package(HDF5 REQUIRED COMPONENTS C CXX HL)
-find_package(future-config CONFIG REQUIRED)
+find_package(future-config 0.2.1 CONFIG REQUIRED)
 
 # Check boost header-only components 
 if (NOT EXISTS ${Boost_INCLUDE_DIRS}/boost/multi_index)
