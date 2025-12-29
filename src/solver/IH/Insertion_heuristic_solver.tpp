@@ -9,7 +9,6 @@
 #include <unordered_set>
 #include <algorithm>
 #include <queue>
-#include "Insertion_heuristic_solver.h"
 #include "../../ActionData.h"
 #include "../../Adjustment_reason.h"
 #include "../../progress_bar.h"
@@ -17,14 +16,15 @@
 
 template<typename N, Vehicle_plan_builder_action A, class V, IH_vehicle_plan<V, A> P>
 Insertion_heuristic_solver<N, A, V, P>::Insertion_heuristic_solver(
-	const std::shared_ptr<Travel_time_provider<N>>& travel_time_provider_par,
-	const std::shared_ptr<DARP_instance_configuration>& darp_instance_configuration_par,
+	const DARP_instance<N>& instance,
+	const DARP_benchmark_config& solver_config,
+	const fs::path& out_dir_path,
 	bool minimize_used_vehicles,
 	std::shared_ptr<Nearest_vehicle_provider<N>> nearest_vehicle_provider
 ):
-	DARP_benchmark_solver<N>(travel_time_provider_par, darp_instance_configuration_par),
+	DARP_benchmark_solver<N>(instance, solver_config, out_dir_path),
 	minimize_used_vehicles(minimize_used_vehicles),
-	SVDARP_solver(travel_time_provider_par, darp_instance_configuration_par),
+	SVDARP_solver(instance.get_travelcost_provider(), instance.get_darp_instance_configuration()),
 	nearest_vehicle_provider(nearest_vehicle_provider) {
 }
 

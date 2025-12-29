@@ -9,6 +9,7 @@
 #include <limits>
 #include <optional>
 #include <cstdint>
+#include <filesystem>
 
 #include "../DARP_benchmark_solver.h"
 
@@ -16,6 +17,9 @@
 #include "IH_vehicle_plan_builder.h"
 #include "SVDARP.h"
 #include "../../Iterable.h"
+#include "../../config/DARP-benchmark_config.h"
+
+namespace fs = std::filesystem;
 
 
 
@@ -34,8 +38,9 @@ class Insertion_heuristic_solver: public DARP_benchmark_solver<N> {
 public:
     //using DARP_benchmark_solver<N>::DARP_benchmark_solver;
     explicit Insertion_heuristic_solver(
-		const std::shared_ptr<Travel_time_provider<N>>& travel_time_provider_par,
-		const std::shared_ptr<DARP_instance_configuration>& darp_instance_configuration_par,
+		const DARP_instance<N>& instance,
+		const DARP_benchmark_config& solver_config,
+		const fs::path& out_dir_path,
 		bool minimize_used_vehicles = false,
 		std::shared_ptr<Nearest_vehicle_provider<N>> nearest_vehicle_provider = nullptr
 	);

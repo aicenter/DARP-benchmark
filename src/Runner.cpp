@@ -11,7 +11,7 @@
 #endif
 
 #include "asserts.h"
-#include "DARP-benchmark.h"
+#include "DARP_benchmark.h"
 #include "common.h"
 #include "logging.h"
 #include "inout.h"
@@ -58,7 +58,7 @@ int main(int argc, const char** argv) {
 			method_name.begin(), 
 			[](unsigned char c) { return (char) std::toupper(c); }
 		);
-		const Method method = magic_enum::enum_cast<Method>(method_name).value();
+
 		const auto number_of_trials = static_cast<unsigned short>(config.tcount);
 		const auto max_threads = static_cast<unsigned short>(config.tmax);
 
@@ -70,11 +70,11 @@ int main(int argc, const char** argv) {
 
 		if (instance_path.extension().string() == ".yaml") {
 			DARP_benchmark<Amodsim_node> benchmark{std::make_unique<DARP_benchmark_reader>()};
-			benchmark.run(instance_path, out_path, method, config, number_of_trials);
+			benchmark.run(instance_path, out_path, method_name, config, number_of_trials);
 		}
 		else {
 			DARP_benchmark<Cordeau_node> benchmark{std::make_unique<Cordeau_reader>()};
-			benchmark.run(instance_path, out_path, method, config, number_of_trials);
+			benchmark.run(instance_path, out_path, method_name, config, number_of_trials);
 		}
 	}
 	catch (...) {

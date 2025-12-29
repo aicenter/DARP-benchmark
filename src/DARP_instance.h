@@ -65,8 +65,14 @@ private:
     const unsigned start_time{0};
 };
 
+class DARP_instance_interface {
+public:
+	virtual ~DARP_instance_interface() = default;
+};
 
-template <typename N> class DARP_instance
+
+template <typename N>
+class DARP_instance: public DARP_instance_interface
 {
 public:
     DARP_instance(

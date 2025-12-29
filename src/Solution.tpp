@@ -7,7 +7,6 @@
 #include "rapidjson/prettywriter.h"
 #include <spdlog/spdlog.h>
 
-#include "Solution.h"
 
 
 template <typename N, Benchmark_plan P>

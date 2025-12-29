@@ -5,22 +5,37 @@
 #include <iostream>
 #include <fstream>
 #include <filesystem>
-#include <unordered_map>
 #include <spdlog/spdlog.h>
-#include <any>
 #include <magic_enum/magic_enum.hpp>
 
-#include "Cordeau_benchmark.h"
-#include "Solution.h"
-#include "DARP_benchmark_node.h"
-#include "solver/IH/Insertion_heuristic_solver.h"
 #include "solver/Random_solver.h"
 #include "benchmark.h"
 #include "number_formatter.h"
 #include "memory.h"
+#include "solver/IH/Insertion_heuristic_solver.h"
 
 
 namespace DARP {
+
+
+template<typename... NO>
+Solver_registry<NO...> Solver_registry<NO...>::instance{};
+
+template<typename... NO>
+Solver_registry<NO...>& Solver_registry<NO...>::get() {
+	return instance;
+}
+
+template<typename... NO>
+template<typename N>
+std::unique_ptr<DARP_benchmark_solver_interface<N>> Solver_registry<NO...>::create_solver(
+	const std::string& method,
+	const DARP_instance<N>& darp_instance,
+	const DARP_benchmark_config& solver_config,
+	const fs::path& out_dir_path
+) const {
+	return std::get<Solver_factory_map<N>>(solver_factories).at(method)(darp_instance, solver_config, out_dir_path);
+}
 
 template <class N>
 rapidjson::StringBuffer DARP_benchmark<N>::export_performance(
@@ -28,8 +43,7 @@ rapidjson::StringBuffer DARP_benchmark<N>::export_performance(
 	const DARP_benchmark_solver_interface<N>& solver
 ) {
 	rapidjson::StringBuffer s;
-	rapidjson::PrettyWriter<rapidjson::StringBuffer> writer(s);
-
+	rapidjson::PrettyWriter writer(s);
 
 	writer.StartObject();
 	writer.Key("total_time");
@@ -44,29 +58,10 @@ rapidjson::StringBuffer DARP_benchmark<N>::export_performance(
 }
 
 template<class N>
-DARP_benchmark_solver_interface<N>* create_solver(
-	const Method method, 
-	const DARP_instance<N>& instance,
-	const DARP_benchmark_config& solver_config,
-	const fs::path& out_dir_path
-) {
-	auto travel_time_provider = instance.get_travelcost_provider();
-	auto darp_instance_configuration = instance.get_darp_instance_configuration();
-	switch(method) {
-		case Method::IH:
-		default:
-			return new Insertion_heuristic_solver<N>(travel_time_provider, darp_instance_configuration);
-		}
-}
-
-
-template<class N>
 void DARP_benchmark<N>::process_instance(
 	const fs::path& instance_file_path,
 	const fs::path& out_dir,
-	const Method method,
-	//Solver_factory_interface<N>* solver_factory,
-	//const std::list<std::string> & solver_arguments,
+	const std::string& method,
 	const DARP_benchmark_config& solver_arguments,
 	unsigned short trial_number
 ) const
@@ -75,19 +70,19 @@ void DARP_benchmark<N>::process_instance(
 	const auto instance_dir = std::filesystem::path(instance_file_path).remove_filename();
 	std::filesystem::current_path(instance_dir);
 
-	const DARP_instance<N> instance = reader->read(instance_file_path);
+	const DARP_instance<N> darp_instance = reader->read(instance_file_path);
 	
 	// set working dir to out path
 	std::filesystem::current_path(out_dir);
 
-	auto* solver = create_solver(method, instance, solver_arguments, out_dir);
-	spdlog::info("Running {} solver", magic_enum::enum_name(method));
+	auto solver = Default_solver_registry::get().create_solver(method, darp_instance, solver_arguments, out_dir);
+	spdlog::info("Running {} solver", method);
 	auto result = benchmark(
-        &DARP_benchmark_solver_interface<N>::solve_and_get_final_result,
-        solver,
-        instance
-    );
-	//Solution<N> solution = solver->solve(instance);
+		&DARP_benchmark_solver_interface<N>::solve_and_get_final_result,
+		solver,
+		darp_instance
+	);
+
 	spdlog::info("Solving time: {}", format_number(result.count()));
 	rapidjson::StringBuffer sb = result.return_value->JSON_serialize(60);
 	rapidjson::StringBuffer perf_sb = export_performance(result.count(), *solver);
@@ -122,8 +117,6 @@ void DARP_benchmark<N>::process_instance(
 		performance_file << perf_sb.GetString();
 		performance_file.close();
 	}
-
-	delete solver;
 }
 
 
@@ -131,13 +124,10 @@ template<class N>
 int DARP_benchmark<N>::run(
 	const fs::path& instance_path,
 	const fs::path& out_path,
-	const Method method,
+	const std::string& method,
 	const DARP_benchmark_config& solver_arguments,
 	unsigned short number_of_trials
-) {
-		
-	//init_solver_factories();
-	//Solver_factory_interface<N>* solver_factory = solver_factories[solver_factory_key];
+) const {
 	check_path(instance_path.string());
 	if(is_directory(instance_path)) {
 		const auto message
@@ -155,6 +145,8 @@ int DARP_benchmark<N>::run(
 }
 
 template <class N>
-DARP_benchmark<N>::DARP_benchmark(std::unique_ptr<Reader<N>> reader): reader(std::move(reader)){}
+DARP_benchmark<N>::DARP_benchmark(std::unique_ptr<Reader<N>> reader): reader(std::move(reader)){
+	Default_solver_registry::get().register_solver<Insertion_heuristic_solver>("ih");
+}
 
 }

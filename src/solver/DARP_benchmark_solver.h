@@ -6,10 +6,28 @@
 
 #include <queue>
 #include <optional>
+#include <filesystem>
 
 #include "../Solution.h"
 #include "../DARP_instance.h"
 #include "DARP_solver.h"
+#include "../config/DARP-benchmark_config.h"
+
+namespace fs = std::filesystem;
+
+
+// class DARP_benchmark_solver_interface_node_agnostic {
+// public:
+// 	virtual ~DARP_benchmark_solver_interface_node_agnostic() = default;
+//
+// 	virtual std::unique_ptr<Solution_interface<N>>
+// 	solve_and_get_final_result(const DARP_instance<N>& instance) = 0;
+//
+// 	virtual void export_performance(rapidjson::PrettyWriter<rapidjson::StringBuffer>& writer) const {
+// 		const std::string message = "Solver has no performance stats";
+// 		writer.String(message.c_str());
+// 	}
+// };
 
 /**
  * @brief Type erasure interface for DARP benchmark solvers. It can be used to solve the DARP benchmark instances
@@ -17,12 +35,14 @@
  * @tparam N
  */
 template<typename N>
-class DARP_benchmark_solver_interface {
-public:
+class DARP_benchmark_solver_interface
+// public DARP_benchmark_solver_interface_node_agnostic
+{
+	public:
 	virtual ~DARP_benchmark_solver_interface() = default;
 
 	virtual std::unique_ptr<Solution_interface<N>>
-		solve_and_get_final_result(const DARP_instance<N>& instance) = 0;
+	solve_and_get_final_result(const DARP_instance<N>& instance) = 0;
 
 	virtual void export_performance(rapidjson::PrettyWriter<rapidjson::StringBuffer>& writer) const {
 		const std::string message = "Solver has no performance stats";
@@ -52,8 +72,9 @@ public:
 	using DARP_solver<N>::DARP_solver;
 
 	DARP_benchmark_solver(
-		const std::shared_ptr<Travel_time_provider<N>>& travel_time_provider_par,
-		const std::shared_ptr<DARP_instance_configuration>& darp_instance_configuration_par
+		const DARP_instance<N>& instance,
+		const DARP_benchmark_config& solver_config,
+		const fs::path& out_dir_path
 	);
 
 

@@ -6,6 +6,8 @@ enable_language(CXX)
 
 set(CMAKE_CXX_STANDARD 23)
 
+set(DARP_BENCHMARK_SOLVER_PLUGIN_DIRS "" CACHE STRING "Semicolon-separated extra solver dirs")
+
 find_package(RapidJSON CONFIG REQUIRED)
 find_package(OpenMP)
 find_package(spdlog CONFIG REQUIRED)
@@ -62,7 +64,7 @@ add_executable(DARP-benchmark
 	src/DARP_benchmark_reader.cpp src/DARP_benchmark_reader.h
 	src/Iterable.h
 	src/Runner.cpp
-	src/DARP-benchmark.h
+	src/DARP_benchmark.cpp
 	src/Cordeau_benchmark.cpp src/Cordeau_benchmark.h
 	src/DARP_instance.cpp src/DARP_instance.h
 	src/crack_atof.cpp
@@ -200,3 +202,9 @@ add_dependencies(test_run DARP-benchmark)
 
 # Copy the data to build dir
 add_custom_command(TARGET test_run POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/data/ $<TARGET_FILE_DIR:test_run>)
+
+foreach(dir IN LISTS DARP_BENCHMARK_SOLVER_PLUGIN_DIRS)
+  add_subdirectory(${dir})
+
+
+endforeach()

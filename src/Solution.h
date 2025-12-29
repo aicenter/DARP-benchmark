@@ -125,13 +125,28 @@ private:
 
 
 /**
+ * @brief Solution interface for node agnostic solvers. It is used to solve the DARP benchmark instances
+ * without knowing the specific node type used.
+ * @tparam N node type
+*/
+class Solution_interface_node_agnostic {
+public:
+	virtual ~Solution_interface_node_agnostic() = default;
+
+	[[nodiscard]] virtual rapidjson::StringBuffer JSON_serialize(unsigned short resolution) const;
+};
+
+
+/**
  * @brief Solution interface. It exposes the operations needed outside the solvers, e.g. serialization.
  * @tparam N node type.
 */
 template<typename N>
-class Solution_interface {
+class Solution_interface
+	// : public Solution_interface_node_agnostic
+{
 public:
-	virtual ~Solution_interface() = default;
+	~Solution_interface() = default;
 	[[nodiscard]] rapidjson::StringBuffer JSON_serialize(unsigned short resolution = 1) const;
 
 
