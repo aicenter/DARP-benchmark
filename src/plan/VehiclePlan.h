@@ -16,6 +16,7 @@
 #include "../ActionData.h"
 #include "../Plan_checker.h"
 #include "../solver/Vehicle_plan_builder.h"
+#include "Plan_evaluator_plan_interface.h"
 #include "DARP_benchmark_plan_template.h"
 #include "../DARP_instance.h"
 #include "../travel_time_provider/Travel_time_provider.h"
@@ -38,7 +39,8 @@ class DARP_vehicle_plan:
 	public Benchmark_vehicle_plan,
 	public DARP_benchmark_plan_template<ActionData<N>, Vehicle<N>>,
 	public Checkable_plan_interface,
-	public Vehicle_plan_builder_plan_interface<Vehicle<N>, ActionData<N>>
+	public Vehicle_plan_builder_plan_interface<Vehicle<N>, ActionData<N>>,
+	public Plan_evaluator_plan_interface<ActionData<N>>
 {
 public:
 
