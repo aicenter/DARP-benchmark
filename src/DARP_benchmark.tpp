@@ -34,7 +34,13 @@ std::unique_ptr<DARP_benchmark_solver_interface<N>> Solver_registry<NO...>::crea
 	const DARP_benchmark_config& solver_config,
 	const fs::path& out_dir_path
 ) const {
-	return std::get<Solver_factory_map<N>>(solver_factories).at(method)(darp_instance, solver_config, out_dir_path);
+	const auto& map = std::get<Solver_factory_map<N>>(solver_factories);
+	std::string method_lower_case = method;
+	std::transform(method.begin(), method.end(), method_lower_case.begin(), ::tolower);
+	if(!map.contains(method_lower_case)) {
+		throw std::runtime_error(fmt::format("Unknown solver method: {}", method));
+	}
+	return std::get<Solver_factory_map<N>>(solver_factories).at(method_lower_case)(darp_instance, solver_config, out_dir_path);
 }
 
 template <class N>
@@ -147,6 +153,22 @@ int DARP_benchmark<N>::run(
 template <class N>
 DARP_benchmark<N>::DARP_benchmark(std::unique_ptr<Reader<N>> reader): reader(std::move(reader)){
 	Default_solver_registry::get().register_solver<Insertion_heuristic_solver>("ih");
+}
+
+template<typename... NO>
+template<template <typename, class...> class S>
+requires(DARP_benchmark_solver_constructor_interface<S,NO> && ...)
+void Solver_registry<NO...>::register_solver(const std::string& method) {
+	([&] {
+		auto& solver_factory_map = std::get<Solver_factory_map<NO>>(solver_factories);
+		solver_factory_map[method] = [](
+			const DARP_instance<NO>& darp_instance,
+			const DARP_benchmark_config& solver_config,
+			const fs::path& out_dir_path
+		) -> std::unique_ptr<DARP_benchmark_solver_interface<NO>> {
+				return std::make_unique<S<NO>>(darp_instance, solver_config, out_dir_path);
+			};
+	}(), ...);
 }
 
 }

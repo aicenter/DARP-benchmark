@@ -39,18 +39,8 @@ public:
 	 * @param method The method enum to register
 	 */
 	template<template<typename, class...> class S>
-	void register_solver(const std::string& method) {
-		([&] {
-			auto& solver_factory_map = std::get<Solver_factory_map<NO>>(solver_factories);
-			solver_factory_map[method] = [](
-				const DARP_instance<NO>& darp_instance,
-				const DARP_benchmark_config& solver_config,
-				const fs::path& out_dir_path
-			) -> std::unique_ptr<DARP_benchmark_solver_interface<NO>> {
-					return std::make_unique<S<NO>>(darp_instance, solver_config, out_dir_path);
-				};
-		}(), ...);
-	}
+	requires(DARP_benchmark_solver_constructor_interface<S,NO> && ...)
+	void register_solver(const std::string& method);
 
 	/**
 	 * @brief Create a solver instance using the registered factory.

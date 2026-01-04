@@ -50,6 +50,13 @@ class DARP_benchmark_solver_interface
 	}
 };
 
+template<template<typename, class...> class S, typename N>
+concept DARP_benchmark_solver_constructor_interface =
+	std::derived_from<S<N>,DARP_benchmark_solver_interface<N>>
+	&& requires(const DARP_instance<N>& darp_instance, const DARP_benchmark_config& config, const fs::path& out_dir_path){
+		{S(darp_instance, config, out_dir_path)} -> std::same_as<S<N>>;
+	};
+
 /**
  * @brief Base class for DARP benchmark solvers. It can solve the DARP like the DARP_solver, but additionally it can
  * also be called from the main benchmark executable, i.e. it can be used as the root solver to solve the
@@ -71,11 +78,7 @@ public:
 
 	using DARP_solver<N>::DARP_solver;
 
-	DARP_benchmark_solver(
-		const DARP_instance<N>& instance,
-		const DARP_benchmark_config& solver_config,
-		const fs::path& out_dir_path
-	);
+	DARP_benchmark_solver(const DARP_instance<N>& instance);
 
 
 	void set_darp_instance(const DARP_instance<N>* darp_instance_par) {

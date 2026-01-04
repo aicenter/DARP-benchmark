@@ -3,13 +3,10 @@
 //
 
 template<typename N, class P>
-DARP_benchmark_solver<N, P>::DARP_benchmark_solver(
-	const DARP_instance<N>& instance,
-	const DARP_benchmark_config& solver_config,
-	const fs::path& out_dir_path
-)
-	: DARP_solver<N>(instance.get_travelcost_provider(), instance.get_darp_instance_configuration()),
-	  darp_instance(&instance) {}
+DARP_benchmark_solver<N, P>::DARP_benchmark_solver(const DARP_instance<N>& instance) :
+	DARP_solver<N>(instance.get_travelcost_provider(), instance.get_darp_instance_configuration()),
+	darp_instance(&instance) {
+}
 
 template<typename N, class P>
 std::unique_ptr<Solution<N, P>> DARP_benchmark_solver<N, P>::solve(const DARP_instance<N>& instance) requires(Benchmark_plan<P>)

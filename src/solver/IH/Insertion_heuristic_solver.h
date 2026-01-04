@@ -36,14 +36,29 @@ template <
 >
 class Insertion_heuristic_solver: public DARP_benchmark_solver<N> {
 public:
-    //using DARP_benchmark_solver<N>::DARP_benchmark_solver;
-    explicit Insertion_heuristic_solver(
+
+    // using DARP_benchmark_solver<N>::DARP_benchmark_solver;
+    /**
+     * Main constructor that uses the parameters defined by the DARP_benchmark_solver_constructor_interface contract
+     * @param instance
+     * @param solver_config
+     * @param out_dir_path
+     * @param minimize_used_vehicles
+     * @param nearest_vehicle_provider
+     */
+    Insertion_heuristic_solver(
 		const DARP_instance<N>& instance,
 		const DARP_benchmark_config& solver_config,
 		const fs::path& out_dir_path,
 		bool minimize_used_vehicles = false,
 		std::shared_ptr<Nearest_vehicle_provider<N>> nearest_vehicle_provider = nullptr
 	);
+
+	Insertion_heuristic_solver(
+		const std::shared_ptr<Travel_time_provider<N>>& travel_time_provider,
+		const std::shared_ptr<DARP_instance_configuration>& instance_configuration
+	);
+
 
 	DARP_benchmark_solver<N>::solution_impl_ret_val solve_impl() override;
 
@@ -77,7 +92,7 @@ protected:
 
 private:
 
-	const bool minimize_used_vehicles;
+	const bool minimize_used_vehicles{false};
 
     std::vector<IH_vehicle_plan_builder<V, A, P>> vehicle_plan_builders;
 
