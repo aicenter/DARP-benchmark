@@ -160,7 +160,7 @@ gtest_discover_tests(test_run)
 add_dependencies(test_run DARP-benchmark)
 
 # Copy the data to build dir
-add_custom_command(TARGET test_run POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/data/ $<TARGET_FILE_DIR:test_run>)
+add_custom_command(TARGET test_run POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_SOURCE_DIR}/data/ $<TARGET_FILE_DIR:test_run>)
 
 foreach(dir IN LISTS DARP_BENCHMARK_SOLVER_PLUGIN_DIRS)
   add_subdirectory(${dir})

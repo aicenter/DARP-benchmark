@@ -37,7 +37,6 @@ python/darpbenchmark/test/model.lp
 model.sol
 
 # data
-dm.csv
 data/results/
 
 # Instance and Demand Generation Cache
