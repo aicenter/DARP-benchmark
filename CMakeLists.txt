@@ -118,6 +118,7 @@ add_library(DARP_benchmark_test_lib
 	test/common.cpp
 	test/IH/common.tpp
 	test/Single_vehicle_DARP_common.cpp
+	test/functional/functional_test_helpers.cpp
 )
 target_include_directories(DARP_benchmark_test_lib
 	PUBLIC
@@ -138,7 +139,7 @@ add_executable(test_run
 	test/IH/IH_SVDARP_test.cpp
 	test/IH/Insertion_heuristic_solver_test.cpp
 	test/Vehicle_plan_test.cpp
-	test/functional_tests.cpp
+	test/functional/functional_tests.cpp
 )
 target_link_libraries(test_run
 	PRIVATE

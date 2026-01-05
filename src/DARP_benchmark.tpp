@@ -159,6 +159,7 @@ template<typename... NO>
 template<template <typename, class...> class S>
 requires(DARP_benchmark_solver_constructor_interface<S,NO> && ...)
 void Solver_registry<NO...>::register_solver(const std::string& method) {
+	spdlog::info("Registering solver: {}", method);
 	([&] {
 		auto& solver_factory_map = std::get<Solver_factory_map<NO>>(solver_factories);
 		solver_factory_map[method] = [](
