@@ -56,146 +56,102 @@ enable_testing()
 
 # GOOGLE TEST END
 
+# Create library with shared files
+add_library(DARP_benchmark_lib
+	src/common.cpp
+	src/Coordinate.cpp
+	src/Cordeau_benchmark.cpp
+	src/DARP_benchmark_node.cpp
+	src/DARP_benchmark_reader.cpp
+	src/DARP_instance.cpp
+	src/inout.cpp
+	src/logging.cpp
+	src/serialization.cpp
+	src/travel_time_provider/CSV_reader.cpp
+	src/travel_time_provider/Distance_matrix_travel_time_provider.cpp
+	src/travel_time_provider/HDF_reader.cpp
+)
+target_include_directories(DARP_benchmark_lib
+	PUBLIC
+		${CMAKE_CURRENT_SOURCE_DIR}
+		${RAPIDJSON_INCLUDE_DIRS}
+		${Boost_INCLUDE_DIRS}
+		${P_RANAV_CSV2_INCLUDE_DIRS}
+		${CMAKE_CURRENT_SOURCE_DIR}/fast-cpp-csv-parser
+)
+target_link_libraries(DARP_benchmark_lib
+	PUBLIC
+		future-config::future-config
+		nanoflann::nanoflann
+		OpenMP::OpenMP_CXX
+		spdlog::spdlog
+		spdlog::spdlog_header_only
+		yaml-cpp::yaml-cpp
+		${HDF5_LIBRARIES}
+		${HDF5_HL_LIBRARIES}
+)
 
 # Add source to this project's executable.
 add_executable(DARP-benchmark
-	src/aliases.h
-	src/asserts.h
-	src/DARP_benchmark_reader.cpp src/DARP_benchmark_reader.h
-	src/Iterable.h
-	src/Runner.cpp
-	src/DARP_benchmark.cpp
-	src/Cordeau_benchmark.cpp src/Cordeau_benchmark.h
-	src/DARP_instance.cpp src/DARP_instance.h
-	src/crack_atof.cpp
-	src/benchmark.h
-	src/memory.h src/memory.cpp
-	src/Nearest_vehicle_provider.h
-	src/Coordinate.cpp src/Coordinate.h
-	src/DARP_benchmark_node.cpp src/DARP_benchmark_node.h
-	src/Linked_hash_set.h
-	src/plan/VehiclePlan.h
-	src/solver/DARP_benchmark_solver.tpp src/solver/DARP_benchmark_solver.h
-	src/solver/Vehicle_plan_builder.h
-	src/solver/IH/Insertion_heuristic_solver.h
-	src/solver/IH/IH_vehicle_plan_builder.h
-	src/solver/IH/IH_SVDARP_interfaces.h
-	src/solver/IH/SVDARP.h
-	src/travel_time_provider/CSV_reader.h src/travel_time_provider/CSV_reader.cpp
-	src/travel_time_provider/Distance_matrix_travel_time_provider.cpp src/travel_time_provider/Distance_matrix_travel_time_provider.h
-	src/travel_time_provider/Euclidean_travel_time_provider.h
-	src/travel_time_provider/HDF_reader.cpp src/travel_time_provider/HDF_reader.h
-	src/travel_time_provider/Travel_time_provider.h
-	src/common.h src/common.cpp
-	src/Adjustment_reason.h
-	src/KD_tree.h
-	src/Plan_checker.h
-	src/plan/Benchmark_vehicle_plan.h
-	src/progress_bar.h
-	src/number_formatter.h
-	src/logging.cpp src/logging.h
-	src/inout.cpp src/inout.h
 	natvis/DARP_benchmark.natvis
-	src/plan/Base_plan.h
-	src/plan/DARP_benchmark_plan_template.h
-	src/serialization.cpp
+	src/DARP_benchmark.cpp
+	src/Runner.cpp
+	src/crack_atof.cpp
+	src/memory.cpp
+	src/solver/DARP_benchmark_solver.tpp
+)
+target_include_directories(DARP-benchmark
+	PRIVATE
+		${TCLAP_INCLUDE_DIR}
+		include/
+)
+target_link_libraries(DARP-benchmark
+	PRIVATE
+		DARP_benchmark_lib
+		external_solvers
+		indicators::indicators
+)
+
+add_library(DARP_benchmark_test_lib
+	natvis/DARP_benchmark.natvis
+	test/Action_data_base.cpp
+	test/common.cpp
+	test/IH/common.tpp
+	test/Single_vehicle_DARP_common.cpp
+)
+target_include_directories(DARP_benchmark_test_lib
+	PUBLIC
+		${CMAKE_CURRENT_SOURCE_DIR}
+		include/
+)
+target_link_libraries(DARP_benchmark_test_lib
+	PUBLIC
+		DARP_benchmark_lib
+		gtest_main
 )
 
 add_executable(test_run
-	test/Action_data_base.cpp test/Action_data_base.h
-	src/aliases.h
-	src/asserts.h
-	src/DARP_instance.cpp
-	src/Iterable.h
-	src/Coordinate.cpp src/Coordinate.h
-	src/Cordeau_benchmark.cpp src/Cordeau_benchmark.h
-	src/DARP_benchmark_node.cpp src/DARP_benchmark_node.h
-	src/DARP_benchmark_reader.cpp src/DARP_benchmark_reader.h
-	src/DARP_instance.cpp src/DARP_instance.h
-	src/plan/VehiclePlan.tpp src/plan/VehiclePlan.h
-	src/Vehicle.tpp src/Vehicle.h
-	src/Action.tpp src/Action.h
-	src/Request.tpp src/Request.h
-	src/common.cpp src/common.h
-	src/Adjustment_reason.h
-	src/KD_tree.h
-	src/Plan_checker.h
-	src/plan/Benchmark_vehicle_plan.h
-	src/progress_bar.h
-	src/Linked_hash_set.h
-	src/Nearest_vehicle_provider.h
-	src/solver/Vehicle_plan_builder.h
-	src/solver/IH/Insertion_heuristic_solver.tpp src/solver/IH/Insertion_heuristic_solver.h
-	src/solver/IH/IH_vehicle_plan_builder.h
-	src/solver/IH/IH_SVDARP_interfaces.h
-	src/solver/IH/SVDARP.h
-	src/solver/Random_solver.tpp src/solver/Random_solver.h
-	src/travel_time_provider/CSV_reader.cpp src/travel_time_provider/CSV_reader.h
-	src/travel_time_provider/Distance_matrix_travel_time_provider.cpp src/travel_time_provider/Distance_matrix_travel_time_provider.h
-	src/travel_time_provider/Euclidean_travel_time_provider.h
-	src/travel_time_provider/HDF_reader.cpp src/travel_time_provider/HDF_reader.h
-	src/travel_time_provider/Travel_time_provider.h
-	src/number_formatter.h
-	src/logging.cpp src/logging.h
-	src/inout.cpp src/inout.h
-	natvis/DARP_benchmark.natvis
-	test/common.h test/common.cpp
-	test/IH/Insertion_heuristic_solver_test.cpp
-	test/Euclidean_traveltime_provider_test.cpp
 	test/Cordeau_benchmark_test.cpp
-	test/Vehicle_plan_test.cpp
-	test/IH/IH_SVDARP_test.cpp
-	test/gtest_wrapper.h
 	test/DARP_benchmark_reader_test.cpp
 	test/Distance_matrix_travel_time_provider_test.cpp
-	test/IH/common.h
-	src/plan/Base_plan.h
-	src/plan/DARP_benchmark_plan_template.h
-	src/serialization.cpp
-	test/IH/common.tpp
-	test/Single_vehicle_DARP_common.cpp
+	test/Euclidean_traveltime_provider_test.cpp
+	test/IH/IH_SVDARP_test.cpp
+	test/IH/Insertion_heuristic_solver_test.cpp
+	test/Vehicle_plan_test.cpp
 	test/functional_tests.cpp
 )
+target_link_libraries(test_run
+	PRIVATE
+		DARP_benchmark_test_lib
+)
+target_compile_definitions(test_run PRIVATE IN_TEST)
 
 add_library(external_solvers INTERFACE)
-
-#header include
-target_include_directories(DARP-benchmark PRIVATE ${RAPIDJSON_INCLUDE_DIRS})
-target_include_directories(test_run PRIVATE ${RAPIDJSON_INCLUDE_DIRS})
-target_include_directories(DARP-benchmark PRIVATE ${TCLAP_INCLUDE_DIR})
-target_include_directories(DARP-benchmark PRIVATE "include/")
-target_include_directories(test_run PRIVATE "include/")
-target_include_directories(DARP-benchmark PRIVATE ${Boost_INCLUDE_DIRS})
-target_include_directories(DARP-benchmark PRIVATE ${P_RANAV_CSV2_INCLUDE_DIRS})
-target_include_directories(DARP-benchmark PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/fast-cpp-csv-parser)
-target_include_directories(test_run PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/fast-cpp-csv-parser)
-
-# linking
-target_link_libraries(test_run PRIVATE gtest_main)
-target_link_libraries(DARP-benchmark PRIVATE spdlog::spdlog spdlog::spdlog_header_only)
-target_link_libraries(test_run PRIVATE spdlog::spdlog spdlog::spdlog_header_only)
-target_link_libraries(DARP-benchmark PRIVATE nanoflann::nanoflann)
-target_link_libraries(test_run PRIVATE nanoflann::nanoflann)
-target_link_libraries(DARP-benchmark PRIVATE indicators::indicators)
-target_link_libraries(DARP-benchmark PRIVATE OpenMP::OpenMP_CXX)
-# OpenMP is not active in tests, but it is necessery to link against it to prevent unknown pragma warnings in GCC.
-target_link_libraries(test_run PRIVATE OpenMP::OpenMP_CXX)
-target_link_libraries(DARP-benchmark PRIVATE yaml-cpp::yaml-cpp)
-target_link_libraries(test_run PRIVATE yaml-cpp::yaml-cpp)
-#target_link_libraries(DARP-benchmark PRIVATE hdf5::hdf5-shared hdf5::hdf5_hl-shared hdf5::hdf5_cpp-shared hdf5::hdf5_hl_cpp-shared)
-target_link_libraries(DARP-benchmark PRIVATE ${HDF5_LIBRARIES} ${HDF5_HL_LIBRARIES})
-target_link_libraries(test_run PRIVATE ${HDF5_LIBRARIES} ${HDF5_HL_LIBRARIES})
-target_link_libraries(DARP-benchmark PRIVATE future-config::future-config)
-target_link_libraries(test_run PRIVATE future-config::future-config)
-target_link_libraries(DARP-benchmark PRIVATE external_solvers)
-
-
-target_compile_definitions(test_run PRIVATE IN_TEST)
 
 # Run the builder tool that generates the config classes
 run_fconfig_builder()
 
-copy_master_config(TARGET_NAMES DARP-benchmark test_run)
+copy_master_config(TARGET_NAMES DARP-benchmark test_run DARP_benchmark_lib DARP_benchmark_test_lib)
 
 
 include(GoogleTest)
