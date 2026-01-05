@@ -157,6 +157,8 @@ add_executable(test_run
 	test/functional_tests.cpp
 )
 
+add_library(external_solvers INTERFACE)
+
 #header include
 target_include_directories(DARP-benchmark PRIVATE ${RAPIDJSON_INCLUDE_DIRS})
 target_include_directories(test_run PRIVATE ${RAPIDJSON_INCLUDE_DIRS})
@@ -185,6 +187,7 @@ target_link_libraries(DARP-benchmark PRIVATE ${HDF5_LIBRARIES} ${HDF5_HL_LIBRARI
 target_link_libraries(test_run PRIVATE ${HDF5_LIBRARIES} ${HDF5_HL_LIBRARIES})
 target_link_libraries(DARP-benchmark PRIVATE future-config::future-config)
 target_link_libraries(test_run PRIVATE future-config::future-config)
+target_link_libraries(DARP-benchmark PRIVATE external_solvers)
 
 
 target_compile_definitions(test_run PRIVATE IN_TEST)
