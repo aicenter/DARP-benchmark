@@ -1,87 +1,124 @@
-
-
-# Compilation
-
 # Supported Compilers
-Currently, only the MSVC compiler is supported. The reson for that is the usage of GUROBI solver, which is distributed as binary and [only supports MSVC on Windows and gcc on Linux](https://www.gurobi.com/products/gurobi-optimizer/supported-platforms/). However, [gcc still does not support the C++ 20 standard](https://en.cppreference.com/w/cpp/compiler_support), so it also cannot be used to build this project.  
+This project uses C++ 20 features, therefore, compiler fully supporting C++ 20 is required.
 
 # Dependencies
-Following libraries are required:
+The following libraries are required:
 
-* GUROBI
-* RapidJSON
-* TCLAP
+- spdlog
+- csv2
+- nanoflann
+- magic_enum
+- boost-multi-index
+- boost-algorithm
+- indicators
+- yaml-cpp
+- HDF5
+- future-config
 
-Also make sure to add [tqdm.hpp](https://gitlab.com/miguelraggi/tqdm-cpp/-/raw/master/tqdm.hpp) to your include path.
+All these can be installed via `vcpkg` with the following command:
+```bash
+vcpkg install spdlog csv2 nanoflann magic_enum boost-multi-index boost-algorithm indicators yaml-cpp HDF5[cpp] future-config
+```
 
 
 # Running the benchmark
 
-## Command line arguments
-
 The DARP benchmark program accepts the following command line arguments:
 
-### Basic Arguments
+| Argument |  Description | Required | Default |
+|----------|-------------|----------|---------|
+| `--instance` | Path to the instance file (`.yaml` for DARP benchmark instances or classic instance files) | Yes | - |
+| `--outdir` | Output directory for results | Yes | - |
+| `--method` | Method for solving DARP (`ih`, `vga`, `vga_chaining`, `halns`) | Yes | - |
+| `--tcount` | Number of executions for averaging | No | 1 |
+| `--tmax` | Maximum number of threads for parallel regions | No | 0 (auto) |
 
-| Argument | Short | Description | Required | Default |
-|----------|-------|-------------|----------|---------|
-| `--instance` | `-i` | Path to the instance file (`.yaml` for DARP benchmark instances or classic instance files) | Yes | - |
-| `--outdir` | `-o` | Output directory for results | Yes | - |
-| `--method` | `-m` | Method for solving DARP (`ih`, `vga`, `vga_chaining`, `halns`) | Yes | - |
-| `--tcount` | `-c` | Number of executions for averaging | No | 1 |
-| `--tmax` | - | Maximum number of threads for parallel regions | No | 0 (auto) |
 
-### VGA Method Parameters
 
-| Argument | Short | Description | Default |
-|----------|-------|-------------|---------|
-| `--max-group` | `-g` | Maximum group size in group generation | 0 |
-| `--gglimit` | - | Group generation limit | 0 |
-| `--galimit` | - | Group assignment limit | 0 |
-
-### VGA Chaining Parameters
-
-| Argument | Short | Description | Default |
-|----------|-------|-------------|---------|
-| `--batchl` | `-b` | Batch length in seconds | 300 |
-| `--tts` | - | Time estimate from current vehicle position to first action | 120 |
-| `--mtbp` | - | Maximum time between plans considered for chaining | 0 |
-| `--cmg` | - | Maximum gap for VGA Chaining ILP solver | 0.005 |
-| `--cbs` | - | Maximum number of plans to be chained in one level of hierarchical chaining | 0 |
-| `--mcc` | - | Maximum cost of the chaining connection (currently implemented only for vehicles) | 0 |
-| `--max_delay` | - | Maximum delay parameter | -1 |
-| `--skip-vga-plan-export` | - | Skip VGA plan export (boolean flag) | false |
-
-### HALNS Method Parameters
-
-| Argument | Description | Default |
-|----------|-------------|---------|
-| `--iter` | Number of iterations | 100000 |
-| `--init` | Path to initial solution file | - |
-| `--time_limit` | Time limit in milliseconds | 0 |
-
-### Usage Examples
+## Usage Examples
 
 ```bash
 # Basic usage with IH method
 ./DARP-benchmark --instance data/instances/example.yaml --outdir results/ --method ih
-
-# VGA method with custom parameters
-./DARP-benchmark --instance data/instances/example.yaml --outdir results/ --method vga --max-group 4 --tcount 5
-
-# VGA Chaining with batch processing
-./DARP-benchmark --instance data/instances/example.yaml --outdir results/ --method vga_chaining --batchl 300 --tts 120
-
-# HALNS with custom iterations
-./DARP-benchmark --instance data/instances/example.yaml --outdir results/ --method halns --iter 50000 --init initial_solution.json
-
-# Using a local config file (first positional argument)
-./DARP-benchmark config.yaml --instance data/instances/example.yaml --outdir results/ --method ih
 ```
 
-### Configuration File Support
+## Configuration File Support
 
 You can also provide a local configuration file as the first positional argument (without `-` prefix). The configuration file should contain the same parameters as command line arguments in YAML format. Command line arguments override configuration file values.
+
+
+# Extending the benchmark
+There are two ways to extend the benchmark:
+
+- **public extensions**: you can just develop inside the project and then create a pull request with your extension. This is the most straightforward way how to extend the benchmark.
+- **private extensions**: If you need to develop in private, you can create a separate project and plug-in your private DARP solver at compile time.
+
+
+## Plugging in your private DARP solver
+Your private project need to be integrated in two places:
+- in the `CMakeLists.txt` the project needs to be connected together
+- in one of your `*.cpp` files, you need a static solver registration
+
+### CMakeLists.txt configuration
+
+First, you need to aquire the DARP benchmark source code. This can be automated with the `FetchContent` CMake module:
+
+```cmake
+FetchContent_Declare(
+    DARP-benchmark
+    GIT_REPOSITORY git@github.com:aicenter/DARP-benchmark.git
+    DOWNLOAD_EXTRACT_TIMESTAMP ON
+)
+
+FetchContent_MakeAvailable(DARP-benchmark)
+```
+
+Then youu need to set up your target as library and add the DARP benchmark include directories to it:
+
+```cmake
+add_library(<name of your target> STATIC
+	<your source files>
+)
+target_include_directories(<name of your target> PUBLIC
+	${DARP-benchmark_SOURCE_DIR}
+    <other include directories>
+)
+```
+
+The integration of your target is then achieve by linking the provided `external_solvers` target to your target:
+
+```cmake
+# Plugging into DARP-benchmark
+target_link_libraries(external_solvers INTERFACE <name of your target>)
+target_link_options(DARP-benchmark PRIVATE
+  "/WHOLEARCHIVE:$<TARGET_FILE:<name of your target>>"
+)
+```
+
+The `/WHOLEARCHIVE` link option is required to ensure that DARP benchmark won't discard your target just because it is not used from the `main` function of the benchmark.
+
+
+### Static solver registration
+The static registration can be anywhere and has the following form:
+```cpp
+
+#include <DARP_benchmark.h>
+#include "your_solver.h"
+
+namespace DARP {
+struct Registrator {
+	Registrator() {
+		Default_solver_registry::get()
+            .register_solver<YourSolver>("your_solver");
+	}
+};
+
+static Registrator registrator;
+
+}
+```
+
+Of course, any Structure can be used and you can register multiple solvers. The important part is calling the `register_solver` function of the `Default_solver_registry` singleton from a static object, so that it is called at the very beginning of the program, before the `main` function is called.
 
 
 # Implementation
