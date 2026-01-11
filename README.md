@@ -83,6 +83,11 @@ target_include_directories(<name of your target> PUBLIC
 	${DARP-benchmark_SOURCE_DIR}
     <other include directories>
 )
+
+# the linking to DARP_benchmark_lib is optional. It enables shared compilation for the final executable, and presets the public includes. Without this, we need to a) list required units from DARP-benchmark in our target, and b) manually add the DARP-benchmark include and dependency includes to our target.
+target_link_libraries(<name of your target> PRIVATE
+	DARP_benchmark_lib 
+)
 ```
 
 The integration of your target is then achieve by linking the provided `external_solvers` target to your target:

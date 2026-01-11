@@ -7,6 +7,7 @@ enable_language(CXX)
 set(CMAKE_CXX_STANDARD 23)
 
 set(DARP_BENCHMARK_SOLVER_PLUGIN_DIRS "" CACHE STRING "Semicolon-separated extra solver dirs")
+set(DARP_BENCHMARK_EXTERNAL_MAIN_CONFIG_FILE "" CACHE FILEPATH "Path to external main config file for downstream projects")
 
 find_package(RapidJSON CONFIG REQUIRED)
 find_package(OpenMP)
@@ -18,7 +19,7 @@ find_package(Boost CONFIG REQUIRED)
 find_package(indicators CONFIG REQUIRED)
 find_package(yaml-cpp CONFIG REQUIRED)
 find_package(HDF5 REQUIRED COMPONENTS C CXX HL)
-find_package(future-config 0.2.1 CONFIG REQUIRED)
+find_package(future-config 0.3.0 CONFIG REQUIRED)
 
 # Check boost header-only components 
 if (NOT EXISTS ${Boost_INCLUDE_DIRS}/boost/multi_index)
@@ -102,6 +103,8 @@ add_executable(DARP-benchmark
 	src/solver/DARP_benchmark_solver.tpp
 )
 target_include_directories(DARP-benchmark
+	PUBLIC
+		${RAPIDJSON_INCLUDE_DIRS}
 	PRIVATE
 		${TCLAP_INCLUDE_DIR}
 		include/
@@ -151,7 +154,14 @@ target_compile_definitions(test_run PRIVATE IN_TEST)
 add_library(external_solvers INTERFACE)
 
 # Run the builder tool that generates the config classes
-run_fconfig_builder()
+if(DARP_BENCHMARK_EXTERNAL_MAIN_CONFIG_FILE)
+	# When external config is provided, pass both default and external main config files
+	# The default main config file is assumed to be in config/main.yaml (standard future-config convention)
+	get_filename_component(DEFAULT_MAIN_CONFIG_FILE "${CMAKE_CURRENT_SOURCE_DIR}/config/main.yaml" ABSOLUTE)
+	run_fconfig_builder(MAIN_CONFIG_PATH ${DEFAULT_MAIN_CONFIG_FILE} ${DARP_BENCHMARK_EXTERNAL_MAIN_CONFIG_FILE})
+else()
+	run_fconfig_builder()
+endif()
 
 copy_master_config(TARGET_NAMES DARP-benchmark test_run DARP_benchmark_lib DARP_benchmark_test_lib)
 
