@@ -156,8 +156,7 @@ add_library(external_solvers INTERFACE)
 # Run the builder tool that generates the config classes
 if(DARP_BENCHMARK_EXTERNAL_MAIN_CONFIG_FILE)
 	# When external config is provided, pass both default and external main config files
-	# The default main config file is assumed to be in config/main.yaml (standard future-config convention)
-	get_filename_component(DEFAULT_MAIN_CONFIG_FILE "${CMAKE_CURRENT_SOURCE_DIR}/config/main.yaml" ABSOLUTE)
+	get_filename_component(DEFAULT_MAIN_CONFIG_FILE "${CMAKE_CURRENT_SOURCE_DIR}/data/config.yaml" ABSOLUTE)
 	run_fconfig_builder(MAIN_CONFIG_PATH ${DEFAULT_MAIN_CONFIG_FILE} ${DARP_BENCHMARK_EXTERNAL_MAIN_CONFIG_FILE})
 else()
 	run_fconfig_builder()
