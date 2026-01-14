@@ -11,7 +11,16 @@ fs::path run_benchmark(std::vector<std::string>& arguments) {
 	std::string command = "DARP-benchmark";
 
 	// output path
-	auto out_path = fs::temp_directory_path();
+	auto out_path = fs::temp_directory_path() / "DARP_benchmark_functional_test_output";
+
+	// delete output directory if it exists
+	if (fs::exists(out_path)) {
+		fs::remove_all(out_path);
+	}
+
+	// create output directory
+	fs::create_directories(out_path);
+
 	arguments.emplace_back("--outdir");
 	arguments.emplace_back(out_path.string());
 

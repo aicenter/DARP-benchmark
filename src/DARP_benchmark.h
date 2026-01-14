@@ -4,6 +4,7 @@
 #include <any>
 #include <functional>
 #include <memory>
+#include <future-config/configuration.h>
 
 #include "solver/DARP_benchmark_solver.h"
 #include "Solution.h"
@@ -92,6 +93,41 @@ private:
 };
 
 using Default_solver_registry = Solver_registry<Amodsim_node, Cordeau_node>;
+
+/**
+ * @brief Singleton class that stores config definitions.
+ * Enables static registration of Config_definition instances.
+ */
+class Config_registry {
+public:
+	static Config_registry& get();
+
+	/**
+	 * @brief Register a config definition.
+	 * @param config Config definition to register
+	 */
+	void register_config(std::unique_ptr<fc::Config_definition_base> config);
+
+	/**
+	 * @brief Get all registered config definitions.
+	 * @return Vector of config definition instances (moved out from the registry)
+	 */
+	[[nodiscard]] std::vector<std::unique_ptr<fc::Config_definition_base>> get_all_configs();
+
+	// Deleted copy and move constructors/assignments for singleton
+	Config_registry(const Config_registry&) = delete;
+	Config_registry& operator=(const Config_registry&) = delete;
+	Config_registry(Config_registry&&) = delete;
+	Config_registry& operator=(Config_registry&&) = delete;
+
+private:
+	static Config_registry instance;
+
+	Config_registry() = default;
+	~Config_registry() = default;
+
+	std::vector<std::unique_ptr<fc::Config_definition_base>> config_definitions;
+};
 
 template<class N>
 class DARP_benchmark {

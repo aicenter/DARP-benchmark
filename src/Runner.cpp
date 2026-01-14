@@ -36,6 +36,12 @@ int main(int argc, const char** argv) {
 		std::vector<std::unique_ptr<fc::Config_definition_base>> config_definitions;
 		config_definitions.emplace_back(std::make_unique<fc::Config_definition>()); // default config
 
+		// add registered config definitions
+		auto registered_configs = Config_registry::get().get_all_configs();
+		for (auto& config : registered_configs) {
+			config_definitions.push_back(std::move(config));
+		}
+
 		// add local config if it exists
 		if(local_config_path) {
 			config_definitions.emplace_back(
