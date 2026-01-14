@@ -162,7 +162,11 @@ else()
 	run_fconfig_builder()
 endif()
 
-copy_master_config(TARGET_NAMES DARP-benchmark test_run DARP_benchmark_lib DARP_benchmark_test_lib)
+copy_master_config(TARGET_NAMES DARP-benchmark test_run)
+
+if(DARP_BENCHMARK_EXTERNAL_MAIN_CONFIG_FILE)
+	copy_master_config(TARGET_NAMES DARP-benchmark test_run CONFIG_PATH ${DARP_BENCHMARK_EXTERNAL_MAIN_CONFIG_FILE})
+endif()
 
 
 include(GoogleTest)
