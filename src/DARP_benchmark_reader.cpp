@@ -49,8 +49,7 @@ DARP_instance<Amodsim_node> DARP_benchmark_reader::read(std::filesystem::path in
     std::unique_ptr<Distance_matrix_reader> dm_reader = dm_filepath.extension() == ".h5"
 	    ? static_cast<std::unique_ptr<Distance_matrix_reader>>(std::make_unique<HDF_reader>())
 	    : std::make_unique<CSV_reader>();
-    std::shared_ptr<Distance_matrix_node_travel_time_provider<Amodsim_node>> travel_cost_provider
-            {new Distance_matrix_node_travel_time_provider<Amodsim_node>(*dm_reader, dm_filepath.string())};
+    auto travel_cost_provider = std::make_shared<Distance_matrix_node_travel_time_provider<Amodsim_node>>(*dm_reader, dm_filepath.string());
 
     // vehicle loading
 	auto vehicles = std::make_unique<std::vector<Vehicle<Amodsim_node>>>();

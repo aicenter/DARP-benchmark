@@ -24,6 +24,19 @@ public:
 	 */
 	[[nodiscard]] virtual travel_time_type get_travel_time(const L& from, const L& to) const = 0;
 
+	/**
+	 * Method that provides location info when the vehicle is on the way from last_action_location to next_action_location.
+	 * @param last_action_location
+	 * @param next_action_location
+	 * @param time_since_last_action_departure
+	 * @return tuple of next location on the path and travel time needed to reach that location
+	 */
+	[[nodiscard]] virtual std::tuple<const L&, time_type> get_vehicle_location_info(
+		const L& last_action_location,
+		const L& next_action_location,
+		time_type time_since_last_action_departure
+	) = 0;
+
 protected:
 	Travel_time_provider(const Travel_time_provider& other) = default;
 

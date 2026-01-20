@@ -25,6 +25,14 @@ public:
 	[[nodiscard]] travel_time_type get_travel_time(const Amodsim_node&, const Amodsim_node&) const override {
 		return 0;
 	}
+
+	[[nodiscard]] std::tuple<const Amodsim_node&, time_type> get_vehicle_location_info(
+		[[maybe_unused]] const Amodsim_node& last_action_location,
+		[[maybe_unused]] const Amodsim_node& next_action_location,
+		[[maybe_unused]] time_type time_since_last_action_departure
+	) override {
+		return std::make_tuple(Amodsim_node(0),0);
+	}
 };
 
 // Helper function to compare two Request objects

@@ -1,6 +1,7 @@
 
 #include "Distance_matrix_travel_time_provider.h"
 #include "../inout.h"
+#include <limits>
 
 #if defined(_MSC_VER)
 	#pragma warning(push)
@@ -44,6 +45,34 @@ travel_time_type Distance_matrix_travel_time_provider::get_travel_time(const uns
 	assert((index - to) / width == from);
 
 	return dm[index];
+}
+
+std::tuple<const unsigned&, time_type> Distance_matrix_travel_time_provider::get_vehicle_location_info(
+	const unsigned& last_action_location,
+	const unsigned& next_action_location,
+	time_type time_since_last_action_departure
+) {
+	auto lowest_tt_to_i = std::numeric_limits<travel_time_type>::max();
+	auto lowest_tt_to_i_index = 0;
+
+	for(unsigned int i = 0; i < width; ++i) {
+		auto tt_last_to_i = get_travel_time(last_action_location, i);
+
+		if(tt_last_to_i >= time_since_last_action_departure && tt_last_to_i < lowest_tt_to_i) {
+			auto tt_last_to_next = get_travel_time(last_action_location, next_action_location);
+			auto tt_i_to_next = get_travel_time(i, next_action_location);
+
+			if(tt_last_to_next == tt_last_to_i + tt_i_to_next) {
+				lowest_tt_to_i = tt_last_to_i;
+				lowest_tt_to_i_index = i;
+			}
+		}
+	}
+
+	// compute the time to next node
+	auto time_to_next_node = lowest_tt_to_i - time_since_last_action_departure;
+
+	return {lowest_tt_to_i_index, time_to_next_node};
 }
 
 //travel_time_type parse_distance(
