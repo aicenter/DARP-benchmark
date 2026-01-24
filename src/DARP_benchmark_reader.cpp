@@ -53,16 +53,12 @@ DARP_instance<Amodsim_node> DARP_benchmark_reader::read(std::filesystem::path in
 
     // vehicle loading
 	auto vehicles = std::make_unique<std::vector<Vehicle<Amodsim_node>>>();
-	if(configuration->use_virtual_vehicles()){
-	    std::shared_ptr<Amodsim_node> depot_node {new Amodsim_node(0)};
-		const auto vehicle_capacity = config["vehicles"]["vehicle_capacity"].as<unsigned short>();
-	    vehicles->emplace_back(0, depot_node, vehicle_capacity);
-	    vehicles->at(0).make_virtual(0);
-    }
-    else {
+	if(!configuration->use_virtual_vehicles()){
 	    std::string vehicles_filepath = std::filesystem::path(instance_filepath).remove_filename().string() + "vehicles.csv";
     	load_vehicles(*vehicles, vehicles_filepath);
     }
+    // When virtual vehicles mode is enabled, the vehicles vector stays empty.
+    // Algorithms supporting virtual vehicles will create Virtual_vehicle instances as needed.
 
     // request loading - Calls dispatcher
     auto requests = load_requests(config, std::static_pointer_cast<Travel_time_provider<Amodsim_node>>(travel_cost_provider));

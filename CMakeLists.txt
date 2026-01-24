@@ -1,4 +1,4 @@
-﻿cmake_minimum_required(VERSION 3.15)
+cmake_minimum_required(VERSION 3.15)
 
 project("DARP-benchmark")
 
@@ -69,6 +69,7 @@ add_library(DARP_benchmark_lib
 	src/inout.cpp
 	src/logging.cpp
 	src/serialization.cpp
+	src/Vehicle.cpp
 	src/travel_time_provider/CSV_reader.cpp
 	src/travel_time_provider/Distance_matrix_travel_time_provider.cpp
 	src/travel_time_provider/HDF_reader.cpp

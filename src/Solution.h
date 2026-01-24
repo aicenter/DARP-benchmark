@@ -205,13 +205,11 @@ public:
 	 * @param vehicle_plans
 	 * @param cost
 	 * @param dropped_requests
-	 * @param virtual_vehicles
 	 */
     Solution(
         std::vector<P>&& vehicle_plans, 
         unsigned long cost, 
-        std::vector<const Request<N>*>&& dropped_requests,
-        std::shared_ptr<std::vector<Vehicle<N>>> virtual_vehicles = nullptr
+        std::vector<const Request<N>*>&& dropped_requests
     );
 
 	/**
@@ -219,12 +217,10 @@ public:
 	 * requests.
 	 * @param instance
 	 * @param vehicle_plans
-	 * @param virtual_vehicles
 	 */
     Solution(
         const DARP_instance<N>& instance, 
-        std::vector<P>&& vehicle_plans,
-        std::shared_ptr<std::vector<Vehicle<N>>>&& virtual_vehicles = nullptr
+        std::vector<P>&& vehicle_plans
     );
 
 	/**
@@ -270,10 +266,6 @@ private:
     [[nodiscard]] std::unique_ptr<Solution_iterator_interface<N>> end() const override;
 
 	int non_empty_plan_count{-1};
-
-    std::shared_ptr<std::vector<Vehicle<N>>> virtual_vehicles;
-
-
 };
 
 template <typename N, class P = VehiclePlan<N>>
