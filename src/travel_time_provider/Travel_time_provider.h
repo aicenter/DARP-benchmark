@@ -2,6 +2,7 @@
 
 #include <iostream>
 #include "../aliases.h"
+#include "../Vehicle.h"
 
 
 /**
@@ -23,6 +24,16 @@ public:
 	 * @return Travel time between location \p from and \p to in seconds.
 	 */
 	[[nodiscard]] virtual travel_time_type get_travel_time(const L& from, const L& to) const = 0;
+
+	/**
+	 * @brief Provides travel time from a vehicle's starting point to a target location.
+	 * For regular vehicles, this uses the vehicle's initial position.
+	 * For virtual vehicles, this returns the time_to_start value.
+	 * @param vehicle The vehicle (can be Vehicle<L> or Virtual_vehicle)
+	 * @param target The target location
+	 * @return Travel time from vehicle start to target location
+	 */
+	[[nodiscard]] time_type get_travel_time_from_vehicle(const Vehicle_base& vehicle, const L& target) const;
 
 	/**
 	 * Method that provides location info when the vehicle is on the way from last_action_location to next_action_location.

@@ -43,9 +43,7 @@ DARP_benchmark_solver<N>::solution_impl_ret_val Insertion_heuristic_solver<N, A,
 	if constexpr (std::is_same_v<A, ActionData<N>> && std::is_same_v<V, Vehicle<N>> &&
 				  std::is_same_v<P, VehiclePlan<N>>) {
 		return compute(this->darp_instance->get_requests(), this->darp_instance->get_vehicles());
-//		return {};
 	}
-//	return {};
 	else{
 		return nullptr;
 	}

@@ -25,6 +25,12 @@ public:
         return capacity;
     }
 
+    /**
+     * @brief Serialize the vehicle to JSON. Default implementation does nothing.
+     * Override in derived classes that need serialization.
+     */
+    virtual void JSON_serialize(rapidjson::PrettyWriter<rapidjson::StringBuffer>& /*writer*/) const {}
+
 protected:
     const unsigned short capacity;
 };

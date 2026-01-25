@@ -4,6 +4,12 @@
 
 #include "serialization.h"
 
+// Concept to check if a type has JSON_serialize method
+template<typename T>
+concept HasJSONSerialize = requires(const T& t, rapidjson::PrettyWriter<rapidjson::StringBuffer>& w) {
+    { t.JSON_serialize(w) } -> std::same_as<void>;
+};
+
 template <typename N>
 Vehicle<N>::Vehicle(unsigned int index, std::shared_ptr<N> initial_position, unsigned short capacity)
     : Vehicle_base(capacity)
@@ -31,10 +37,16 @@ void Vehicle<N>::JSON_serialize(rapidjson::PrettyWriter<rapidjson::StringBuffer>
     writer.StartObject();
     writer.Key("index");
     writer.Uint(index);
-    if(init_position){
-		writer.Key("init_position");
-		serialize_node(writer, *init_position);
-	}
+    writer.Key("init_position");
+    if constexpr (HasJSONSerialize<N>) {
+        if(init_position){
+            serialize_node(writer, *init_position);
+        } else {
+            writer.Null();
+        }
+    } else {
+        writer.String("not serializable");
+    }
     writer.Key("capacity");
     writer.Uint(get_capacity());
     writer.EndObject();

@@ -44,7 +44,7 @@ std::optional<VehiclePlan<N>> DARP_benchmark_solver<N, P>::compute_optimal_plan(
 	std::optional<VehiclePlan<N>> best_plan{};
 	unsigned int min_cost_increment = std::numeric_limits<unsigned int>::max();
 
-	const Vehicle<N>& vehicle = current_plan.get_vehicle();
+	const auto& vehicle = current_plan.get_vehicle();
 	unsigned short free_capacity = vehicle.get_capacity();
 
 	for (unsigned short pickup_option_index = 0;
@@ -90,12 +90,12 @@ std::optional<P> DARP_benchmark_solver<N, P>::insert_into_plan(
 	const Request<N>& request
 ) {
 
-	const Vehicle<N>& vehicle = current_plan.get_vehicle();
+	const auto& vehicle = current_plan.get_vehicle();
 
 	/*std::vector<ActionData<N>> new_plan_tasks;
 	new_plan_tasks.reserve(current_plan.get_lenght() + 2);*/
 
-	VehiclePlan<N> vehicle_plan{vehicle, (unsigned short) (current_plan.get_length() + 2)};
+	VehiclePlan<N> vehicle_plan{vehicle, static_cast<unsigned short>(current_plan.get_length() + 2)};
 
 	// travel time of the new plan in seconds
 	unsigned int current_time = 0;

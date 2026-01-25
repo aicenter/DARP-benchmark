@@ -8,6 +8,7 @@
 #include "../Adjustment_reason.h"
 #include "../aliases.h"
 #include "../Plan_checker.h"
+#include "../Vehicle.h"
 
 
 struct Adjust_times_data {
@@ -63,7 +64,7 @@ concept Vehicle_plan_builder_plan =
 		{plan.get_arrival_time()} -> std::same_as<time_type>;
 		{plan.get_cost()} -> std::same_as<unsigned>;
 	}
-    && requires(V vehicle, unsigned cost, const std::vector<A>& actions, time_type departure_time, time_type arrival_time) {
+    && requires(const V& vehicle, unsigned cost, const std::vector<A>& actions, time_type departure_time, time_type arrival_time) {
         {P(vehicle, cost, actions, departure_time, arrival_time)} -> std::same_as<P>;
     }
 	&& requires(const P plan, index_in_plan index) {

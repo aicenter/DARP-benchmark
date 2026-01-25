@@ -103,6 +103,6 @@ public:
 };
 
 //static_assert(Travel_time_provider<Distance_matrix_node_travel_time_provider<int>, int>);
-static_assert(Pointer_iterable<std::vector<const Vehicle<int>*>,Vehicle<int>>);
+static_assert(Pointer_iterable<std::vector<const Vehicle<unsigned>*>,Vehicle<unsigned>>);
 
 #include "Distance_matrix_travel_time_provider.tpp"

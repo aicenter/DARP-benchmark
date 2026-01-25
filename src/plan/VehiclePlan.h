@@ -25,7 +25,8 @@
 /**
  * @brief Class for vehicle plan for solving the DARP problem. It contains the functionality that should be accessible
  * for all DARP benchmark solvers. It is parametrized by the node type, but actions are always
- * of type ActionData<N> and vehicles are always of type Vehicle<N>.
+ * of type ActionData<N>. The vehicle type V defaults to Vehicle<N> but can be set to Vehicle_base
+ * for solvers that support virtual vehicles.
  *
  * Note that there is also a P template parameter, which is the plan type. This is because this class use the CRTP
  * in methods like create_bigger or get_delayed_plan - methods which should return the same type as the type of the
@@ -33,13 +34,14 @@
  * be inherited by a class that specifies the plan type.
  * @tparam N node type
  * @tparam P plan type - self type
+ * @tparam V vehicle holder type - defaults to Vehicle<N>, use Vehicle_base for virtual vehicle support
  */
-template <typename N, class P>
+template <typename N, class P, class V = Vehicle<N>>
 class DARP_vehicle_plan:
 	public Benchmark_vehicle_plan,
-	public DARP_benchmark_plan_template<ActionData<N>, Vehicle<N>>,
+	public DARP_benchmark_plan_template<ActionData<N>, V>,
 	public Checkable_plan_interface,
-	public Vehicle_plan_builder_plan_interface<Vehicle<N>, ActionData<N>>,
+	public Vehicle_plan_builder_plan_interface<V, ActionData<N>>,
 	public Plan_evaluator_plan_interface<ActionData<N>>
 {
 public:
@@ -53,7 +55,7 @@ public:
      * @param arrival_time 
     */
     DARP_vehicle_plan(
-        const Vehicle<N>& vehicle, 
+        const V& vehicle, 
         unsigned int cost, 
         std::vector<ActionData<N>> actions, 
         unsigned int departure_time,
@@ -65,7 +67,7 @@ public:
      * @param size 
      * @return 
     */
-    DARP_vehicle_plan(const Vehicle<N>& vehicle, unsigned short size);
+    DARP_vehicle_plan(const V& vehicle, unsigned short size);
 
 	DARP_vehicle_plan(const DARP_vehicle_plan& other) = default;
 	DARP_vehicle_plan(DARP_vehicle_plan&& other) noexcept = default;
@@ -84,7 +86,7 @@ public:
 	[[nodiscard]] P create_bigger(unsigned short increase = 1) const;
 
 
-    void set_vehicle(const std::reference_wrapper<const Vehicle<N>>& vehicle_par);
+    void set_vehicle(const std::reference_wrapper<const V>& vehicle_par);
 
     void set_departure_time(unsigned long departure_time);
 
@@ -112,7 +114,7 @@ public:
 		return variant_id;
 	}
 
-	using Base_plan<ActionData<N>,Vehicle<N>>::operator[];
+	using Base_plan<ActionData<N>,V>::operator[];
 
     ActionData<N>& operator[](plan_size_type index);
 
@@ -155,9 +157,9 @@ public:
 
     unsigned int get_servicing_end() const;*/
 
-    using Base_plan<ActionData<N>,Vehicle<N>>::begin;
+    using Base_plan<ActionData<N>,V>::begin;
 
-    using Base_plan<ActionData<N>,Vehicle<N>>::end;
+    using Base_plan<ActionData<N>,V>::end;
 
     typename std::vector<ActionData<N>>::iterator begin();
 
@@ -209,20 +211,21 @@ private:
 };
 
 
-template<typename N, class P>
-void export_plans(const std::vector<DARP_vehicle_plan<N,P>>& plans, std::string file_path);
+template<typename N, class P, class V = Vehicle<N>>
+void export_plans(const std::vector<DARP_vehicle_plan<N,P,V>>& plans, std::string file_path);
 
 
 /**
  * @brief Basic vehicle plan class for DARP benchmark solvers. In future, it should have no additional functionality
  * over the DARP vehicle plan.
  * @tparam N node type
+ * @tparam V vehicle holder type - defaults to Vehicle<N>
  */
-template<typename N>
+template<typename N, class V = Vehicle<N>>
 class VehiclePlan:
-	public DARP_vehicle_plan<N, VehiclePlan<N>>
+	public DARP_vehicle_plan<N, VehiclePlan<N, V>, V>
 {
-    using DARP_vehicle_plan<N, VehiclePlan<N>>::DARP_vehicle_plan;
+    using DARP_vehicle_plan<N, VehiclePlan<N, V>, V>::DARP_vehicle_plan;
 
 public:
 
@@ -234,7 +237,7 @@ public:
 	[[nodiscard]] index_in_plan get_last_service_action_index() const;
 
 //    using Benchmark_vehicle_plan<N>::operator[];
-    using DARP_vehicle_plan<N, VehiclePlan<N>>::operator[];
+    using DARP_vehicle_plan<N, VehiclePlan<N, V>, V>::operator[];
 };
 
 #include "VehiclePlan.tpp"
