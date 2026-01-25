@@ -3,9 +3,20 @@
 //
 
 template<typename N, class P>
-DARP_benchmark_solver<N, P>::DARP_benchmark_solver(const DARP_instance<N>& instance) :
+DARP_benchmark_solver<N, P>::DARP_benchmark_solver(const DARP_instance<N>& instance, const DARP_benchmark_config& config) :
 	DARP_solver<N>(instance.get_travelcost_provider(), instance.get_darp_instance_configuration()),
-	darp_instance(&instance) {
+	darp_instance(&instance),
+	solver_config(config) {
+}
+
+template<typename N, class P>
+DARP_benchmark_solver<N, P>::DARP_benchmark_solver(
+	const std::shared_ptr<Travel_time_provider<N>>& travel_time_provider,
+	const std::shared_ptr<DARP_instance_configuration>& instance_configuration,
+	const DARP_benchmark_config& config
+) :
+	DARP_solver<N>(travel_time_provider, instance_configuration),
+	solver_config(config) {
 }
 
 template<typename N, class P>

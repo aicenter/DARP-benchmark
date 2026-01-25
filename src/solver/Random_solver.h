@@ -7,8 +7,15 @@
 template <typename N>
 class Random_solver: public DARP_benchmark_solver<N> {
 public:
-    using DARP_benchmark_solver<N>::DARP_benchmark_solver;
-	
+    Random_solver(const DARP_instance<N>& instance, const DARP_benchmark_config& config)
+        : DARP_benchmark_solver<N>(instance, config) {}
+
+    Random_solver(
+        const std::shared_ptr<Travel_time_provider<N>>& travel_time_provider,
+        const std::shared_ptr<DARP_instance_configuration>& instance_configuration,
+        const DARP_benchmark_config& config
+    ) : DARP_benchmark_solver<N>(travel_time_provider, instance_configuration, config) {}
+
     Solution<N> solve() override;
 private:
     unsigned int min_cost_increment{0};

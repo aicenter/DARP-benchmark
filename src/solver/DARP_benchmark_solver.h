@@ -75,10 +75,13 @@ public:
 
 	using solution_impl_ret_val = std::unique_ptr<Solution<N, P>>;
 
+	DARP_benchmark_solver(const DARP_instance<N>& instance, const DARP_benchmark_config& config);
 
-	using DARP_solver<N>::DARP_solver;
-
-	DARP_benchmark_solver(const DARP_instance<N>& instance);
+	DARP_benchmark_solver(
+		const std::shared_ptr<Travel_time_provider<N>>& travel_time_provider,
+		const std::shared_ptr<DARP_instance_configuration>& instance_configuration,
+		const DARP_benchmark_config& config
+	);
 
 
 	void set_darp_instance(const DARP_instance<N>* darp_instance_par) {
@@ -104,6 +107,8 @@ protected:
 	};
 
 	const DARP_instance<N>* darp_instance{nullptr};
+
+	const DARP_benchmark_config& solver_config;
 
 	unsigned short max_delay_time{0};
 

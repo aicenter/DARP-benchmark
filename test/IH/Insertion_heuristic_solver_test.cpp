@@ -4,10 +4,13 @@
 #include "../gtest_wrapper.h"
 #include <vector>
 
+#include <future-config/configuration.h>
+
 #include "./common.h"
 #include "../../src/solver/IH/Insertion_heuristic_solver.h"
 #include "../../src/Cordeau_benchmark.h"
 #include "../../src/travel_time_provider/Distance_matrix_travel_time_provider.h"
+#include "../../src/config/DARP-benchmark_config.h"
 
 namespace {
 
@@ -150,9 +153,11 @@ TEST(Insertion_heuristic_solver_test, one_car_one_request) {
 		travel_time_provider,
 		config
 	);
+	auto solver_config = fc::load<DARP_benchmark_config>();
 	Insertion_heuristic_solver<Cordeau_node> solver(
 		travel_time_provider,
-		config
+		config,
+		solver_config
 	);
 	std::unique_ptr<Solution<Cordeau_node>> solution = solver.solve(*instance);
 
@@ -204,9 +209,11 @@ TEST(Insertion_heuristic_solver_test, one_car_multiple_requests) {
 		travel_time_provider,
 		config
 	);
+	auto solver_config = fc::load<DARP_benchmark_config>();
 	Insertion_heuristic_solver<Cordeau_node> solver(
 		travel_time_provider,
-		config
+		config,
+		solver_config
 	);
 	std::unique_ptr<Solution<Cordeau_node>> solution = solver.solve(*instance);
 
@@ -244,9 +251,11 @@ TEST(Insertion_heuristic_solver_test, insert_request_in_plan) {
 		= load_data_from_json_file("/IH_insert_in_plan_data.json");
 
 	// insert in plan
+	auto solver_config = fc::load<DARP_benchmark_config>();
 	Insertion_heuristic_solver<unsigned, IH_test_action_data, Test_vehicle, IH_test_plan> solver(
 		travel_time_provider,
-		config
+		config,
+		solver_config
 	);
 
 	auto new_plan
@@ -268,9 +277,11 @@ TEST(Insertion_heuristic_solver_test, insert_request_in_plan_2) {
 		= load_data_from_json_file("/IH_insert_in_plan_data_2.json");
 
 	// insert in plan
+	auto solver_config = fc::load<DARP_benchmark_config>();
 	Insertion_heuristic_solver<unsigned, IH_test_action_data, Test_vehicle, IH_test_plan> solver(
 		travel_time_provider,
-		config
+		config,
+		solver_config
 	);
 
 	auto new_plan
@@ -288,9 +299,11 @@ TEST(Insertion_heuristic_solver_test, insert_request_in_plan_3) {
 		= load_data_from_json_file("/IH_insert_in_plan_data_3.json");
 
 	// insert in plan
+	auto solver_config = fc::load<DARP_benchmark_config>();
 	Insertion_heuristic_solver<unsigned, IH_test_action_data, Test_vehicle, IH_test_plan> solver(
 		travel_time_provider,
-		config
+		config,
+		solver_config
 	);
 
 	auto new_plan
