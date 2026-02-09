@@ -28,6 +28,7 @@ fs::path run_benchmark(std::vector<std::string>& arguments) {
 		command += " " + argument;
 	}
 
+	spdlog::info("Running DARP benchmark: {}", command);
 	std::system(command.c_str());
 
 	return out_path;

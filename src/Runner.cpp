@@ -1,4 +1,3 @@
-
 #include <tclap/CmdLine.h>
 #include "magic_enum/magic_enum.hpp"
 
@@ -7,7 +6,7 @@
 
 
 #if(USE_MIMALLOC_ALLOCATOR)
-	#include <mimalloc-new-delete.h>
+#include <mimalloc-new-delete.h>
 #endif
 
 #include "asserts.h"
@@ -20,48 +19,49 @@
 
 
 using namespace DARP;
-	
+
 
 int main(int argc, const char** argv) {
 	try {
 		// first check whether there is a local config file path argument. It must be the first argument, and it is a
 		// value argument.
 		std::optional<std::filesystem::path> local_config_path;
-		if (argc > 1 && argv[1][0] != '-') {
+		if(argc > 1 && argv[1][0] != '-') {
 			local_config_path = std::filesystem::path{argv[1]};
 			--argc;
 			++argv;
 		}
 
-		std::vector<std::unique_ptr<fc::Config_definition_base>> config_definitions;
-		config_definitions.emplace_back(std::make_unique<fc::Config_definition>()); // default config
+		// std::vector<std::unique_ptr<fc::Config_definition_base>> config_definitions;
+		// config_definitions.emplace_back(std::make_unique<fc::Config_definition>()); // default config
+		//
+		// // add registered config definitions
+		// auto registered_configs = Config_registry::get().get_all_configs();
+		// for(auto& config: registered_configs) {
+		// 	config_definitions.push_back(std::move(config));
+		// }
 
-		// add registered config definitions
-		auto registered_configs = Config_registry::get().get_all_configs();
-		for (auto& config : registered_configs) {
-			config_definitions.push_back(std::move(config));
-		}
+		fc::Load_options load_options{.command_line_arguments = std::make_pair(argc, argv)};
 
 		// add local config if it exists
 		if(local_config_path) {
-			config_definitions.emplace_back(
-				std::make_unique<fc::Config_definition>(fc::Config_type::LOCAL, *local_config_path)
-			);
+			load_options.local_config_path = *local_config_path;
+			// config_definitions.emplace_back(
+			// 	std::make_unique<fc::Config_definition>(fc::Config_type::LOCAL, *local_config_path)
+			// );
 		}
 
 		// add command line config
-		config_definitions.emplace_back(
-			std::make_unique<fc::Command_line_config_definition>(argc, argv)
-		);
+		// config_definitions.emplace_back(std::make_unique<fc::Command_line_config_definition>(argc, argv));
 
-		auto config = fc::load<DARP_benchmark_config>(config_definitions);
+		auto config = fc::load<DARP_benchmark_config>(load_options);
 
 		const auto instance_path = check_path(config.instance);
 		const auto out_path = check_path(config.outdir);
 		std::string method_name = config.method;
 		std::ranges::transform(
 			method_name,
-			method_name.begin(), 
+			method_name.begin(),
 			[](unsigned char c) { return (char) std::toupper(c); }
 		);
 
@@ -74,7 +74,7 @@ int main(int argc, const char** argv) {
 
 		set_up_logger(out_path);
 
-		if (instance_path.extension().string() == ".yaml") {
+		if(instance_path.extension().string() == ".yaml") {
 			DARP_benchmark<Amodsim_node> benchmark{std::make_unique<DARP_benchmark_reader>()};
 			benchmark.run(instance_path, out_path, method_name, config, number_of_trials);
 		}
@@ -82,8 +82,7 @@ int main(int argc, const char** argv) {
 			DARP_benchmark<Cordeau_node> benchmark{std::make_unique<Cordeau_reader>()};
 			benchmark.run(instance_path, out_path, method_name, config, number_of_trials);
 		}
-	}
-	catch (...) {
+	} catch(...) {
 		spdlog::error(ExceptionHandeling::process_unexpected_exception());
 		return -1;
 	}

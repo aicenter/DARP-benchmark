@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.15)
+cmake_minimum_required(VERSION 3.31)
 
 project("DARP-benchmark")
 
@@ -76,7 +76,7 @@ add_library(DARP_benchmark_lib
 )
 target_include_directories(DARP_benchmark_lib
 	PUBLIC
-		${CMAKE_CURRENT_SOURCE_DIR}
+		${CMAKE_CURRENT_SOURCE_DIR}/src
 		${RAPIDJSON_INCLUDE_DIRS}
 		${Boost_INCLUDE_DIRS}
 		${P_RANAV_CSV2_INCLUDE_DIRS}
@@ -154,21 +154,17 @@ target_compile_definitions(test_run PRIVATE IN_TEST)
 
 add_library(external_solvers INTERFACE)
 
-# Run the builder tool that generates the config classes
+# Set up Future Config
 if(DARP_BENCHMARK_EXTERNAL_MAIN_CONFIG_FILE)
 	# When external config is provided, pass both default and external main config files
 	get_filename_component(DEFAULT_MAIN_CONFIG_FILE "${CMAKE_CURRENT_SOURCE_DIR}/data/config.yaml" ABSOLUTE)
-	run_fconfig_builder(MAIN_CONFIG_PATH ${DEFAULT_MAIN_CONFIG_FILE} ${DARP_BENCHMARK_EXTERNAL_MAIN_CONFIG_FILE})
+	setup_fconfig(
+		MAIN_CONFIG_PATHS ${DEFAULT_MAIN_CONFIG_FILE} ${DARP_BENCHMARK_EXTERNAL_MAIN_CONFIG_FILE}
+		TARGET_NAMES DARP-benchmark test_run
+	)
 else()
-	run_fconfig_builder()
+	setup_fconfig(TARGET_NAMES DARP-benchmark test_run)
 endif()
-
-copy_master_config(TARGET_NAMES DARP-benchmark test_run)
-
-if(DARP_BENCHMARK_EXTERNAL_MAIN_CONFIG_FILE)
-	copy_master_config(TARGET_NAMES DARP-benchmark test_run CONFIG_PATH ${DARP_BENCHMARK_EXTERNAL_MAIN_CONFIG_FILE})
-endif()
-
 
 include(GoogleTest)
 gtest_discover_tests(test_run)
