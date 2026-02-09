@@ -149,6 +149,8 @@ add_executable(test_run
 target_link_libraries(test_run
 	PRIVATE
 		DARP_benchmark_test_lib
+		GTest::gtest
+		GTest::gtest_main
 )
 target_compile_definitions(test_run PRIVATE IN_TEST)
 
