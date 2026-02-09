@@ -29,7 +29,7 @@ public:
      * @brief Serialize the vehicle to JSON. Default implementation does nothing.
      * Override in derived classes that need serialization.
      */
-    virtual void JSON_serialize(rapidjson::PrettyWriter<rapidjson::StringBuffer>& /*writer*/) const {}
+	virtual void JSON_serialize(rapidjson::PrettyWriter<rapidjson::StringBuffer>& writer) const = 0;
 
 protected:
     const unsigned short capacity;
@@ -54,6 +54,8 @@ public:
     [[nodiscard]] unsigned int get_time_to_start() const;
 
     [[nodiscard]] unsigned int get_vehicle_count() const;
+
+	void JSON_serialize(rapidjson::PrettyWriter<rapidjson::StringBuffer>& writer) const;
 
 private:
     unsigned int time_to_start;

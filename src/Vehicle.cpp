@@ -17,3 +17,10 @@ unsigned int Virtual_vehicle::get_time_to_start() const {
 unsigned int Virtual_vehicle::get_vehicle_count() const {
     return vehicle_count;
 }
+
+void Virtual_vehicle::JSON_serialize(rapidjson::PrettyWriter<rapidjson::StringBuffer>& writer) const {
+	writer.StartObject();
+	writer.Key("type");
+	writer.String("virtual");
+	writer.EndObject();
+}
