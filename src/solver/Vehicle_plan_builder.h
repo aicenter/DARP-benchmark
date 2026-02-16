@@ -237,6 +237,11 @@ public:
 protected:
 	std::reference_wrapper<const V> vehicle;
 
+    /**
+     * @brief The working version of the departure time. Note that some solvers may initialize this with the 
+     * earliest possible departure (and wait if needed), while others may initialize this with the latest 
+     * possible departure.
+     */
     unsigned long departure_time{0};
 	
     unsigned long arrival_time{0};
@@ -263,12 +268,12 @@ protected:
 		const V& vehicle,
 		plan_size_type init_size,
 		plan_size_type init_time_adjustments_size,
-		unsigned start_time
+		unsigned initial_departure_time = 0
 	):
 		action_order(init_size, -1),
 		iterator_transform_function([this](unsigned short index) -> const A& {return this->action_data[index]; }),
 		vehicle(vehicle),
-		departure_time(start_time),
+		departure_time(initial_departure_time),
 		action_data(),
 		time_adjustments(init_time_adjustments_size, 0),
 		id(id_counter++)
