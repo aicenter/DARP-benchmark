@@ -47,13 +47,13 @@ travel_time_type Distance_matrix_travel_time_provider::get_travel_time(const uns
 	return dm[index];
 }
 
-std::tuple<const unsigned&, time_type> Distance_matrix_travel_time_provider::get_vehicle_location_info(
+std::tuple<unsigned, time_type> Distance_matrix_travel_time_provider::get_vehicle_location_info(
 	const unsigned& last_action_location,
 	const unsigned& next_action_location,
 	time_type time_since_last_action_departure
-) {
+) const {
 	auto lowest_tt_to_i = std::numeric_limits<travel_time_type>::max();
-	auto lowest_tt_to_i_index = 0;
+	unsigned lowest_tt_to_i_index = 0;
 
 	for(unsigned int i = 0; i < width; ++i) {
 		auto tt_last_to_i = get_travel_time(last_action_location, i);

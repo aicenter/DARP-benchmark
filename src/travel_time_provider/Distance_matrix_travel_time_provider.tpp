@@ -40,6 +40,16 @@ Distance_matrix_node_travel_time_provider<L>::Distance_matrix_node_travel_time_p
 	}
 }
 
+template <typename L>
+Distance_matrix_node_travel_time_provider<L>::Distance_matrix_node_travel_time_provider(
+	const std::vector<std::shared_ptr<const L>>& nodes_par,
+	std::unique_ptr<travel_time_type[]> dm
+): Distance_matrix_travel_time_provider(static_cast<unsigned>(nodes_par.size()), std::move(dm)) {
+	for (size_t i = 0; i < nodes_par.size(); ++i) {
+		nodes[static_cast<unsigned>(i)] = nodes_par[i];
+	}
+}
+
 
 template<typename L>
 travel_time_type Distance_matrix_node_travel_time_provider<L>::get_travel_time(const L &from, const L &to) const {

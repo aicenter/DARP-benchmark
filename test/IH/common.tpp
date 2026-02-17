@@ -3,8 +3,8 @@
 //
 
 
-template<class A>
-auto IH_SVDARP_test_plan<A>::parse_actions_from_json(const rapidjson::GenericValue<rapidjson::UTF8<>>& json_data) {
+template<class A, class V>
+auto IH_SVDARP_test_plan<A, V>::parse_actions_from_json(const rapidjson::GenericValue<rapidjson::UTF8<>>& json_data) {
 	const auto& json_actions = json_data["actions"].GetArray();
 
 	// first pass to fill pickup and drop off maps
@@ -46,12 +46,12 @@ auto IH_SVDARP_test_plan<A>::parse_actions_from_json(const rapidjson::GenericVal
 }
 
 
-template<class A>
-IH_SVDARP_test_plan<A>::IH_SVDARP_test_plan(
+template<class A, class V>
+IH_SVDARP_test_plan<A, V>::IH_SVDARP_test_plan(
 	const rapidjson::GenericValue<rapidjson::UTF8<>>& json_data,
-	const Test_vehicle& vehicle
+	const V& vehicle
 ):
-	DARP_benchmark_plan_template<A, Test_vehicle>(
+	DARP_benchmark_plan_template<A, V>(
 		parse_actions_from_json(json_data),
 		vehicle,
 		json_data["cost"].GetUint(),

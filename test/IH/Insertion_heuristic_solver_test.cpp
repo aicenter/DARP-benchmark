@@ -9,6 +9,7 @@
 #include "./common.h"
 #include "../../src/solver/IH/Insertion_heuristic_solver.h"
 #include "../../src/Cordeau_benchmark.h"
+#include "../../src/travel_time_provider/Travel_time_provider.h"
 #include "../../src/travel_time_provider/Distance_matrix_travel_time_provider.h"
 #include "../../src/config/DARP-benchmark_config.h"
 
@@ -73,6 +74,26 @@ public:
 
 using IH_test_plan = IH_SVDARP_test_plan<IH_test_action_data>;
 
+/** Adapter: exposes Travel_time_provider<unsigned> for Insertion_heuristic_solver<unsigned,...> using raw matrix. */
+class Distance_matrix_as_unsigned_tt_provider : public Travel_time_provider<unsigned> {
+	public:
+		explicit Distance_matrix_as_unsigned_tt_provider(std::shared_ptr<Distance_matrix_travel_time_provider> inner)
+			: inner_(std::move(inner)) {}
+		travel_time_type get_travel_time(const unsigned& from, const unsigned& to) const override {
+			return inner_->get_travel_time(from, to);
+		}
+		std::tuple<const unsigned&, time_type> get_vehicle_location_info(
+			const unsigned& last_action_location,
+			const unsigned& next_action_location,
+			time_type time_since_last_action_departure) override {
+			auto [idx, t] = inner_->get_vehicle_location_info(last_action_location, next_action_location, time_since_last_action_departure);
+			cached_index_ = idx;
+			return {cached_index_, t};
+		}
+	private:
+		std::shared_ptr<Distance_matrix_travel_time_provider> inner_;
+		mutable unsigned cached_index_{0};
+	};
 
 auto load_data_from_json_file(const std::string& path) {
 	rapidjson::Document doc = load_json_to_dom(fmt::format("test_resources/{}", path));
@@ -106,6 +127,10 @@ auto load_data_from_json_file(const std::string& path) {
 		}
 	}
 
+	// Expose as Travel_time_provider<unsigned> for Insertion_heuristic_solver<unsigned,...>
+	auto travel_time_provider = std::make_shared<Distance_matrix_as_unsigned_tt_provider>(
+		std::make_shared<Distance_matrix_travel_time_provider>(size, std::move(dm)));
+
 	// load expected plan
 	auto expected_plan_data = doc["expected_plan"].GetObj();
 	auto expected_plan = std::make_unique<IH_test_plan>(expected_plan_data, *vehicle);
@@ -118,7 +143,7 @@ auto load_data_from_json_file(const std::string& path) {
 	return std::tuple{
 		std::move(plan),
 		std::move(request),
-		std::make_shared<Distance_matrix_travel_time_provider>(size, std::move(dm)),
+		travel_time_provider,
 		std::move(vehicle),
 		std::move(expected_plan),
 		std::make_shared<DARP_instance_configuration>(0, 0, false, false, vehicle_start_time)
@@ -250,7 +275,7 @@ TEST(Insertion_heuristic_solver_test, insert_request_in_plan) {
 	const auto& [plan, request, travel_time_provider, vehicle, expected_plan, config]
 		= load_data_from_json_file("/IH_insert_in_plan_data.json");
 
-	// insert in plan
+	// insert in plan (N=unsigned; provider is adapter over Distance_matrix_travel_time_provider)
 	auto solver_config = fc::load<DARP_benchmark_config>();
 	Insertion_heuristic_solver<unsigned, IH_test_action_data, Test_vehicle, IH_test_plan> solver(
 		travel_time_provider,

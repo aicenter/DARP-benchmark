@@ -6,6 +6,7 @@
 #include "./common.h"
 #include "../../src/inout.h"
 #include "../../src/Cordeau_benchmark.h"
+#include "../../src/Vehicle.h"
 #include "../../src/solver/IH/IH_vehicle_plan_builder.h"
 #include "../../src/solver/IH/SVDARP.h"
 #include "../../src/travel_time_provider/Distance_matrix_travel_time_provider.h"
@@ -534,6 +535,32 @@ std::pair<
 		check_plan_builders_equal(plan, expected_plan);
 	}
 
+	/** Adapter: exposes Travel_time_provider<unsigned> by wrapping Distance_matrix_node_travel_time_provider<Test_action_data<>>. */
+	class Unsigned_from_node_provider_adapter : public Travel_time_provider<unsigned> {
+	public:
+		explicit Unsigned_from_node_provider_adapter(
+			std::shared_ptr<Distance_matrix_node_travel_time_provider<Test_action_data<>>> inner)
+			: inner_(std::move(inner)) {}
+		travel_time_type get_travel_time(const unsigned& from, const unsigned& to) const override {
+			Test_action_data<> from_node(from, Action_type::depot, 0);
+			Test_action_data<> to_node(to, Action_type::depot, 0);
+			return inner_->get_travel_time(from_node, to_node);
+		}
+		std::tuple<const unsigned&, time_type> get_vehicle_location_info(
+			const unsigned& last_action_location,
+			const unsigned& next_action_location,
+			time_type time_since_last_action_departure) override {
+			Test_action_data<> last_node(last_action_location, Action_type::depot, 0);
+			Test_action_data<> next_node(next_action_location, Action_type::depot, 0);
+			auto [loc, t] = inner_->get_vehicle_location_info(last_node, next_node, time_since_last_action_departure);
+			cached_index_ = loc.get_index();
+			return {cached_index_, t};
+		}
+	private:
+		std::shared_ptr<Distance_matrix_node_travel_time_provider<Test_action_data<>>> inner_;
+		mutable unsigned cached_index_{0};
+	};
+
 	TEST(IH_SVDARP_test_insert_request_into_plan_optimally, capacity_test) {
 		// get requests action data
 		const std::pair<
@@ -541,14 +568,17 @@ std::pair<
 			std::unique_ptr<std::vector<Test_request<>>>
 		> instance = load_data("instance_capacity_test.json");
 
+		// Expose as Travel_time_provider<unsigned> for SVDARP<unsigned, ...>
+		auto travel_time_provider = std::make_shared<Unsigned_from_node_provider_adapter>(instance.first);
+
 		// create empty plan builder
 		Test_vehicle test_vehicle(1);
-		IH_vehicle_plan_builder<Test_vehicle, Test_action_data<>,IH_SVDARP_test_plan<>> plan_builder(test_vehicle, 4);
+		IH_vehicle_plan_builder<Test_vehicle, Test_action_data<>, IH_SVDARP_test_plan<>> plan_builder(test_vehicle, 4);
 
 		// create IH SVDARP
 		auto config = std::make_shared<DARP_instance_configuration>(0, 0, false);
 		SVDARP<unsigned, Test_vehicle, Test_action_data<>, IH_SVDARP_test_plan<>> solver(
-			instance.first, std::move(config));
+			travel_time_provider, std::move(config));
 
 		// try to add both requests
 		solver.insert_request_into_plan_optimally(

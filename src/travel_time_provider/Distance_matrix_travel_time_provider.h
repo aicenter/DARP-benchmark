@@ -17,9 +17,10 @@ public:
 
 /**
  * @brief Travel time provider that uses a distance matrix lookup to determine the travel time.
- * The locations here are indices to the matrix.
-*/
-class Distance_matrix_travel_time_provider: public Travel_time_provider<unsigned> {
+ * The locations here are indices to the matrix. Does not inherit from Travel_time_provider<unsigned>
+ * so that get_vehicle_location_info can return std::tuple<unsigned, time_type> by value.
+ */
+class Distance_matrix_travel_time_provider {
 public:
 	Distance_matrix_travel_time_provider(unsigned width, unsigned height, std::unique_ptr<travel_time_type[]> dm);
 
@@ -41,13 +42,13 @@ public:
 	 */
 	Distance_matrix_travel_time_provider(Distance_matrix_reader&& reader, const std::string& dm_filepath);
 
-	[[nodiscard]] travel_time_type get_travel_time(const unsigned& from, const unsigned& to) const override;
+	[[nodiscard]] travel_time_type get_travel_time(const unsigned& from, const unsigned& to) const;
 
-	[[nodiscard]] std::tuple<const unsigned&, time_type> get_vehicle_location_info(
+	[[nodiscard]] std::tuple<unsigned, time_type> get_vehicle_location_info(
 		const unsigned& last_action_location,
 		const unsigned& next_action_location,
 		time_type time_since_last_action_departure
-	) override;
+	) const;
 
 protected:
 	unsigned width;
@@ -87,6 +88,15 @@ public:
 		const Travel_time_provider<L>& travel_time_provider
 	);
 
+	/**
+	 * Builds provider from pre-filled nodes and distance matrix. Nodes must be indexed 0..nodes_par.size()-1
+	 * (node at nodes_par[i] is used for matrix index i).
+	 */
+	Distance_matrix_node_travel_time_provider(
+		const std::vector<std::shared_ptr<const L>>& nodes_par,
+		std::unique_ptr<travel_time_type[]> dm
+	);
+
 
 	using Distance_matrix_travel_time_provider::get_travel_time;
 
@@ -103,6 +113,5 @@ public:
 };
 
 //static_assert(Travel_time_provider<Distance_matrix_node_travel_time_provider<int>, int>);
-static_assert(Pointer_iterable<std::vector<const Vehicle<unsigned>*>,Vehicle<unsigned>>);
 
 #include "Distance_matrix_travel_time_provider.tpp"
