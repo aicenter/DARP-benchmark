@@ -17,6 +17,16 @@
 
 namespace fs = std::filesystem;
 
+namespace {
+/** Returns true if the file's first line contains a comma (CSV-style). */
+bool file_has_commas(const std::string& file_path) {
+	std::ifstream f(file_path);
+	if (!f) return false;
+	std::string first_line;
+	while (std::getline(f, first_line) && first_line.find_first_not_of(" \t\r\n") == std::string::npos) {}
+	return first_line.find(',') != std::string::npos;
+}
+} // namespace
 
 DARP_instance<Amodsim_node> DARP_benchmark_reader::read(std::filesystem::path instance_filepath) {
     spdlog::info("Reading Amodsim instance from: {}", instance_filepath.string());
@@ -59,8 +69,7 @@ DARP_instance<Amodsim_node> DARP_benchmark_reader::read(std::filesystem::path in
 	auto vehicles = std::make_unique<std::vector<Vehicle<Amodsim_node>>>();
 	if(!configuration->use_virtual_vehicles()){
 	    std::string vehicles_filepath = std::filesystem::path(instance_filepath).remove_filename().string() + "vehicles.csv";
-	    const fs::path vehicles_path(vehicles_filepath);
-	    if (vehicles_path.extension() == ".csv") {
+	    if (file_has_commas(vehicles_filepath)) {
 		    load_vehicles_csv(*vehicles, vehicles_filepath);
 	    } else {
 		    load_vehicles(*vehicles, vehicles_filepath);
@@ -173,8 +182,19 @@ std::string trim_copy(const std::string& s) {
     return s.substr(start, end == std::string::npos ? std::string::npos : end - start + 1);
 }
 
+/** Detect delimiter: comma or tab (prefers whichever occurs more in the header). */
+char detect_tab_or_comma_delimiter(const std::string& header_line) {
+	const auto comma_count = static_cast<size_t>(std::count(header_line.begin(), header_line.end(), ','));
+	const auto tab_count = static_cast<size_t>(std::count(header_line.begin(), header_line.end(), '\t'));
+	if (comma_count == 0 && tab_count == 0) {
+		throw std::runtime_error("Request CSV header must be comma- or tab-delimited");
+	}
+	return tab_count > comma_count ? '\t' : ',';
+}
+
 /** Parse request CSV header: accept "time_ms" or "time" (time), "origin", "dest" or "destination". */
 void parse_requests_csv_header(const std::string& header_line,
+	char delimiter,
     int& time_col, int& origin_col, int& dest_col, bool& time_in_seconds) {
     std::istringstream iss(header_line);
     std::string cell;
@@ -183,7 +203,7 @@ void parse_requests_csv_header(const std::string& header_line,
     origin_col = -1;
     dest_col = -1;
     time_in_seconds = false;
-    while (std::getline(iss, cell, ',')) {
+    while (std::getline(iss, cell, delimiter)) {
         std::string name = trim_copy(cell);
         if (name == "time_ms") {
             time_col = col;
@@ -227,10 +247,12 @@ std::unique_ptr<std::vector<Request<Amodsim_node>>> DARP_benchmark_reader::load_
         throw std::runtime_error("Request CSV file is empty: " + request_filepath_str);
     }
 
+	const char delimiter = detect_tab_or_comma_delimiter(header_line);
+
     int time_col, origin_col, dest_col;
     bool time_in_seconds;
     try {
-        parse_requests_csv_header(header_line, time_col, origin_col, dest_col, time_in_seconds);
+        parse_requests_csv_header(header_line, delimiter, time_col, origin_col, dest_col, time_in_seconds);
     } catch (const std::exception& e) {
         throw std::runtime_error(std::string("Request CSV header: ") + e.what());
     }
@@ -241,7 +263,7 @@ std::unique_ptr<std::vector<Request<Amodsim_node>>> DARP_benchmark_reader::load_
         std::vector<std::string> cells;
         std::istringstream iss(line);
         std::string cell;
-        while (std::getline(iss, cell, ',')) {
+        while (std::getline(iss, cell, delimiter)) {
             cells.push_back(trim_copy(cell));
         }
         const int max_col = std::max({time_col, origin_col, dest_col});
