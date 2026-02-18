@@ -457,7 +457,8 @@ VehiclePlan<Amodsim_node> generate_expected_plan_amodsim_node(
 	ActionData<Amodsim_node>& pickup_action_data = expected_plan.add_action(r.get_pickup());
 	pickup_action_data.set_departure_time(pickup_action_data.get_min_time() + service_time);
 	ActionData<Amodsim_node>& drop_off_action_data = expected_plan.add_action(r.get_dropoff());
-	const unsigned int travel_time = travel_time_provider.get_travel_time(r.get_pickup().get_node(),
+	auto travel_time = travel_time_provider.get_travel_time(td.get_vehicles().at(0).get_init_position(), r.get_pickup().get_node());
+	travel_time += travel_time_provider.get_travel_time(r.get_pickup().get_node(),
 		r.get_dropoff().get_node());
 	drop_off_action_data.set_arrival_time(drop_off_action_data.get_min_time());
 	drop_off_action_data.set_departure_time(drop_off_action_data.get_arrival_time() + service_time);

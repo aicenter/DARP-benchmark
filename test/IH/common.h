@@ -29,24 +29,24 @@ private:
 	unsigned init_position{0};
 };
 
-template<class A = Test_action_data<>>
+template<class A = Test_action_data<>, class V = Test_vehicle>
 class IH_SVDARP_test_plan :
-	public DARP_benchmark_plan_template<A, Test_vehicle> {
+	public DARP_benchmark_plan_template<A, V> {
 public:
 	/**
 	 * @brief Construct an empty plan.
 	 * @param vehicle vehicle
 	 */
-	explicit IH_SVDARP_test_plan(const Test_vehicle& vehicle)
-		: DARP_benchmark_plan_template<A, Test_vehicle>(vehicle) {}
+	explicit IH_SVDARP_test_plan(const V& vehicle)
+		: DARP_benchmark_plan_template<A, V>(vehicle) {}
 
 	/**
 	 * @brief Construct a plan with the given actions. Used for manual plan creation in tests.
 	 * @param vehicle vehicle
 	 * @param actions actions
 	 */
-	IH_SVDARP_test_plan(const Test_vehicle& vehicle, const std::vector<A>& actions, unsigned cost)
-		: DARP_benchmark_plan_template<A, Test_vehicle>(actions, vehicle, cost) {}
+	IH_SVDARP_test_plan(const V& vehicle, const std::vector<A>& actions, unsigned cost)
+		: DARP_benchmark_plan_template<A, V>(actions, vehicle, cost) {}
 
 	/**
 	 * @brief Constructor for vehicle plan builder
@@ -57,19 +57,19 @@ public:
 	 * @param arrival_time
 	 */
 	IH_SVDARP_test_plan(
-		const Test_vehicle& vehicle,
+		const V& vehicle,
 		unsigned cost,
 		const std::vector<A>& vehicle_plan_actions,
 		time_type departure_time,
 		time_type arrival_time
 	) :
-		DARP_benchmark_plan_template<A, Test_vehicle>(vehicle_plan_actions, vehicle, cost, departure_time, arrival_time) {}
+		DARP_benchmark_plan_template<A, V>(vehicle_plan_actions, vehicle, cost, departure_time, arrival_time) {}
 
-	explicit IH_SVDARP_test_plan(const rapidjson::GenericValue<rapidjson::UTF8<>>& json_data, const Test_vehicle& vehicle);
+	explicit IH_SVDARP_test_plan(const rapidjson::GenericValue<rapidjson::UTF8<>>& json_data, const V& vehicle);
 
 	[[nodiscard]] const A& get_other(const A&) const { return this->actions[0]; };
 
-	void test_check_equal(const IH_SVDARP_test_plan<A>& other) const {
+	void test_check_equal(const IH_SVDARP_test_plan<A, V>& other) const {
 		check_plan_basics_equal(*this, other);
 		EXPECT_EQ(this->get_cost(), other.get_cost());
 		ASSERT_EQ(this->get_length(), other.get_length());

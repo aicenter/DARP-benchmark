@@ -56,7 +56,8 @@ public:
 
 	Insertion_heuristic_solver(
 		const std::shared_ptr<Travel_time_provider<N>>& travel_time_provider,
-		const std::shared_ptr<DARP_instance_configuration>& instance_configuration
+		const std::shared_ptr<DARP_instance_configuration>& instance_configuration,
+		const DARP_benchmark_config& solver_config
 	);
 
 

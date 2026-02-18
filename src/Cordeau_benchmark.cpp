@@ -85,12 +85,12 @@ R"(Instance statistics:
 
 	const std::shared_ptr<Euclidean_travel_time_provider<Cordeau_node>> euclidean_travel_time_provider
         {new Euclidean_travel_time_provider<Cordeau_node>(60u)};
-    std::vector<const Cordeau_node*> nodes;
-    nodes.push_back(depot_node.get());
+    std::vector<std::shared_ptr<const Cordeau_node>> nodes;
+    nodes.push_back(depot_node);
 
     while (infile >> id >> x >> y >> service_time >> origin >> min_time >> max_time) {
-        std::shared_ptr<Cordeau_node> node {new Cordeau_node(x, y, id)};
-    	nodes.push_back(node.get());
+        auto node = std::make_shared<Cordeau_node>(x, y, id);
+    	nodes.push_back(node);
         if(origin == 1){
             origin_actions.emplace(node, ((unsigned int) min_time) * 60u, ((unsigned int) max_time) * 60u, (unsigned short) (service_time * 60u));
         }

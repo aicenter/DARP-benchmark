@@ -3,9 +3,20 @@
 //
 
 template<typename N, class P>
-DARP_benchmark_solver<N, P>::DARP_benchmark_solver(const DARP_instance<N>& instance) :
+DARP_benchmark_solver<N, P>::DARP_benchmark_solver(const DARP_instance<N>& instance, const DARP_benchmark_config& config) :
 	DARP_solver<N>(instance.get_travelcost_provider(), instance.get_darp_instance_configuration()),
-	darp_instance(&instance) {
+	darp_instance(&instance),
+	solver_config(config) {
+}
+
+template<typename N, class P>
+DARP_benchmark_solver<N, P>::DARP_benchmark_solver(
+	const std::shared_ptr<Travel_time_provider<N>>& travel_time_provider,
+	const std::shared_ptr<DARP_instance_configuration>& instance_configuration,
+	const DARP_benchmark_config& config
+) :
+	DARP_solver<N>(travel_time_provider, instance_configuration),
+	solver_config(config) {
 }
 
 template<typename N, class P>
@@ -44,7 +55,7 @@ std::optional<VehiclePlan<N>> DARP_benchmark_solver<N, P>::compute_optimal_plan(
 	std::optional<VehiclePlan<N>> best_plan{};
 	unsigned int min_cost_increment = std::numeric_limits<unsigned int>::max();
 
-	const Vehicle<N>& vehicle = current_plan.get_vehicle();
+	const auto& vehicle = current_plan.get_vehicle();
 	unsigned short free_capacity = vehicle.get_capacity();
 
 	for (unsigned short pickup_option_index = 0;
@@ -90,12 +101,12 @@ std::optional<P> DARP_benchmark_solver<N, P>::insert_into_plan(
 	const Request<N>& request
 ) {
 
-	const Vehicle<N>& vehicle = current_plan.get_vehicle();
+	const auto& vehicle = current_plan.get_vehicle();
 
 	/*std::vector<ActionData<N>> new_plan_tasks;
 	new_plan_tasks.reserve(current_plan.get_lenght() + 2);*/
 
-	VehiclePlan<N> vehicle_plan{vehicle, (unsigned short) (current_plan.get_length() + 2)};
+	VehiclePlan<N> vehicle_plan{vehicle, static_cast<unsigned short>(current_plan.get_length() + 2)};
 
 	// travel time of the new plan in seconds
 	unsigned int current_time = 0;

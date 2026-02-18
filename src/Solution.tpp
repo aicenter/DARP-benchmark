@@ -67,13 +67,11 @@ template<typename N, Benchmark_plan P>
 Solution<N,P>::Solution(
     std::vector<P>&& vehicle_plans, 
     unsigned long cost, 
-    std::vector<const Request<N>*>&& dropped_requests,
-    std::shared_ptr<std::vector<Vehicle<N>>> virtual_vehicles
+    std::vector<const Request<N>*>&& dropped_requests
 ):
 	Solution_interface<N>(cost, std::move(dropped_requests), true),
-    plans{vehicle_plans}, 
-	virtual_vehicles(std::move(virtual_vehicles)
-) {
+    plans{vehicle_plans}
+{
 	assert(check());	
 }
 
@@ -93,12 +91,10 @@ Solution<N,P>::Solution(
 template<typename N, Benchmark_plan P>
 Solution<N,P>::Solution(
     const DARP_instance<N>& instance, 
-    std::vector<P>&& vehicle_plans,
-    std::shared_ptr<std::vector<Vehicle<N>>>&& virtual_vehicles
+    std::vector<P>&& vehicle_plans
 ):
 	Solution_interface<N>(0, std::vector<const Request<N>*>{}, true),
-    plans{ vehicle_plans },
-    virtual_vehicles{ std::move(virtual_vehicles) }
+    plans{ vehicle_plans }
 {
 
     std::unordered_set<const Request<N>*> served_requests;

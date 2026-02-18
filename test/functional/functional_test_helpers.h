@@ -70,6 +70,7 @@ void run_functional_test(
 	// Load the computed result
 	const std::string instance_filename = instance_path.filename().string();
 	const fs::path computed_solution_path = output_path / (instance_filename + "-solution.json");
+	ASSERT_TRUE(fs::exists(computed_solution_path));
 	Solution<N> computed_solution = deserialize_json<N>(computed_solution_path, darp_instance);
 	
 	// Load the expected results

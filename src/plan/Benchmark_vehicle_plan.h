@@ -7,7 +7,7 @@
 
 /**
  * @brief Base class for all plans that are used in the benchmark executable. It is parametrized only by the type of
- * the nodes, but actions are always of type ActionData<N> and vehicles are always of type Vehicle<N>.
+ * the nodes, but actions are always of type ActionData<N> and vehicles can be any Vehicle_base derived type.
  * @tparam N node type
  */
 class Benchmark_vehicle_plan{
