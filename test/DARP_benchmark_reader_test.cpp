@@ -196,3 +196,34 @@ TEST(DARP_benchmark_reader_test, request_loading_di) {
 	);
 	assert_requests_equal(actual_requests[2], expected_req_2);
 }
+
+TEST(DARP_benchmark_reader_test, read_grid_instance) {
+	// Path relative to test run dir (data/ is copied to build dir; grid instance in data/test_resources/grid)
+	const std::filesystem::path instance_path = "test_resources/grid/config.yaml";
+	if (!std::filesystem::exists(instance_path)) {
+		GTEST_SKIP() << "Grid instance not found: " << instance_path.string();
+	}
+
+	// Resolve paths relative to instance dir (config has demand.filepath: ./requests.csv)
+	const auto absolute_instance_path = std::filesystem::absolute(instance_path);
+	const auto instance_dir = absolute_instance_path.parent_path();
+	const auto saved_cwd = std::filesystem::current_path();
+	std::filesystem::current_path(instance_dir);
+
+	DARP_benchmark_reader reader;
+	DARP_instance<Amodsim_node> instance = reader.read(absolute_instance_path);
+
+	std::filesystem::current_path(saved_cwd);
+
+	ASSERT_GT(instance.get_requests().size(), 0u);
+
+	// Grid config: 5x5, distance 10. First request in requests.csv: time=1255, origin=1, destination=18.
+	// Vertex 1 = (0,1), vertex 18 = (3,3) -> Manhattan = 3+2 = 5 -> travel time 5*10 = 50
+	const auto& req0 = instance.get_requests()[0];
+	EXPECT_EQ(instance.get_travelcost_provider()->get_travel_time(
+		req0.get_pickup().get_node(),
+		req0.get_dropoff().get_node()), 50u);
+
+	// Sanity: 4 requests from data/test_resources/grid/requests.csv
+	EXPECT_EQ(instance.get_requests().size(), 4u);
+}

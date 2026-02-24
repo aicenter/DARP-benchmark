@@ -13,6 +13,7 @@
 #include "inout.h"
 #include "travel_time_provider/CSV_reader.h"
 #include "travel_time_provider/Distance_matrix_travel_time_provider.h"
+#include "travel_time_provider/Grid_travel_time_provider.h"
 #include "travel_time_provider/HDF_reader.h"
 
 namespace fs = std::filesystem;
@@ -35,7 +36,23 @@ DARP_instance<Amodsim_node> DARP_benchmark_reader::read(std::filesystem::path in
 
 	auto configuration = internal::load_instance_configuration(config);
 
-    // dm loading
+	// Grid instance: type == "grid" (same logic as Python load_instance)
+	if (config["type"] && config["type"].as<std::string>() == "grid") {
+		const unsigned grid_size = config["size"].as<unsigned>();
+		const travel_time_type distance = config["distance"].as<travel_time_type>();
+		auto travel_cost_provider = std::make_shared<fleet_sizing::Grid_travel_time_provider<Amodsim_node>>(grid_size, distance);
+		spdlog::info("Using grid travel time provider (size={}, distance={})", grid_size, distance);
+		auto vehicles = std::make_unique<std::vector<Vehicle<Amodsim_node>>>();
+		auto requests = load_requests(config, std::static_pointer_cast<Travel_time_provider<Amodsim_node>>(travel_cost_provider));
+		return {
+			std::move(requests),
+			std::move(vehicles),
+			std::static_pointer_cast<Travel_time_provider<Amodsim_node>>(travel_cost_provider),
+			configuration
+		};
+	}
+
+    // dm loading (non-grid)
     fs::path dm_filepath;
     if(config["dm_filepath"]) {
 	    dm_filepath = fs::path(config["dm_filepath"].as<std::string>());
@@ -132,7 +149,10 @@ std::unique_ptr<std::vector<Request<Amodsim_node>>> DARP_benchmark_reader::load_
 ) {
     const auto request_filepath_str = config["demand"]["filepath"].as<std::string>();
     const auto request_filepath = check_path(request_filepath_str); // Ensure path is valid
-    const auto max_prolongation = config["max_prolongation"].as<unsigned short>();
+	// Grid instances use max_travel_time_delay.seconds; others use max_prolongation (same as Python load_instance)
+	const auto max_prolongation = (config["type"] && config["type"].as<std::string>() == "grid")
+		? static_cast<unsigned short>(config["max_travel_time_delay"]["seconds"].as<unsigned int>())
+		: config["max_prolongation"].as<unsigned short>();
 
     if (request_filepath.extension() == ".csv") {
         spdlog::info("Detected .csv format, using CSV loader for requests.");

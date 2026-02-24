@@ -3,6 +3,14 @@
 #include <yaml-cpp/yaml.h>
 #include "Reader.h"
 #include "DARP_benchmark_node.h"
+#include "travel_time_provider/Grid_travel_time_provider.h"
+
+namespace fleet_sizing {
+template <>
+struct grid_vertex_index_trait<Amodsim_node> {
+	static unsigned get(const Amodsim_node& n) { return n.get_index(); }
+};
+}
 
 namespace internal{
 std::shared_ptr<DARP_instance_configuration> load_instance_configuration(const YAML::Node& config);

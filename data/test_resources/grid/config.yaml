@@ -1,0 +1,13 @@
+type: grid
+size: 5
+distance: 10
+requests: 4
+demand:
+    filepath: ./requests.csv
+    min_time: 0
+    max_time: 28800
+vehicles:
+    start_time: "1970-01-01 00:00:00"
+max_travel_time_delay:
+    mode: absolute
+    seconds: 3600

@@ -141,6 +141,7 @@ add_executable(test_run
 	test/DARP_benchmark_reader_test.cpp
 	test/Distance_matrix_travel_time_provider_test.cpp
 	test/Euclidean_traveltime_provider_test.cpp
+	test/Grid_travel_time_provider_test.cpp
 	test/IH/IH_SVDARP_test.cpp
 	test/IH/Insertion_heuristic_solver_test.cpp
 	test/Vehicle_plan_test.cpp
