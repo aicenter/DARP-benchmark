@@ -47,7 +47,7 @@ public:
 	[[nodiscard]] std::tuple<unsigned, travel_time_type> get_vehicle_location_info(
 		const unsigned& last_action_location,
 		const unsigned& next_action_location,
-		time_type time_since_last_action_departure
+		travel_time_type time_since_last_action_departure
 	) const;
 
 protected:
@@ -105,7 +105,7 @@ public:
 	[[nodiscard]] std::tuple<const L&, travel_time_type> get_vehicle_location_info(
 		const L& last_action_location,
 		const L& next_action_location,
-		time_type time_since_last_action_departure
+		travel_time_type time_since_last_action_departure
 	) override;
 
 

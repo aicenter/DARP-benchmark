@@ -50,7 +50,7 @@ travel_time_type Distance_matrix_travel_time_provider::get_travel_time(const uns
 std::tuple<unsigned, travel_time_type> Distance_matrix_travel_time_provider::get_vehicle_location_info(
 	const unsigned& last_action_location,
 	const unsigned& next_action_location,
-	time_type time_since_last_action_departure
+	travel_time_type time_since_last_action_departure
 ) const {
 	auto lowest_tt_to_i = std::numeric_limits<travel_time_type>::max();
 	unsigned lowest_tt_to_i_index = 0;

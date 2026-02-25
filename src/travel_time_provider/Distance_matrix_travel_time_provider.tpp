@@ -60,7 +60,7 @@ template<typename L>
 std::tuple<const L&, travel_time_type> Distance_matrix_node_travel_time_provider<L>::get_vehicle_location_info(
 	const L& last_action_location,
 	const L& next_action_location,
-	time_type time_since_last_action_departure
+	travel_time_type time_since_last_action_departure
 ) {
 	auto [index, time_to_next_node] = Distance_matrix_travel_time_provider::get_vehicle_location_info(
 		last_action_location.get_index(),

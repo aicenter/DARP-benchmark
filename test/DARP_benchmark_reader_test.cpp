@@ -29,7 +29,7 @@ public:
 	[[nodiscard]] std::tuple<const Amodsim_node&, travel_time_type> get_vehicle_location_info(
 		[[maybe_unused]] const Amodsim_node& last_action_location,
 		[[maybe_unused]] const Amodsim_node& next_action_location,
-		[[maybe_unused]] time_type time_since_last_action_departure
+		[[maybe_unused]] travel_time_type time_since_last_action_departure
 	) override {
 		return std::make_tuple(Amodsim_node(0),0);
 	}
