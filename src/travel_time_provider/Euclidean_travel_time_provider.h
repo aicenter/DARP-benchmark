@@ -30,7 +30,7 @@ public:
     [[nodiscard]] std::tuple<const L&, travel_time_type> get_vehicle_location_info(
 	    const L& last_action_location,
 	    const L& next_action_location,
-	    travel_time_type time_since_last_action_departure
+	    time_type time_since_last_action_departure
     ) override;
 
 private:

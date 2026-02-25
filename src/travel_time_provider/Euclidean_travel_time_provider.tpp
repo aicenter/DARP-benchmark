@@ -25,7 +25,7 @@ template<typename L>
 std::tuple<const L&, travel_time_type> Euclidean_travel_time_provider<L>::get_vehicle_location_info(
 	[[maybe_unused]] const L& last_action_location,
 	[[maybe_unused]] const L& next_action_location,
-	[[maybe_unused]] travel_time_type time_since_last_action_departure
+	[[maybe_unused]] time_type time_since_last_action_departure
 ) {
 	throw std::runtime_error("Not implemented");
 }
