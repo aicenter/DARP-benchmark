@@ -26,7 +26,7 @@ public:
 		return 0;
 	}
 
-	[[nodiscard]] std::tuple<const Amodsim_node&, time_type> get_vehicle_location_info(
+	[[nodiscard]] std::tuple<const Amodsim_node&, travel_time_type> get_vehicle_location_info(
 		[[maybe_unused]] const Amodsim_node& last_action_location,
 		[[maybe_unused]] const Amodsim_node& next_action_location,
 		[[maybe_unused]] time_type time_since_last_action_departure

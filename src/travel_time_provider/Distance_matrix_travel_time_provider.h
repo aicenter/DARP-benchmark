@@ -18,7 +18,7 @@ public:
 /**
  * @brief Travel time provider that uses a distance matrix lookup to determine the travel time.
  * The locations here are indices to the matrix. Does not inherit from Travel_time_provider<unsigned>
- * so that get_vehicle_location_info can return std::tuple<unsigned, time_type> by value.
+ * so that get_vehicle_location_info can return std::tuple<unsigned, travel_time_type> by value.
  */
 class Distance_matrix_travel_time_provider {
 public:
@@ -44,7 +44,7 @@ public:
 
 	[[nodiscard]] travel_time_type get_travel_time(const unsigned& from, const unsigned& to) const;
 
-	[[nodiscard]] std::tuple<unsigned, time_type> get_vehicle_location_info(
+	[[nodiscard]] std::tuple<unsigned, travel_time_type> get_vehicle_location_info(
 		const unsigned& last_action_location,
 		const unsigned& next_action_location,
 		time_type time_since_last_action_departure
@@ -102,7 +102,7 @@ public:
 
 	travel_time_type get_travel_time(const L& from, const L& to) const override;
 
-	[[nodiscard]] std::tuple<const L&, time_type> get_vehicle_location_info(
+	[[nodiscard]] std::tuple<const L&, travel_time_type> get_vehicle_location_info(
 		const L& last_action_location,
 		const L& next_action_location,
 		time_type time_since_last_action_departure

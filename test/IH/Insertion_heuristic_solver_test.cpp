@@ -82,7 +82,7 @@ class Distance_matrix_as_unsigned_tt_provider : public Travel_time_provider<unsi
 		travel_time_type get_travel_time(const unsigned& from, const unsigned& to) const override {
 			return inner_->get_travel_time(from, to);
 		}
-		std::tuple<const unsigned&, time_type> get_vehicle_location_info(
+		std::tuple<const unsigned&, travel_time_type> get_vehicle_location_info(
 			const unsigned& last_action_location,
 			const unsigned& next_action_location,
 			time_type time_since_last_action_departure) override {

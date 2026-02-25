@@ -47,7 +47,7 @@ travel_time_type Distance_matrix_travel_time_provider::get_travel_time(const uns
 	return dm[index];
 }
 
-std::tuple<unsigned, time_type> Distance_matrix_travel_time_provider::get_vehicle_location_info(
+std::tuple<unsigned, travel_time_type> Distance_matrix_travel_time_provider::get_vehicle_location_info(
 	const unsigned& last_action_location,
 	const unsigned& next_action_location,
 	time_type time_since_last_action_departure
@@ -70,7 +70,8 @@ std::tuple<unsigned, time_type> Distance_matrix_travel_time_provider::get_vehicl
 	}
 
 	// compute the time to next node
-	auto time_to_next_node = lowest_tt_to_i - time_since_last_action_departure;
+	const travel_time_type time_to_next_node = static_cast<travel_time_type>(
+		lowest_tt_to_i - time_since_last_action_departure);
 
 	return {lowest_tt_to_i_index, time_to_next_node};
 }

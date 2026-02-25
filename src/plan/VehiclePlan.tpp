@@ -347,7 +347,7 @@ bool DARP_vehicle_plan<N, P, V>::full_check(
 		}
 
 		// arrival time check
-		time_type travel_time = 0;
+		travel_time_type travel_time = 0;
 		if (is_first_action) {
 			// Use travel time provider's vehicle-aware method for first action
 			travel_time = travel_time_provider.get_travel_time_from_vehicle(this->get_vehicle(), action.get_node());

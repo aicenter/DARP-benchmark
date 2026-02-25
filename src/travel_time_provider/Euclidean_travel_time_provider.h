@@ -27,7 +27,7 @@ public:
     size_t get_nearest_vehicle(const L& location,
                                const std::vector<const Vehicle<L>*>& vehicles) override;
 
-    [[nodiscard]] std::tuple<const L&, time_type> get_vehicle_location_info(
+    [[nodiscard]] std::tuple<const L&, travel_time_type> get_vehicle_location_info(
 	    const L& last_action_location,
 	    const L& next_action_location,
 	    time_type time_since_last_action_departure

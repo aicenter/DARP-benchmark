@@ -47,7 +47,7 @@ public:
 	 * and the travel time from last_action_location to that position.
 	 * Path is chosen arbitrarily among equal-cost Manhattan paths (row-first then column).
 	 */
-	[[nodiscard]] std::tuple<const N&, time_type> get_vehicle_location_info(
+	[[nodiscard]] std::tuple<const N&, travel_time_type> get_vehicle_location_info(
 		const N& last_action_location,
 		const N& next_action_location,
 		time_type time_since_last_action_departure) override {
@@ -67,7 +67,7 @@ public:
 		const unsigned steps_by_time = static_cast<unsigned>(time_since_last_action_departure / travel_time_between_neighbors_);
 		const unsigned steps_done = (steps_by_time <= steps_total) ? steps_by_time : steps_total;
 		const unsigned vertex_at_steps = path_vertex_at_step(from_idx, to_idx, steps_done);
-		const time_type time_to_current = steps_done * travel_time_between_neighbors_;
+		const travel_time_type time_to_current = static_cast<travel_time_type>(steps_done * travel_time_between_neighbors_);
 		current_location_cache_ = std::make_unique<N>(vertex_at_steps);
 		return {*current_location_cache_, time_to_current};
 	}

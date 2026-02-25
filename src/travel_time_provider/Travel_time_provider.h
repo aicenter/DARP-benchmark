@@ -33,7 +33,7 @@ public:
 	 * @param target The target location
 	 * @return Travel time from vehicle start to target location
 	 */
-	[[nodiscard]] time_type get_travel_time_from_vehicle(const Vehicle_base& vehicle, const L& target) const;
+	[[nodiscard]] travel_time_type get_travel_time_from_vehicle(const Vehicle_base& vehicle, const L& target) const;
 
 	/**
 	 * Method that provides location info when the vehicle is on the way from last_action_location to next_action_location.
@@ -42,7 +42,7 @@ public:
 	 * @param time_since_last_action_departure
 	 * @return tuple of next location on the path and travel time needed to reach that location
 	 */
-	[[nodiscard]] virtual std::tuple<const L&, time_type> get_vehicle_location_info(
+	[[nodiscard]] virtual std::tuple<const L&, travel_time_type> get_vehicle_location_info(
 		const L& last_action_location,
 		const L& next_action_location,
 		time_type time_since_last_action_departure

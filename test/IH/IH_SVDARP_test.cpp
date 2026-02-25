@@ -546,7 +546,7 @@ std::pair<
 			Test_action_data<> to_node(to, Action_type::depot, 0);
 			return inner_->get_travel_time(from_node, to_node);
 		}
-		std::tuple<const unsigned&, time_type> get_vehicle_location_info(
+		std::tuple<const unsigned&, travel_time_type> get_vehicle_location_info(
 			const unsigned& last_action_location,
 			const unsigned& next_action_location,
 			time_type time_since_last_action_departure) override {
