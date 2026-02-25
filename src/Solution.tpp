@@ -1,10 +1,14 @@
 
 #include <cmath>
+#include <cstring>
 #include <unordered_set>
 #include <algorithm>
+#include <type_traits>
+#include <stdexcept>
 #include <rapidjson/istreamwrapper.h>
 #include "inout.h"
 #include "rapidjson/prettywriter.h"
+#include "Vehicle.h"
 #include <spdlog/spdlog.h>
 
 
@@ -230,13 +234,31 @@ Solution<N, P> deserialize_json(std::filesystem::path path, const DARP_instance<
         vehicles_mapped_by_index.insert({vehicle.get_index(), vehicle});
     }
 
+    // Storage for virtual vehicles when deserializing fleet-sizing solutions (VehiclePlan<N, Vehicle_base>)
+    std::vector<Virtual_vehicle> virtual_vehicles;
+
     std::vector<P> plans;
 
     for(const auto& plan_data: d["plans"].GetArray()) {
-        // vehicle
+        // vehicle - support both regular Vehicle<N> and Virtual_vehicle (fleet sizing)
         const auto& veh_json = plan_data["vehicle"];
-    	const auto& vehicle_index = veh_json["index"].GetUint();
-        const auto& vehicle = vehicles_mapped_by_index.at(vehicle_index);
+        const bool is_virtual = veh_json.HasMember("type") && std::strcmp(veh_json["type"].GetString(), "virtual") == 0;
+        if(is_virtual && !std::is_same_v<P, VehiclePlan<N, Vehicle_base>>) {
+            throw std::runtime_error("Solution contains virtual vehicles; use run_functional_test<N, VehiclePlan<N, Vehicle_base>> for fleet sizing");
+        }
+        const Vehicle_base* vehicle_base_ptr = nullptr;
+        const Vehicle<N>* vehicle_n_ptr = nullptr;
+        if(is_virtual) {
+            const unsigned short capacity = veh_json.HasMember("capacity") ? static_cast<unsigned short>(veh_json["capacity"].GetUint()) : 4;
+            const unsigned int time_to_start = veh_json.HasMember("time_to_start") ? veh_json["time_to_start"].GetUint() : 0;
+            const unsigned int vehicle_count = veh_json.HasMember("vehicle_count") ? veh_json["vehicle_count"].GetUint() : 1;
+            virtual_vehicles.emplace_back(capacity, time_to_start, vehicle_count);
+            vehicle_base_ptr = &virtual_vehicles.back();
+        } else {
+            const auto vehicle_index = veh_json["index"].GetUint();
+            vehicle_n_ptr = &vehicles_mapped_by_index.at(vehicle_index);
+            vehicle_base_ptr = vehicle_n_ptr;
+        }
 
         auto json_actions = plan_data["actions"].GetArray();
 		std::vector<ActionData<N>> actions;
@@ -257,14 +279,24 @@ Solution<N, P> deserialize_json(std::filesystem::path path, const DARP_instance<
 			const auto& action = actions_mapped_by_id.at(json_action["id"].GetUint());
             actions.emplace_back(json_action_data, i, other_index, action);
         }
-        
-        plans.emplace_back(
-            vehicle,
-			plan_data["cost"].GetUint(),
-			std::move(actions),
-            plan_data["departure_time"].GetUint(),
-            plan_data["arrival_time"].GetUint()
-        );
+
+        if constexpr (std::is_same_v<P, VehiclePlan<N, Vehicle_base>>) {
+            plans.emplace_back(
+                *vehicle_base_ptr,
+                plan_data["cost"].GetUint(),
+                std::move(actions),
+                plan_data["departure_time"].GetUint(),
+                plan_data["arrival_time"].GetUint()
+            );
+        } else {
+            plans.emplace_back(
+                *vehicle_n_ptr,
+                plan_data["cost"].GetUint(),
+                std::move(actions),
+                plan_data["departure_time"].GetUint(),
+                plan_data["arrival_time"].GetUint()
+            );
+        }
     }
 
     // load dropped requests

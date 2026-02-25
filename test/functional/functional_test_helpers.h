@@ -43,11 +43,12 @@ DARP_instance<N> load_instance(const fs::path& instance_path) {
 /**
  * @brief Runs a functional test: executes the benchmark and compares results
  * @tparam N Node type
+ * @tparam P Plan type (default VehiclePlan<N>; use VehiclePlan<N, Vehicle_base> for fleet sizing with virtual vehicles)
  * @param instance_path Path to the instance config file
  * @param solver_args Additional solver arguments (e.g., "--method", "ih")
  * @param expected_solution_path Path to the expected solution JSON file (relative to instance directory)
  */
-template<typename N>
+template<typename N, class P = VehiclePlan<N>>
 void run_functional_test(
 	const fs::path& instance_path,
 	const std::vector<std::string>& solver_args,
@@ -71,13 +72,13 @@ void run_functional_test(
 	const std::string instance_filename = instance_path.filename().string();
 	const fs::path computed_solution_path = output_path / (instance_filename + "-solution.json");
 	ASSERT_TRUE(fs::exists(computed_solution_path));
-	Solution<N> computed_solution = deserialize_json<N>(computed_solution_path, darp_instance);
+	Solution<N, P> computed_solution = deserialize_json<N, P>(computed_solution_path, darp_instance);
 	
 	// Load the expected results
 	const fs::path expected_solution_full_path = absolute_instance_path.parent_path() / expected_solution_path;
-	Solution<N> expected_solution = deserialize_json<N>(expected_solution_full_path, darp_instance);
+	Solution<N, P> expected_solution = deserialize_json<N, P>(expected_solution_full_path, darp_instance);
 	
 	// Compare solutions
-	check_solutions_equal(computed_solution, expected_solution);
+	check_solutions_equal<N, P>(computed_solution, expected_solution);
 }
 

@@ -22,5 +22,11 @@ void Virtual_vehicle::JSON_serialize(rapidjson::PrettyWriter<rapidjson::StringBu
 	writer.StartObject();
 	writer.Key("type");
 	writer.String("virtual");
+	writer.Key("capacity");
+	writer.Uint(get_capacity());
+	writer.Key("time_to_start");
+	writer.Uint(time_to_start);
+	writer.Key("vehicle_count");
+	writer.Uint(vehicle_count);
 	writer.EndObject();
 }
