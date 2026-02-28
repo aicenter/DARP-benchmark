@@ -1,5 +1,6 @@
 #pragma once
 #include <vector>
+#include <string>
 #include <filesystem>
 #include "rapidjson/stringbuffer.h"
 #include <boost/iterator/iterator_adaptor.hpp>
@@ -171,6 +172,8 @@ public:
 	[[nodiscard]] bool is_feasible() const {
 		return this->feasible;
 	}
+
+	[[nodiscard]] virtual std::string export_simple_csv() const;
 
 protected:
 	unsigned long cost;

@@ -140,7 +140,7 @@ ActionData<N>* DARP_vehicle_plan<N,P,V>::get_pickup(const ActionData<N>& drop_of
 
 template <typename N, class P, class V>
 const ActionData<N>* DARP_vehicle_plan<N,P,V>::get_pickup(const ActionData<N>& drop_off_action_data) const {
-    return get_pickup(drop_off_action_data.get_action());
+    return get_pickup(dynamic_cast<const Service_action<N>&>(drop_off_action_data.get_action()));
 }
 
 template <typename N, class P, class V>

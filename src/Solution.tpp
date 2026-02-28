@@ -1,6 +1,7 @@
 
 #include <cmath>
 #include <cstring>
+#include <sstream>
 #include <unordered_set>
 #include <algorithm>
 #include <type_traits>
@@ -9,6 +10,7 @@
 #include "inout.h"
 #include "rapidjson/prettywriter.h"
 #include "Vehicle.h"
+#include "plan/VehiclePlan.h"
 #include <spdlog/spdlog.h>
 
 
@@ -45,6 +47,38 @@ rapidjson::StringBuffer  Solution_interface<N>::JSON_serialize(unsigned short re
     writer.EndObject();
 
     return s;
+}
+
+template <typename N>
+std::string Solution_interface<N>::export_simple_csv() const {
+	std::ostringstream csv;
+	csv << "plan,request,pickup_time,dropoff_time\n";
+	if (!feasible) {
+		return csv.str();
+	}
+	int plan_index = 0;
+	auto it_wrap = this->begin()->get_copyable_wrapper();
+	auto it_end_wrap = this->end()->get_copyable_wrapper();
+	while (it_wrap != it_end_wrap) {
+		const Benchmark_vehicle_plan& plan_ref = *it_wrap;
+		const auto* vp = dynamic_cast<const VehiclePlan<N>*>(&plan_ref);
+		if (vp) {
+			for (const ActionData<N>& action : vp->get_actions()) {
+				if (action.is_drop_off()) {
+					const ActionData<N>* pickup = vp->get_pickup(action);
+					if (pickup) {
+						unsigned int pickup_time = pickup->get_service_start_time();
+						unsigned int dropoff_time = action.get_service_start_time();
+						csv << plan_index << "," << action.get_request_index() << ","
+							<< pickup_time << "," << dropoff_time << "\n";
+					}
+				}
+			}
+		}
+		++it_wrap;
+		++plan_index;
+	}
+	return csv.str();
 }
 
 template <typename N>
