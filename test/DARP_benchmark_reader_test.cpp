@@ -74,6 +74,18 @@ TEST(DARP_benchmark_reader_test, darp_instance_configuration_loading) {
 	ASSERT_EQ(darp_config->get_start_time(), 63900);
 }
 
+TEST(DARP_benchmark_reader_test, darp_instance_configuration_loading_without_vehicles_key) {
+	// YAML without vehicles key: start_time should default to 0
+	YAML::Node config = YAML::Load("{}");
+	auto darp_config = internal::load_instance_configuration(config);
+
+	ASSERT_EQ(darp_config->get_max_ride_time(), 0);
+	ASSERT_EQ(darp_config->get_max_route_duration(), 0);
+	ASSERT_EQ(darp_config->is_return_to_depot(), false);
+	ASSERT_EQ(darp_config->use_virtual_vehicles(), false);
+	ASSERT_EQ(darp_config->get_start_time(), 0);
+}
+
 TEST(DARP_benchmark_reader_test, request_loading_csv) {
 	std::string request_filepath = "test_resources/requests.csv"; // Correct path
 	unsigned short service_time = 0; // Assuming default service time

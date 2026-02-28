@@ -311,13 +311,16 @@ std::unique_ptr<std::vector<Request<Amodsim_node>>> DARP_benchmark_reader::load_
 namespace internal {
 
 std::shared_ptr<DARP_instance_configuration> load_instance_configuration(const YAML::Node& config) {
+	unsigned start_time_seconds = 0;
 
 	// vehicle start time parsing
-	const auto start_time_string = config["vehicles"]["start_time"].as<std::string>();
-	std::tm start_datetime{};
-	std::stringstream(start_time_string) >> std::get_time(&start_datetime, "%Y-%m-%d %H:%M:%S");
-	const unsigned start_time_seconds
-			= start_datetime.tm_sec + start_datetime.tm_min * 60 + start_datetime.tm_hour * 3600;
+	if(config["vehicles"] && config["vehicles"]["start_time"]) {
+		const auto start_time_string = config["vehicles"]["start_time"].as<std::string>();
+		std::tm start_datetime{};
+		std::stringstream(start_time_string) >> std::get_time(&start_datetime, "%Y-%m-%d %H:%M:%S");
+		start_time_seconds
+				= start_datetime.tm_sec + start_datetime.tm_min * 60 + start_datetime.tm_hour * 3600;
+	}
 
 	return std::make_shared<DARP_instance_configuration>(
 			0,
