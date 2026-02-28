@@ -9,16 +9,16 @@ struct DARP_benchmark_config {
 	std::string instance;
 	std::string outdir;
 	std::string method;
-	int tmax;
 	bool simple_csv_export;
+	int tmax;
 
 	explicit DARP_benchmark_config(const fc::Config_object& config_object):
 		tcount(config_object.get<int>("tcount")),
 		instance(config_object.get<std::string>("instance")),
 		outdir(config_object.get<std::string>("outdir")),
 		method(config_object.get<std::string>("method")),
-		tmax(config_object.get<int>("tmax")),
-		simple_csv_export(config_object.get<bool>("simple-csv-export"))
+		simple_csv_export(config_object.get<bool>("simple_csv_export")),
+		tmax(config_object.get<int>("tmax"))
 	{};
 };
 

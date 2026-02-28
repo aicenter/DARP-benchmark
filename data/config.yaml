@@ -4,5 +4,5 @@
   method: "ih",
   tcount: 1,
   tmax: 0,
-  "simple-csv-export": false
+  simple_csv_export: false
 }
