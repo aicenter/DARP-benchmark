@@ -144,6 +144,7 @@ add_executable(test_run
 	test/Grid_travel_time_provider_test.cpp
 	test/IH/IH_SVDARP_test.cpp
 	test/IH/Insertion_heuristic_solver_test.cpp
+	test/Solution_test.cpp
 	test/Vehicle_plan_test.cpp
 	test/functional/functional_tests.cpp
 )

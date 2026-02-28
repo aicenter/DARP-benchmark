@@ -57,8 +57,10 @@ std::string Solution_interface<N>::export_simple_csv() const {
 		return csv.str();
 	}
 	int plan_index = 0;
-	auto it_wrap = this->begin()->get_copyable_wrapper();
-	auto it_end_wrap = this->end()->get_copyable_wrapper();
+	auto it = this->begin();
+	auto it_end = this->end();
+	auto it_wrap = it->get_copyable_wrapper();
+	auto it_end_wrap = it_end->get_copyable_wrapper();
 	while (it_wrap != it_end_wrap) {
 		const Benchmark_vehicle_plan& plan_ref = *it_wrap;
 		const auto* vp = dynamic_cast<const VehiclePlan<N>*>(&plan_ref);
