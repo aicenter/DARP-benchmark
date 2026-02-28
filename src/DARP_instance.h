@@ -33,13 +33,15 @@ public:
 		unsigned long max_ride_time = 0, 
 		bool return_to_depot = false,
 		bool virtual_vehicles = false, 
-		unsigned start_time = 0
+		unsigned start_time = 0,
+		unsigned vehicle_capital_cost = 0
 	):
 		max_route_duration(max_route_duration),
 		max_ride_time(max_ride_time),
 		return_to_depot(return_to_depot),
 		virtual_vehicles(virtual_vehicles),
-		start_time(start_time) {
+		start_time(start_time),
+		vehicle_capital_cost(vehicle_capital_cost) {
 	}
 
 	[[nodiscard]] unsigned long get_max_route_duration() const;
@@ -47,6 +49,7 @@ public:
 	[[nodiscard]] bool is_return_to_depot() const;
 	[[nodiscard]] bool use_virtual_vehicles() const;
 	[[nodiscard]] unsigned get_start_time() const;
+	[[nodiscard]] unsigned get_vehicle_capital_cost() const;
 
 private:
     const unsigned long max_route_duration{0};
@@ -61,8 +64,9 @@ private:
 	* @brief Specifies whether vehicles have to return to the depot after serving the last request
 	*/
 	const bool return_to_depot{true};
-    const bool virtual_vehicles{false};
+	const bool virtual_vehicles{false};
     const unsigned start_time{0};
+	const unsigned vehicle_capital_cost{0};
 };
 
 class DARP_instance_interface {

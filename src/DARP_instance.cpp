@@ -24,3 +24,7 @@ bool DARP_instance_configuration::use_virtual_vehicles() const {
 unsigned DARP_instance_configuration::get_start_time() const {
 	return start_time;
 }
+
+unsigned DARP_instance_configuration::get_vehicle_capital_cost() const {
+	return vehicle_capital_cost;
+}
