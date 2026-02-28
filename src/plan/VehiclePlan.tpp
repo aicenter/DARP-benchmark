@@ -120,6 +120,20 @@ const ActionData<N>& DARP_vehicle_plan<N,P,V>::get_last_action() const {
 }
 
 template <typename N, class P, class V>
+void DARP_vehicle_plan<N,P,V>::append_simple_csv_rows(int plan_index, std::ostringstream& csv) const {
+	for (const ActionData<N>& action : this->get_actions()) {
+		if (action.is_drop_off()) {
+			const ActionData<N>* pickup = get_pickup(action);
+			if (pickup) {
+				csv << plan_index << "," << action.get_request_index() << ","
+					<< pickup->get_service_start_time() << ","
+					<< action.get_service_start_time() << "\n";
+			}
+		}
+	}
+}
+
+template <typename N, class P, class V>
 ActionData<N>* DARP_vehicle_plan<N,P,V>::get_pickup(const Service_action<N>& drop_off_action) {
 	const unsigned int request_index = drop_off_action.get_request().get_index();
 	assert(pickup_map.contains(request_index));

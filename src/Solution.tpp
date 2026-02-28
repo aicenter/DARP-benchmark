@@ -63,20 +63,7 @@ std::string Solution_interface<N>::export_simple_csv() const {
 	auto it_end_wrap = it_end->get_copyable_wrapper();
 	while (it_wrap != it_end_wrap) {
 		const Benchmark_vehicle_plan& plan_ref = *it_wrap;
-		const auto* vp = dynamic_cast<const VehiclePlan<N>*>(&plan_ref);
-		if (vp) {
-			for (const ActionData<N>& action : vp->get_actions()) {
-				if (action.is_drop_off()) {
-					const ActionData<N>* pickup = vp->get_pickup(action);
-					if (pickup) {
-						unsigned int pickup_time = pickup->get_service_start_time();
-						unsigned int dropoff_time = action.get_service_start_time();
-						csv << plan_index << "," << action.get_request_index() << ","
-							<< pickup_time << "," << dropoff_time << "\n";
-					}
-				}
-			}
-		}
+		plan_ref.append_simple_csv_rows(plan_index, csv);
 		++it_wrap;
 		++plan_index;
 	}

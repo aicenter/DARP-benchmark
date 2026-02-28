@@ -200,6 +200,8 @@ public:
 
 	void JSON_serialize(rapidjson::PrettyWriter<rapidjson::StringBuffer>& writer) const override;
 
+	void append_simple_csv_rows(int plan_index, std::ostringstream& csv) const override;
+
 protected:
 
 private:
