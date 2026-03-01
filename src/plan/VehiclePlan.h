@@ -202,6 +202,12 @@ public:
 
 	void append_simple_csv_rows(int plan_index, std::ostringstream& csv) const override;
 
+	[[nodiscard]] unsigned int get_cost() const override;
+
+	[[nodiscard]] unsigned long get_ride_time() const override;
+
+	[[nodiscard]] unsigned long get_passenger_delay() const override;
+
 protected:
 
 private:

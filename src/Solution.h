@@ -165,6 +165,12 @@ public:
 
 	[[nodiscard]] unsigned int get_dropped_request_count() const;
 
+	[[nodiscard]] virtual unsigned long get_total_passenger_delay() const { return 0; }
+
+	[[nodiscard]] virtual unsigned long get_total_driving_time() const { return 0; }
+
+	[[nodiscard]] virtual unsigned long get_plan_count() const { return 0; }
+
     [[nodiscard]] const std::vector<const Request<N>*> &get_dropped_requests() const {
         return this->dropped_requests;
     }
@@ -249,6 +255,12 @@ public:
     [[nodiscard]] const std::vector<P>& get_plans() const;
 
     [[nodiscard]] unsigned int get_cost() const;
+
+	[[nodiscard]] unsigned long get_total_passenger_delay() const override;
+
+	[[nodiscard]] unsigned long get_total_driving_time() const override;
+
+	[[nodiscard]] unsigned long get_plan_count() const override;
 
     unsigned int get_non_empty_plan_count();
 

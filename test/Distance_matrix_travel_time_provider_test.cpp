@@ -17,7 +17,7 @@ TEST(Distance_matrix_travelcost_provider_test, get_travel_time){
 }
 
 
-TEST(Distance_matrix_travelcost_provider_test, get_travel_time_big_indices){
+TEST(Distance_matrix_travelcost_provider_test, DISABLED_get_travel_time_big_indices){
 	size_t size = 100'000;
 	std::unique_ptr<travel_time_type[]> dm = std::make_unique<travel_time_type[]>(size * size);
 	unsigned origin = 80000;

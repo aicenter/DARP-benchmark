@@ -303,6 +303,37 @@ unsigned DARP_vehicle_plan<N,P,V>::get_ride_time(const ActionData<N>& action_dat
 }
 
 template <typename N, class P, class V>
+unsigned int DARP_vehicle_plan<N, P, V>::get_cost() const {
+	return Base_plan<ActionData<N>, V>::get_cost();
+}
+
+template <typename N, class P, class V>
+unsigned long DARP_vehicle_plan<N, P, V>::get_ride_time() const {
+	unsigned long total = 0;
+	for (const ActionData<N>& action_data : this->actions) {
+		if (action_data.get_action_type() == Action_type::dropoff) {
+			total += get_ride_time(action_data);
+		}
+	}
+	return total;
+}
+
+template <typename N, class P, class V>
+unsigned long DARP_vehicle_plan<N, P, V>::get_passenger_delay() const {
+	unsigned long total_delay = 0;
+	for (const ActionData<N>& action_data : this->actions) {
+		if (action_data.get_action_type() == Action_type::dropoff) {
+			unsigned long drop_off_time = action_data.get_arrival_time();
+			unsigned long min_time = action_data.get_min_time();
+			if (drop_off_time > min_time) {
+				total_delay += drop_off_time - min_time;
+			}
+		}
+	}
+	return total_delay;
+}
+
+template <typename N, class P, class V>
 bool DARP_vehicle_plan<N,P,V>::check(const DARP_instance_configuration& configuration) const {
     unsigned int time = this->get_departure_time();
 	for (const ActionData<N>& action_data : this->actions) {

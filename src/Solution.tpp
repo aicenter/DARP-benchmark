@@ -32,6 +32,12 @@ rapidjson::StringBuffer  Solution_interface<N>::JSON_serialize(unsigned short re
 		writer.Uint64(cost);
 		writer.Key("cost_minutes");
 		writer.Uint64(static_cast<unsigned long>(std::round(static_cast<double>(cost) / resolution)));
+		writer.Key("total_passenger_delay");
+		writer.Uint64(this->get_total_passenger_delay());
+		writer.Key("total_driving_time");
+		writer.Uint64(this->get_total_driving_time());
+		writer.Key("plan_count");
+		writer.Uint64(this->get_plan_count());
 		writer.Key("plans");
 		writer.StartArray();
 		auto f = std::bind(&Benchmark_vehicle_plan::JSON_serialize, std::placeholders::_1, std::ref(writer));
@@ -169,6 +175,29 @@ const std::vector<P>& Solution<N,P>::get_plans() const {
 template<typename N, Benchmark_plan P>
 unsigned int Solution<N,P>::get_cost() const {
     return this->cost;
+}
+
+template<typename N, Benchmark_plan P>
+unsigned long Solution<N,P>::get_total_passenger_delay() const {
+	unsigned long total = 0;
+	for (const P& plan : plans) {
+		total += plan.get_passenger_delay();
+	}
+	return total;
+}
+
+template<typename N, Benchmark_plan P>
+unsigned long Solution<N,P>::get_total_driving_time() const {
+	unsigned long total = 0;
+	for (const P& plan : plans) {
+		total += plan.get_ride_time();
+	}
+	return total;
+}
+
+template<typename N, Benchmark_plan P>
+unsigned long Solution<N,P>::get_plan_count() const {
+	return static_cast<unsigned long>(plans.size());
 }
 
 template<typename N, Benchmark_plan P>
