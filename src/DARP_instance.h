@@ -34,14 +34,16 @@ public:
 		bool return_to_depot = false,
 		bool virtual_vehicles = false, 
 		unsigned start_time = 0,
-		unsigned short vehicle_capital_cost = 0
+		unsigned short vehicle_capital_cost = 0,
+		double relative_delay_cost = 0.0
 	):
 		max_route_duration(max_route_duration),
 		max_ride_time(max_ride_time),
 		return_to_depot(return_to_depot),
 		virtual_vehicles(virtual_vehicles),
 		start_time(start_time),
-		vehicle_capital_cost(vehicle_capital_cost) {
+		vehicle_capital_cost(vehicle_capital_cost),
+		relative_delay_cost(relative_delay_cost) {
 	}
 
 	[[nodiscard]] unsigned long get_max_route_duration() const;
@@ -50,6 +52,7 @@ public:
 	[[nodiscard]] bool use_virtual_vehicles() const;
 	[[nodiscard]] unsigned get_start_time() const;
 	[[nodiscard]] unsigned short get_vehicle_capital_cost() const;
+	[[nodiscard]] double get_relative_delay_cost() const;
 
 private:
     const unsigned long max_route_duration{0};
@@ -67,6 +70,7 @@ private:
 	const bool virtual_vehicles{false};
     const unsigned start_time{0};
 	const unsigned short vehicle_capital_cost{0};
+	const double relative_delay_cost{0.0};
 };
 
 class DARP_instance_interface {

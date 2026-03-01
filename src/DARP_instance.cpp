@@ -28,3 +28,7 @@ unsigned DARP_instance_configuration::get_start_time() const {
 unsigned short DARP_instance_configuration::get_vehicle_capital_cost() const {
 	return vehicle_capital_cost;
 }
+
+double DARP_instance_configuration::get_relative_delay_cost() const {
+	return relative_delay_cost;
+}

@@ -313,6 +313,7 @@ namespace internal {
 std::shared_ptr<DARP_instance_configuration> load_instance_configuration(const YAML::Node& config) {
 	unsigned start_time_seconds = 0;
 	unsigned short vehicle_capital_cost = 0;
+	double relative_delay_cost = 0.0;
 
 	// vehicle start time parsing
 	if(config["vehicles"] && config["vehicles"]["start_time"]) {
@@ -328,13 +329,19 @@ std::shared_ptr<DARP_instance_configuration> load_instance_configuration(const Y
 		vehicle_capital_cost = config["vehicles"]["capital_cost"].as<unsigned short>();
 	}
 
+	// relative delay cost parsing (optional)
+	if(config["demand"] && config["demand"]["relative_delay_cost"]) {
+		relative_delay_cost = config["demand"]["relative_delay_cost"].as<double>();
+	}
+
 	return std::make_shared<DARP_instance_configuration>(
 			0,
 			0,
 			false,
 			false,
 			start_time_seconds,
-			vehicle_capital_cost
+			vehicle_capital_cost,
+			relative_delay_cost
 	);
 }
 
