@@ -1,4 +1,4 @@
-// DARP-benchmark.cpp : Defines the entry point for the application.
+﻿// DARP-benchmark.cpp : Defines the entry point for the application.
 //
 
 #pragma once
@@ -116,15 +116,14 @@ void DARP_benchmark<N>::process_instance(
 			csv_file << result.return_value->export_simple_csv();
 			csv_file.close();
 		}
-		else {
-			std::string suffix = trial_number == 1 ? "-solution.json" : fmt::format("-solution-{}.json", trial_number);
-			const std::string out_file_name = std::filesystem::path(instance_file_path).filename().string() + suffix;
-			const fs::path out_file_path = out_dir / out_file_name;
-			spdlog::info("Writing solution to: {}", std::filesystem::absolute(out_file_path).string());
-			std::ofstream test_file(out_file_path);
-			test_file << sb.GetString();
-			test_file.close();
-		}
+
+		std::string suffix = trial_number == 1 ? "-solution.json" : fmt::format("-solution-{}.json", trial_number);
+		const std::string out_file_name = std::filesystem::path(instance_file_path).filename().string() + suffix;
+		const fs::path out_file_path = out_dir / out_file_name;
+		spdlog::info("Writing solution to: {}", std::filesystem::absolute(out_file_path).string());
+		std::ofstream test_file(out_file_path);
+		test_file << sb.GetString();
+		test_file.close();
 
 		std::string performance_suffix = trial_number == 1 ? "-performance.json" : fmt::format("-performance-{}.json", trial_number);
 		const std::string performance_file_name = std::filesystem::path(instance_file_path).filename().string() + performance_suffix;
