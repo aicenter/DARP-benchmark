@@ -167,6 +167,8 @@ public:
 
 	[[nodiscard]] virtual unsigned long get_total_passenger_delay() const { return 0; }
 
+	[[nodiscard]] virtual unsigned long get_total_ride_time() const { return 0; }
+
 	[[nodiscard]] virtual unsigned long get_total_driving_time() const { return 0; }
 
 	[[nodiscard]] virtual unsigned long get_plan_count() const { return 0; }
@@ -257,6 +259,8 @@ public:
     [[nodiscard]] unsigned int get_cost() const;
 
 	[[nodiscard]] unsigned long get_total_passenger_delay() const override;
+
+	[[nodiscard]] unsigned long get_total_ride_time() const override;
 
 	[[nodiscard]] unsigned long get_total_driving_time() const override;
 

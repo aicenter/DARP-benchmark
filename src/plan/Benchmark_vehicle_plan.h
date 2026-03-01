@@ -20,6 +20,8 @@ public:
 
 	[[nodiscard]] virtual unsigned int get_cost() const = 0;
 
+	[[nodiscard]] virtual unsigned long get_driving_time() const = 0;
+
 	[[nodiscard]] virtual unsigned long get_ride_time() const = 0;
 
 	[[nodiscard]] virtual unsigned long get_passenger_delay() const = 0;

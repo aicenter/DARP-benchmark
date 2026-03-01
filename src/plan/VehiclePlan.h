@@ -204,6 +204,8 @@ public:
 
 	[[nodiscard]] unsigned int get_cost() const override;
 
+	[[nodiscard]] unsigned long get_driving_time() const override;
+
 	[[nodiscard]] unsigned long get_ride_time() const override;
 
 	[[nodiscard]] unsigned long get_passenger_delay() const override;

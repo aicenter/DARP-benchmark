@@ -308,6 +308,22 @@ unsigned int DARP_vehicle_plan<N, P, V>::get_cost() const {
 }
 
 template <typename N, class P, class V>
+unsigned long DARP_vehicle_plan<N, P, V>::get_driving_time() const {
+	unsigned long total_route_time = this->get_arrival_time() - this->get_departure_time();
+	unsigned long time_at_stops = 0;
+	for (const ActionData<N>& action_data : this->actions) {
+		int dep = action_data.get_departure_time();
+		if (dep >= 0) {
+			unsigned int arr = action_data.get_arrival_time();
+			if (static_cast<unsigned>(dep) >= arr) {
+				time_at_stops += static_cast<unsigned>(dep) - arr;
+			}
+		}
+	}
+	return total_route_time - time_at_stops;
+}
+
+template <typename N, class P, class V>
 unsigned long DARP_vehicle_plan<N, P, V>::get_ride_time() const {
 	unsigned long total = 0;
 	for (const ActionData<N>& action_data : this->actions) {

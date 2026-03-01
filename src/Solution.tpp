@@ -34,6 +34,8 @@ rapidjson::StringBuffer  Solution_interface<N>::JSON_serialize(unsigned short re
 		writer.Uint64(static_cast<unsigned long>(std::round(static_cast<double>(cost) / resolution)));
 		writer.Key("total_passenger_delay");
 		writer.Uint64(this->get_total_passenger_delay());
+		writer.Key("total_passenger_ride_time");
+		writer.Uint64(this->get_total_ride_time());
 		writer.Key("total_driving_time");
 		writer.Uint64(this->get_total_driving_time());
 		writer.Key("plan_count");
@@ -187,10 +189,19 @@ unsigned long Solution<N,P>::get_total_passenger_delay() const {
 }
 
 template<typename N, Benchmark_plan P>
-unsigned long Solution<N,P>::get_total_driving_time() const {
+unsigned long Solution<N,P>::get_total_ride_time() const {
 	unsigned long total = 0;
 	for (const P& plan : plans) {
 		total += plan.get_ride_time();
+	}
+	return total;
+}
+
+template<typename N, Benchmark_plan P>
+unsigned long Solution<N,P>::get_total_driving_time() const {
+	unsigned long total = 0;
+	for (const P& plan : plans) {
+		total += plan.get_driving_time();
 	}
 	return total;
 }
