@@ -30,6 +30,10 @@ public:
 		container.template get<1>().insert(element);
 	}
 
+	void insert(const E& element) {
+		container.template get<1>().insert(element);
+	}
+
 	void erase(E element) {
 		container.template get<1>().erase(element);
 	}
