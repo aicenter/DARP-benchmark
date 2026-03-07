@@ -27,12 +27,8 @@ TEST(Solution_test, export_simple_csv_infeasible_returns_header_only) {
 }
 
 TEST(Solution_test, export_simple_csv_from_deserialized_solution) {
-	fs::path instance_path = fs::path("test_resources") / "Chyse" / "config.yaml";
-	fs::path solution_path = fs::path("test_resources") / "Chyse" / "expected" / "solution.json";
-	if (!fs::exists(instance_path)) {
-		instance_path = fs::path("data") / "test_resources" / "Chyse" / "config.yaml";
-		solution_path = fs::path("data") / "test_resources" / "Chyse" / "expected" / "solution.json";
-	}
+	fs::path instance_path = get_test_resource_path(fs::path("Chyse") / "config.yaml");
+	fs::path solution_path = get_test_resource_path(fs::path("Chyse") / "expected" / "solution.json");
 	ASSERT_TRUE(fs::exists(instance_path)) << "Instance path: " << fs::absolute(instance_path);
 	ASSERT_TRUE(fs::exists(solution_path)) << "Solution path: " << fs::absolute(solution_path);
 

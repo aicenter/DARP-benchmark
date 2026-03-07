@@ -96,7 +96,7 @@ class Distance_matrix_as_unsigned_tt_provider : public Travel_time_provider<unsi
 	};
 
 auto load_data_from_json_file(const std::string& path) {
-	rapidjson::Document doc = load_json_to_dom(fmt::format("test_resources/{}", path));
+	rapidjson::Document doc = load_json_to_dom(get_test_resource_path(path).string());
 	assert(doc.IsObject());
 
 	auto vehicle = std::make_unique<Test_vehicle>(1);
@@ -273,7 +273,7 @@ TEST(Insertion_heuristic_solver_test, one_car_multiple_requests) {
 TEST(Insertion_heuristic_solver_test, insert_request_in_plan) {
 	// load data
 	const auto& [plan, request, travel_time_provider, vehicle, expected_plan, config]
-		= load_data_from_json_file("/IH_insert_in_plan_data.json");
+		= load_data_from_json_file("IH_insert_in_plan_data.json");
 
 	// insert in plan (N=unsigned; provider is adapter over Distance_matrix_travel_time_provider)
 	auto solver_config = fc::load<DARP_benchmark_config>();
@@ -299,7 +299,7 @@ TEST(Insertion_heuristic_solver_test, insert_request_in_plan) {
 TEST(Insertion_heuristic_solver_test, insert_request_in_plan_2) {
 	// load data
 	const auto& [plan, request, travel_time_provider, vehicle, expected_plan, config]
-		= load_data_from_json_file("/IH_insert_in_plan_data_2.json");
+		= load_data_from_json_file("IH_insert_in_plan_data_2.json");
 
 	// insert in plan
 	auto solver_config = fc::load<DARP_benchmark_config>();
@@ -321,7 +321,7 @@ TEST(Insertion_heuristic_solver_test, insert_request_in_plan_2) {
 TEST(Insertion_heuristic_solver_test, insert_request_in_plan_3) {
 	// load data
 	const auto& [plan, request, travel_time_provider, vehicle, expected_plan, config]
-		= load_data_from_json_file("/IH_insert_in_plan_data_3.json");
+		= load_data_from_json_file("IH_insert_in_plan_data_3.json");
 
 	// insert in plan
 	auto solver_config = fc::load<DARP_benchmark_config>();

@@ -13,3 +13,8 @@ std::unique_ptr<travel_time_type[]> load_dm_from_json(const rapidjson::Document&
 
 	return dm;
 }
+
+fs::path get_test_resource_path(const fs::path& relative_path) {
+	// Test runner copies contents of data/ to executable dir, so test_resources is next to exe
+	return get_running_executable_path() / "test_resources" / relative_path;
+}

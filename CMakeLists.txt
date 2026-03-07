@@ -68,6 +68,7 @@ add_library(DARP_benchmark_lib
 	src/DARP_instance.cpp
 	src/inout.cpp
 	src/logging.cpp
+	src/resources.cpp
 	src/serialization.cpp
 	src/Vehicle.cpp
 	src/travel_time_provider/CSV_reader.cpp

@@ -17,7 +17,7 @@ std::pair<
 		std::shared_ptr<Distance_matrix_node_travel_time_provider<Test_action_data<>>>,
 		std::unique_ptr<std::vector<Test_request<>>>
 > load_data(std::string path) {
-	rapidjson::Document doc = load_json_to_dom(fmt::format("test_resources/{}", path));
+	rapidjson::Document doc = load_json_to_dom(get_test_resource_path(path).string());
 	assert(doc.IsObject());
 
 	// load requests

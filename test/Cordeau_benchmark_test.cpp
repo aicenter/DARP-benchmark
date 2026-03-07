@@ -3,7 +3,7 @@
 //
 
 #include "gtest_wrapper.h"
-
+#include "common.h"
 #include "../src/Cordeau_benchmark.h"
 
 #include <filesystem>
@@ -14,7 +14,7 @@ namespace {
 
     TEST(Cordeau_reader_test, CorrectOutput){
         Cordeau_reader reader{};
-        auto instance_path = fs::path("test_resources/pr01");
+        auto instance_path = get_test_resource_path("pr01");
         DARP_instance<Cordeau_node> instance = reader.read(instance_path.string());
 
         ASSERT_FALSE(instance.get_requests().empty());

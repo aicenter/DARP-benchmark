@@ -11,6 +11,7 @@
 #include <tuple>     // Add for tuple
 
 #include "gtest_wrapper.h"
+#include "common.h"
 #include "../src/DARP_benchmark_reader.h"
 #include "../src/travel_time_provider/Travel_time_provider.h"
 #include "../src/Request.h"
@@ -63,7 +64,7 @@ void assert_requests_equal(const Request<Amodsim_node>& actual, const Request<Am
 
 }
 TEST(DARP_benchmark_reader_test, darp_instance_configuration_loading) {
-	auto path = std::filesystem::path{"test_resources/test_instance.yaml"};
+	auto path = get_test_resource_path("test_instance.yaml");
 	YAML::Node config = YAML::LoadFile(path.string());
 	auto darp_config = internal::load_instance_configuration(config);
 
@@ -87,7 +88,7 @@ TEST(DARP_benchmark_reader_test, darp_instance_configuration_loading_without_veh
 }
 
 TEST(DARP_benchmark_reader_test, request_loading_csv) {
-	std::string request_filepath = "test_resources/requests.csv"; // Correct path
+	std::string request_filepath = get_test_resource_path("requests.csv").generic_string();
 	unsigned short service_time = 0; // Assuming default service time
 
 	// Hardcoded YAML config string pointing to CSV
@@ -156,7 +157,7 @@ TEST(DARP_benchmark_reader_test, request_loading_csv) {
 
 // DI test unchanged from before
 TEST(DARP_benchmark_reader_test, request_loading_di) {
-	std::string request_filepath = "test_resources/trips.di"; // Use dedicated test file
+	std::string request_filepath = get_test_resource_path("trips.di").generic_string();
 	unsigned short service_time = 0;
 
 	// Hardcoded YAML config string
@@ -210,8 +211,7 @@ TEST(DARP_benchmark_reader_test, request_loading_di) {
 }
 
 TEST(DARP_benchmark_reader_test, read_grid_instance) {
-	// Path relative to test run dir (data/ is copied to build dir; grid instance in data/test_resources/grid)
-	const std::filesystem::path instance_path = "test_resources/grid/config.yaml";
+	const std::filesystem::path instance_path = get_test_resource_path(std::filesystem::path("grid") / "config.yaml");
 	if (!std::filesystem::exists(instance_path)) {
 		GTEST_SKIP() << "Grid instance not found: " << instance_path.string();
 	}

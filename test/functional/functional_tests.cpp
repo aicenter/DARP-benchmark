@@ -6,7 +6,7 @@
 #include "functional_test_helpers.h"
 
 TEST(functional_tests, ih_chyse) {
-	fs::path instance_path = R"(test_resources\Chyse/config.yaml)";
+	fs::path instance_path = get_test_resource_path(fs::path("Chyse") / "config.yaml");
 
 	std::vector<std::string> solver_args = {
 		"--method",

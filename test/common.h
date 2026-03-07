@@ -12,6 +12,9 @@
 #include "../src/common.h"
 #include "../src/solver/IH/IH_vehicle_plan_builder.h"
 #include "../src/Solution.h"
+#include "../src/resources.h"
+
+namespace fs = std::filesystem;
 
 /*
  * Old test aggregate structures
@@ -437,6 +440,8 @@ std::unique_ptr<travel_time_type[]> two_D_array_to_flat_array(travel_time_type m
 }
 
 std::unique_ptr<travel_time_type[]> load_dm_from_json(const rapidjson::Document& doc);
+
+fs::path get_test_resource_path(const fs::path& relative_path);
 
 #include "common.tpp"
 
