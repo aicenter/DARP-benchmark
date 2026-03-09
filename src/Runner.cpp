@@ -57,7 +57,7 @@ int main(int argc, const char** argv) {
 		auto config = fc::load<DARP_benchmark_config>(load_options);
 
 		const auto instance_path = check_path(config.instance);
-		const auto out_path = check_path(config.outdir);
+		const auto out_path = fs::path(config.outdir);
 		std::string method_name = config.method;
 		std::ranges::transform(
 			method_name,
