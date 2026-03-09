@@ -1,4 +1,4 @@
-﻿// DARP-benchmark.cpp : Defines the entry point for the application.
+// DARP-benchmark.cpp : Defines the entry point for the application.
 //
 
 #pragma once
@@ -77,7 +77,14 @@ void DARP_benchmark<N>::process_instance(
 	std::filesystem::current_path(instance_dir);
 
 	const DARP_instance<N> darp_instance = reader->read(instance_file_path);
-	
+
+	// create output directory if it does not exist (before setting current_path)
+	std::error_code fs_error;
+	if (!std::filesystem::create_directories(out_dir, fs_error) && fs_error) {
+		throw std::runtime_error(
+			fmt::format("Failed to create output directory \"{}\": {}", out_dir.string(), fs_error.message()));
+	}
+
 	// set working dir to out path
 	std::filesystem::current_path(out_dir);
 
@@ -93,46 +100,31 @@ void DARP_benchmark<N>::process_instance(
 	rapidjson::StringBuffer sb = result.return_value->JSON_serialize(60);
 	rapidjson::StringBuffer perf_sb = export_performance(result.count(), *solver);
 
-	// creating output directories
-	std::error_code fs_error;
-	const bool new_dir_result = std::filesystem::create_directories(std::filesystem::path(out_dir), fs_error);
-
-	if (fs_error) {
-		//error creating output directories
-		std::cerr << "[Error] Failed to create output directory \"" << out_dir << "\": ";
-		std::cerr << fs_error.message() << "\n";
+	if (solver_arguments.simple_csv_export) {
+		std::string csv_suffix = trial_number == 1 ? "-solution.csv" : fmt::format("-solution-{}.csv", trial_number);
+		const std::string csv_file_name = std::filesystem::path(instance_file_path).filename().string() + csv_suffix;
+		const fs::path csv_file_path = out_dir / csv_file_name;
+		spdlog::info("Writing solution to: {}", std::filesystem::absolute(csv_file_path).string());
+		std::ofstream csv_file(csv_file_path);
+		csv_file << result.return_value->export_simple_csv();
+		csv_file.close();
 	}
-	else {
-		if (new_dir_result) {
-			std::cout << "Creating output directory \"" << out_dir << "\"\n";
-		}
 
-		if (solver_arguments.simple_csv_export) {
-			std::string csv_suffix = trial_number == 1 ? "-solution.csv" : fmt::format("-solution-{}.csv", trial_number);
-			const std::string csv_file_name = std::filesystem::path(instance_file_path).filename().string() + csv_suffix;
-			const fs::path csv_file_path = out_dir / csv_file_name;
-			spdlog::info("Writing solution to: {}", std::filesystem::absolute(csv_file_path).string());
-			std::ofstream csv_file(csv_file_path);
-			csv_file << result.return_value->export_simple_csv();
-			csv_file.close();
-		}
+	std::string suffix = trial_number == 1 ? "-solution.json" : fmt::format("-solution-{}.json", trial_number);
+	const std::string out_file_name = std::filesystem::path(instance_file_path).filename().string() + suffix;
+	const fs::path out_file_path = out_dir / out_file_name;
+	spdlog::info("Writing solution to: {}", std::filesystem::absolute(out_file_path).string());
+	std::ofstream test_file(out_file_path);
+	test_file << sb.GetString();
+	test_file.close();
 
-		std::string suffix = trial_number == 1 ? "-solution.json" : fmt::format("-solution-{}.json", trial_number);
-		const std::string out_file_name = std::filesystem::path(instance_file_path).filename().string() + suffix;
-		const fs::path out_file_path = out_dir / out_file_name;
-		spdlog::info("Writing solution to: {}", std::filesystem::absolute(out_file_path).string());
-		std::ofstream test_file(out_file_path);
-		test_file << sb.GetString();
-		test_file.close();
-
-		std::string performance_suffix = trial_number == 1 ? "-performance.json" : fmt::format("-performance-{}.json", trial_number);
-		const std::string performance_file_name = std::filesystem::path(instance_file_path).filename().string() + performance_suffix;
-		const fs::path performance_file_path = out_dir / performance_file_name;
-		spdlog::info("Writing performance to: {}", std::filesystem::absolute(performance_file_path).string());
-		std::ofstream performance_file(performance_file_path);
-		performance_file << perf_sb.GetString();
-		performance_file.close();
-	}
+	std::string performance_suffix = trial_number == 1 ? "-performance.json" : fmt::format("-performance-{}.json", trial_number);
+	const std::string performance_file_name = std::filesystem::path(instance_file_path).filename().string() + performance_suffix;
+	const fs::path performance_file_path = out_dir / performance_file_name;
+	spdlog::info("Writing performance to: {}", std::filesystem::absolute(performance_file_path).string());
+	std::ofstream performance_file(performance_file_path);
+	performance_file << perf_sb.GetString();
+	performance_file.close();
 }
 
 
