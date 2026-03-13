@@ -33,6 +33,7 @@ The DARP benchmark program accepts the following command line arguments:
 | `--tcount` | Number of executions for averaging | No | 1 |
 | `--tmax` | Maximum number of threads for parallel regions | No | 0 (auto) |
 
+Additionally, there are some parameters that are specific to the methods.
 
 
 ## Usage Examples
@@ -45,6 +46,12 @@ The DARP benchmark program accepts the following command line arguments:
 ## Configuration File Support
 
 You can also provide a local configuration file as the first positional argument (without `-` prefix). The configuration file should contain the same parameters as command line arguments in YAML format. Command line arguments override configuration file values.
+
+
+## Supported Instance Types
+Benchmark supports instnces as described in the [DARP instances project](https://github.com/aicenter/Ridesharing_DARP_instances).
+
+Additionaly, classical instances by Cordeau and Laporte are supported.
 
 
 # Extending the benchmark
