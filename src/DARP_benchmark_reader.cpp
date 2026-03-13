@@ -27,6 +27,50 @@ bool file_has_commas(const std::string& file_path) {
 	while (std::getline(f, first_line) && first_line.find_first_not_of(" \t\r\n") == std::string::npos) {}
 	return first_line.find(',') != std::string::npos;
 }
+
+/** Trim leading/trailing spaces from a string. */
+std::string trim_copy(const std::string& s) {
+    auto start = s.find_first_not_of(" \t");
+    if (start == std::string::npos) return {};
+    auto end = s.find_last_not_of(" \t");
+    return s.substr(start, end == std::string::npos ? std::string::npos : end - start + 1);
+}
+
+/** Detect delimiter: comma or tab (prefers whichever occurs more in the header). */
+char detect_tab_or_comma_delimiter(const std::string& header_line) {
+	const auto comma_count = static_cast<size_t>(std::count(header_line.begin(), header_line.end(), ','));
+	const auto tab_count = static_cast<size_t>(std::count(header_line.begin(), header_line.end(), '\t'));
+	if (comma_count == 0 && tab_count == 0) {
+		throw std::runtime_error("CSV header must be comma- or tab-delimited");
+	}
+	return tab_count > comma_count ? '\t' : ',';
+}
+
+/** Parse vehicle CSV header: accept "position", "capacity", and optionally "operation_start". */
+void parse_vehicles_csv_header(const std::string& header_line,
+    char delimiter,
+    int& position_col, int& capacity_col, int& operation_start_col) {
+    std::istringstream iss(header_line);
+    std::string cell;
+    int col = 0;
+    position_col = -1;
+    capacity_col = -1;
+    operation_start_col = -1;
+    while (std::getline(iss, cell, delimiter)) {
+        std::string name = trim_copy(cell);
+        if (name == "position") {
+            position_col = col;
+        } else if (name == "capacity") {
+            capacity_col = col;
+        } else if (name == "operation_start") {
+            operation_start_col = col;
+        }
+        ++col;
+    }
+    if (position_col < 0 || capacity_col < 0) {
+        throw std::runtime_error("Vehicle CSV header must include position and capacity columns");
+    }
+}
 } // namespace
 
 DARP_instance<Amodsim_node> DARP_benchmark_reader::read(std::filesystem::path instance_filepath) {
@@ -126,19 +170,49 @@ void DARP_benchmark_reader::load_vehicles(std::vector<Vehicle<Amodsim_node>>& ve
 void DARP_benchmark_reader::load_vehicles_csv(std::vector<Vehicle<Amodsim_node>>& vehicles, const std::string& file_path) const {
     spdlog::info("Reading vehicles from CSV file: {}", file_path);
     unsigned int index = 0;
+
+    std::ifstream file(file_path);
+    if (!file) {
+        throw std::runtime_error("Cannot open vehicle CSV file: " + file_path);
+    }
+
+    std::string header_line;
+    if (!std::getline(file, header_line)) {
+        throw std::runtime_error("Vehicle CSV file is empty: " + file_path);
+    }
+
+    const char delimiter = detect_tab_or_comma_delimiter(header_line);
+
+    int position_col, capacity_col, operation_start_col;
     try {
-        io::CSVReader<2, io::trim_chars<>, io::no_quote_escape<','>> in(file_path);
-        in.read_header(io::ignore_extra_column, "position", "capacity");
-        unsigned int position;
-        unsigned short capacity;
-        while (in.read_row(position, capacity)) {
-            std::shared_ptr<Amodsim_node> initial_position{new Amodsim_node(position)};
-            vehicles.emplace_back(index++, initial_position, capacity);
-        }
-    } catch (const io::error::can_not_open_file& e) {
-        throw std::runtime_error("Cannot open vehicle CSV file: " + file_path + " (" + e.what() + ")");
+        parse_vehicles_csv_header(header_line, delimiter, position_col, capacity_col, operation_start_col);
     } catch (const std::exception& e) {
-        throw std::runtime_error("Error reading vehicle CSV file " + file_path + ": " + e.what());
+        throw std::runtime_error(std::string("Vehicle CSV header: ") + e.what());
+    }
+
+    std::string line;
+    while (std::getline(file, line)) {
+        if (line.empty()) continue;
+        std::vector<std::string> cells;
+        std::istringstream iss(line);
+        std::string cell;
+        while (std::getline(iss, cell, delimiter)) {
+            cells.push_back(trim_copy(cell));
+        }
+        if (static_cast<int>(cells.size()) <= std::max(position_col, capacity_col)) {
+            throw std::runtime_error("Too few columns in vehicle CSV row: " + line);
+        }
+
+        unsigned int position = static_cast<unsigned int>(std::stoul(cells[position_col]));
+        unsigned short capacity = static_cast<unsigned short>(std::stoul(cells[capacity_col]));
+        time_type operation_start = 0;
+
+        if (operation_start_col >= 0 && static_cast<int>(cells.size()) > operation_start_col && !cells[operation_start_col].empty()) {
+            operation_start = static_cast<time_type>(std::stoul(cells[operation_start_col]));
+        }
+
+        std::shared_ptr<Amodsim_node> initial_position{new Amodsim_node(position)};
+        vehicles.emplace_back(index++, initial_position, capacity, operation_start);
     }
 }
 
@@ -194,24 +268,6 @@ std::unique_ptr<std::vector<Request<Amodsim_node>>> DARP_benchmark_reader::load_
 }
 
 namespace {
-/** Trim leading/trailing spaces from a string. */
-std::string trim_copy(const std::string& s) {
-    auto start = s.find_first_not_of(" \t");
-    if (start == std::string::npos) return {};
-    auto end = s.find_last_not_of(" \t");
-    return s.substr(start, end == std::string::npos ? std::string::npos : end - start + 1);
-}
-
-/** Detect delimiter: comma or tab (prefers whichever occurs more in the header). */
-char detect_tab_or_comma_delimiter(const std::string& header_line) {
-	const auto comma_count = static_cast<size_t>(std::count(header_line.begin(), header_line.end(), ','));
-	const auto tab_count = static_cast<size_t>(std::count(header_line.begin(), header_line.end(), '\t'));
-	if (comma_count == 0 && tab_count == 0) {
-		throw std::runtime_error("Request CSV header must be comma- or tab-delimited");
-	}
-	return tab_count > comma_count ? '\t' : ',';
-}
-
 /** Parse request CSV header: accept "time_ms" or "time" (time), "origin", "dest" or "destination". */
 void parse_requests_csv_header(const std::string& header_line,
 	char delimiter,

@@ -22,6 +22,17 @@
 namespace fs = std::filesystem;
 
 
+/**
+ * @brief Concept for vehicle types used in the Insertion Heuristic solver.
+ * Requires methods for accessing vehicle properties needed during insertion.
+ */
+template<class V>
+concept IH_vehicle = requires(const V& vehicle) {
+	{ vehicle.get_init_position() };
+	{ vehicle.get_operation_start() } -> std::convertible_to<time_type>;
+	{ vehicle.get_index() } -> std::convertible_to<unsigned int>;
+	{ vehicle.get_capacity() } -> std::convertible_to<unsigned short>;
+};
 
 template<class P, class V, class A>
 concept IH_vehicle_plan =
@@ -31,7 +42,7 @@ concept IH_vehicle_plan =
 template <
     typename N,
 	Vehicle_plan_builder_action A = ActionData<N>,
-	class V = Vehicle<N>,
+	IH_vehicle V = Vehicle<N>,
 	IH_vehicle_plan<V, A> P = VehiclePlan<N>
 >
 class Insertion_heuristic_solver: public DARP_benchmark_solver<N> {

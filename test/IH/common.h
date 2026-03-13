@@ -23,6 +23,14 @@ public:
 		return init_position;
 	}
 
+	[[nodiscard]] time_type get_operation_start() const {
+		return 0;
+	}
+
+	[[nodiscard]] unsigned int get_index() const {
+		return 0;
+	}
+
 private:
 	unsigned short capacity;
 

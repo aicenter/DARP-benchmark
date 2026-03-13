@@ -11,10 +11,11 @@ concept HasJSONSerialize = requires(const T& t, rapidjson::PrettyWriter<rapidjso
 };
 
 template <typename N>
-Vehicle<N>::Vehicle(unsigned int index, std::shared_ptr<N> initial_position, unsigned short capacity)
+Vehicle<N>::Vehicle(unsigned int index, std::shared_ptr<N> initial_position, unsigned short capacity, time_type operation_start)
     : Vehicle_base(capacity)
     , index(index)
-    , init_position(std::move(initial_position)) {
+    , init_position(std::move(initial_position))
+    , operation_start(operation_start) {
 }
 
 template <typename N>
@@ -30,6 +31,11 @@ const std::shared_ptr<N>& Vehicle<N>::get_init_position_ptr() const {
 template <typename N>
 unsigned int Vehicle<N>::get_index() const {
     return index;
+}
+
+template <typename N>
+time_type Vehicle<N>::get_operation_start() const {
+    return operation_start;
 }
 
 template<typename N>

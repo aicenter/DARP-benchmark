@@ -7,6 +7,8 @@
 #include <memory>
 #include "rapidjson/prettywriter.h"
 #include "rapidjson/stringbuffer.h"
+
+#include "aliases.h"
 #include "solver/IH/IH_SVDARP_interfaces.h"
 
 
@@ -55,7 +57,7 @@ public:
 
     [[nodiscard]] unsigned int get_vehicle_count() const;
 
-	void JSON_serialize(rapidjson::PrettyWriter<rapidjson::StringBuffer>& writer) const;
+	void JSON_serialize(rapidjson::PrettyWriter<rapidjson::StringBuffer>& writer) const override;
 
 private:
     unsigned int time_to_start;
@@ -72,20 +74,22 @@ template <typename N>
 class Vehicle : public Vehicle_base {
 
 public:
-    Vehicle(unsigned int index, std::shared_ptr<N> initial_position, unsigned short capacity);
+    Vehicle(unsigned int index, std::shared_ptr<N> initial_position, unsigned short capacity, time_type operation_start = 0);
 
     const N& get_init_position() const;
 
     [[nodiscard]] const std::shared_ptr<N>& get_init_position_ptr() const;
 
-    void JSON_serialize(rapidjson::PrettyWriter<rapidjson::StringBuffer>& writer) const;
+    void JSON_serialize(rapidjson::PrettyWriter<rapidjson::StringBuffer>& writer) const override;
 
     [[nodiscard]] unsigned int get_index() const;
+
+    [[nodiscard]] time_type get_operation_start() const;
 
 private:
     unsigned int index;
     const std::shared_ptr<N> init_position;
-
+	time_type operation_start;
 };
 
 #include "Vehicle.tpp"

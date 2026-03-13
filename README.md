@@ -35,6 +35,11 @@ The DARP benchmark program accepts the following command line arguments:
 
 Additionally, there are some parameters that are specific to the methods.
 
+So far, only one method is included: Insertion Heuristic (IH).
+
+- `--method ih`
+- no paremeters
+
 
 ## Usage Examples
 

@@ -14,7 +14,7 @@
 #include "../../progress_bar.h"
 
 
-template<typename N, Vehicle_plan_builder_action A, class V, IH_vehicle_plan<V, A> P>
+template<typename N, Vehicle_plan_builder_action A, IH_vehicle V, IH_vehicle_plan<V, A> P>
 Insertion_heuristic_solver<N, A, V, P>::Insertion_heuristic_solver(
 	const DARP_instance<N>& instance,
 	const DARP_benchmark_config& solver_config,
@@ -28,7 +28,7 @@ Insertion_heuristic_solver<N, A, V, P>::Insertion_heuristic_solver(
 	nearest_vehicle_provider(nearest_vehicle_provider) {
 }
 
-template<typename N, Vehicle_plan_builder_action A, class V, IH_vehicle_plan<V, A> P>
+template<typename N, Vehicle_plan_builder_action A, IH_vehicle V, IH_vehicle_plan<V, A> P>
 Insertion_heuristic_solver<N, A, V, P>::Insertion_heuristic_solver(
 	const std::shared_ptr<Travel_time_provider<N>>& travel_time_provider,
 	const std::shared_ptr<DARP_instance_configuration>& instance_configuration,
@@ -39,7 +39,7 @@ Insertion_heuristic_solver<N, A, V, P>::Insertion_heuristic_solver(
 }
 
 
-template<typename N, Vehicle_plan_builder_action A, class V, IH_vehicle_plan<V, A> P>
+template<typename N, Vehicle_plan_builder_action A, IH_vehicle V, IH_vehicle_plan<V, A> P>
 DARP_benchmark_solver<N>::solution_impl_ret_val Insertion_heuristic_solver<N, A, V, P>::solve_impl() {
 	if constexpr (std::is_same_v<A, ActionData<N>> && std::is_same_v<V, Vehicle<N>> &&
 				  std::is_same_v<P, VehiclePlan<N>>) {
@@ -56,7 +56,7 @@ DARP_benchmark_solver<N>::solution_impl_ret_val Insertion_heuristic_solver<N, A,
 //}
 
 
-template<typename N, Vehicle_plan_builder_action A, class V, IH_vehicle_plan<V, A> P>
+template<typename N, Vehicle_plan_builder_action A, IH_vehicle V, IH_vehicle_plan<V, A> P>
 template<class R, Iterable<V> I>
 std::unique_ptr<Solution<N>> Insertion_heuristic_solver<N, A, V, P>::compute(const R& requests, const I& vehicles) {
 	reset();
@@ -72,10 +72,12 @@ std::unique_ptr<Solution<N>> Insertion_heuristic_solver<N, A, V, P>::compute(con
 		// we start with empty plans for all vehicles if we do not minimize the number of used vehicles
 	else {
 		constexpr unsigned short initial_capacity = 4;
+		const auto global_start_time = this->darp_instance_configuration->get_start_time();
 
 		for (const V& vehicle: vehicles) {
+			const auto vehicle_start_time = std::max(global_start_time, vehicle.get_operation_start());
 			vehicle_plan_builders.emplace_back(
-				vehicle, initial_capacity, this->darp_instance_configuration->get_start_time());
+				vehicle, initial_capacity, vehicle_start_time);
 		}
 	}
 
@@ -122,7 +124,7 @@ std::unique_ptr<Solution<N>> Insertion_heuristic_solver<N, A, V, P>::compute(con
 	return std::make_unique<Solution<N>>(std::move(vehicle_plans), this->solution_cost, std::move(dropped_requests));
 }
 
-template<typename N, Vehicle_plan_builder_action A, class V, IH_vehicle_plan<V, A> P>
+template<typename N, Vehicle_plan_builder_action A, IH_vehicle V, IH_vehicle_plan<V, A> P>
 std::optional<Solution<N>> Insertion_heuristic_solver<N, A, V, P>::insert_request_in_solution(
 	const Solution<N>& solution,
 	const Request<N>& req
@@ -175,7 +177,7 @@ std::optional<Solution<N>> Insertion_heuristic_solver<N, A, V, P>::insert_reques
 	return std::nullopt;
 }
 
-template<typename N, Vehicle_plan_builder_action A, class V, IH_vehicle_plan<V, A> P>
+template<typename N, Vehicle_plan_builder_action A, IH_vehicle V, IH_vehicle_plan<V, A> P>
 template<class R, Vehicle_plan_builder_action_with_request AR>
 std::optional<P> Insertion_heuristic_solver<N, A, V, P>::insert_request_in_plan(const P& vehicle_plan, const R& req) {
 	const auto& vehicle = vehicle_plan.get_vehicle();
@@ -226,7 +228,7 @@ std::optional<P> Insertion_heuristic_solver<N, A, V, P>::insert_request_in_plan(
 
 }
 
-template<typename N, Vehicle_plan_builder_action A, class V, IH_vehicle_plan<V, A> P>
+template<typename N, Vehicle_plan_builder_action A, IH_vehicle V, IH_vehicle_plan<V, A> P>
 void Insertion_heuristic_solver<N, A, V, P>::reset() {
 	this->solution_cost = 0;
 	vehicle_plan_builders.clear();
@@ -238,7 +240,7 @@ void Insertion_heuristic_solver<N, A, V, P>::reset() {
 	}
 }
 
-template<typename N, Vehicle_plan_builder_action A, class V, IH_vehicle_plan<V, A> P>
+template<typename N, Vehicle_plan_builder_action A, IH_vehicle V, IH_vehicle_plan<V, A> P>
 void Insertion_heuristic_solver<N, A, V, P>::set_best_plan() {
 //	SVDARP_solver.finalize_plan(best_plan.value());
 	best_plan.value().erase_time_adjustments();
@@ -246,7 +248,7 @@ void Insertion_heuristic_solver<N, A, V, P>::set_best_plan() {
 	vehicle_plan_builders[best_vehicle_index] = best_plan.value();
 }
 
-template<typename N, Vehicle_plan_builder_action A, class V, IH_vehicle_plan<V, A> P>
+template<typename N, Vehicle_plan_builder_action A, IH_vehicle V, IH_vehicle_plan<V, A> P>
 void Insertion_heuristic_solver<N, A, V, P>::process_request(const Request<N>& request) {
 	min_cost_increment = std::numeric_limits<unsigned int>::max();
 	best_plan.reset();
@@ -274,10 +276,12 @@ void Insertion_heuristic_solver<N, A, V, P>::process_request(const Request<N>& r
 			request.get_pickup().get_node(), unused_vehicles
 		);
 		const auto& nearest_vehicle = *unused_vehicles[nearest_vehicle_index];
+		const auto global_start_time = this->darp_instance_configuration->get_start_time();
+		const auto vehicle_start_time = std::max(global_start_time, nearest_vehicle.get_operation_start());
 		vehicle_plan_builders.emplace_back(
 			nearest_vehicle,
 			static_cast<unsigned short>(6),
-			this->darp_instance_configuration->get_start_time());
+			vehicle_start_time);
 		unused_vehicles.erase(unused_vehicles.begin() + nearest_vehicle_index);
 
 		process_request_vehicle_combination(pickup_action_data, drop_off_action_data);
@@ -291,7 +295,7 @@ void Insertion_heuristic_solver<N, A, V, P>::process_request(const Request<N>& r
 	dropped_requests.push_back(&request);
 }
 
-template<typename N, Vehicle_plan_builder_action A, class V, IH_vehicle_plan<V, A> P>
+template<typename N, Vehicle_plan_builder_action A, IH_vehicle V, IH_vehicle_plan<V, A> P>
 void Insertion_heuristic_solver<N, A, V, P>::process_request_vehicle_combination(
 	A& pickup_action_data,
 	A& drop_off_action_data
@@ -313,33 +317,39 @@ void Insertion_heuristic_solver<N, A, V, P>::process_request_vehicle_combination
 	}
 }
 
-template<typename N, Vehicle_plan_builder_action A, class V, IH_vehicle_plan<V, A> P>
+template<typename N, Vehicle_plan_builder_action A, IH_vehicle V, IH_vehicle_plan<V, A> P>
 bool Insertion_heuristic_solver<N, A, V, P>::can_serve_request(
 	const V& vehicle,
 	const A& pickup_action_data,
 	const A& drop_off_action_data
 ) {
+	const auto global_start_time = this->darp_instance_configuration->get_start_time();
+	const auto vehicle_start_time = std::max(global_start_time, vehicle.get_operation_start());
 
-	// node identity
+	// node identity - vehicle still needs to wait until operation_start
 	if (nodes_equal(vehicle.get_init_position(), pickup_action_data.get_node())){
-		return true;
+		return vehicle_start_time < pickup_action_data.get_max_time();
 	}
 
-	// pickup feasibility check
-	const bool can_serve = this->travel_time_provider.get()->get_travel_time(
-		vehicle.get_init_position(), pickup_action_data.get_node()) < pickup_action_data.get_max_time();
+	const auto travel_time_to_pickup = this->travel_time_provider.get()->get_travel_time(
+		vehicle.get_init_position(), pickup_action_data.get_node());
+
+	// pickup feasibility check: earliest arrival = vehicle_start_time + travel_time
+	const auto earliest_pickup_arrival = vehicle_start_time + travel_time_to_pickup;
+	const bool can_serve = earliest_pickup_arrival < pickup_action_data.get_max_time();
 
 	if (can_serve) {
-		unsigned time = this->travel_time_provider.get()->get_travel_time(
-			vehicle.get_init_position(), drop_off_action_data.get_node()) + pickup_action_data.get_service_duration();
+		const auto travel_time_to_dropoff = this->travel_time_provider.get()->get_travel_time(
+			vehicle.get_init_position(), drop_off_action_data.get_node());
+		const auto earliest_dropoff_arrival = vehicle_start_time + travel_time_to_dropoff + pickup_action_data.get_service_duration();
 
 		// drop off feasibility check
-		return time < drop_off_action_data.get_max_time();
+		return earliest_dropoff_arrival < drop_off_action_data.get_max_time();
 	}
 	return false;
 }
 
-template<typename N, Vehicle_plan_builder_action A, class V, IH_vehicle_plan<V, A> P>
+template<typename N, Vehicle_plan_builder_action A, IH_vehicle V, IH_vehicle_plan<V, A> P>
 Solution<N> Insertion_heuristic_solver<N, A, V, P>::export_solution() {
 	std::vector<VehiclePlan<N>> vehicle_plans;
 	vehicle_plans.reserve(vehicle_plan_builders.size());
