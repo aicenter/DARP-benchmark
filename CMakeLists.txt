@@ -118,6 +118,15 @@ target_link_libraries(DARP-benchmark
 		indicators::indicators
 )
 
+add_executable(check_triangle_inequality
+	src/check_triangle_inequality.cpp
+)
+target_link_libraries(check_triangle_inequality
+	PRIVATE
+		DARP_benchmark_lib
+		indicators::indicators
+)
+
 add_library(DARP_benchmark_test_lib
 	natvis/DARP_benchmark.natvis
 	test/Action_data_base.cpp

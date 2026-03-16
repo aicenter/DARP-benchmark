@@ -58,6 +58,8 @@ Benchmark supports instnces as described in the [DARP instances project](https:/
 
 Additionaly, classical instances by Cordeau and Laporte are supported.
 
+For the travel time model it is essential to ensure that the triangle inequality holds. If you have doubts, you can use the `check_triangle_inequality` target to check the triangle inequality for your distance matrix.
+
 
 # Extending the benchmark
 There are two ways to extend the benchmark:
