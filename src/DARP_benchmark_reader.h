@@ -34,7 +34,7 @@ private:
 		const std::shared_ptr<Travel_time_provider<Amodsim_node>>& travel_cost_provider
 	);
 
-	// Loader for .csv format using fast-cpp-csv-parser
+	// Loader for .csv format using csv2
 	static std::unique_ptr<std::vector<Request<Amodsim_node>>> load_requests_csv(
 		const std::string& request_filepath_str,
 		unsigned short max_prolongation,

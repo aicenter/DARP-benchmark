@@ -5,8 +5,11 @@
 #include <string>
 #include <vector>
 #include <yaml-cpp/yaml.h>
-#include <filesystem> // Include for path operations
-#include "csv.h" // Include the fast-cpp-csv-parser header
+#include <filesystem>
+#if defined(_MSC_VER)
+	#define NOMINMAX
+#endif
+#include <csv2/reader.hpp>
 
 #include "DARP_benchmark_reader.h"
 
@@ -28,14 +31,6 @@ bool file_has_commas(const std::string& file_path) {
 	return first_line.find(',') != std::string::npos;
 }
 
-/** Trim leading/trailing spaces from a string. */
-std::string trim_copy(const std::string& s) {
-    auto start = s.find_first_not_of(" \t");
-    if (start == std::string::npos) return {};
-    auto end = s.find_last_not_of(" \t");
-    return s.substr(start, end == std::string::npos ? std::string::npos : end - start + 1);
-}
-
 /** Detect delimiter: comma or tab (prefers whichever occurs more in the header). */
 char detect_tab_or_comma_delimiter(const std::string& header_line) {
 	const auto comma_count = static_cast<size_t>(std::count(header_line.begin(), header_line.end(), ','));
@@ -46,30 +41,48 @@ char detect_tab_or_comma_delimiter(const std::string& header_line) {
 	return tab_count > comma_count ? '\t' : ',';
 }
 
-/** Parse vehicle CSV header: accept "position", "capacity", and optionally "operation_start". */
-void parse_vehicles_csv_header(const std::string& header_line,
-    char delimiter,
-    int& position_col, int& capacity_col, int& operation_start_col) {
-    std::istringstream iss(header_line);
-    std::string cell;
-    int col = 0;
-    position_col = -1;
-    capacity_col = -1;
-    operation_start_col = -1;
-    while (std::getline(iss, cell, delimiter)) {
-        std::string name = trim_copy(cell);
-        if (name == "position") {
-            position_col = col;
-        } else if (name == "capacity") {
-            capacity_col = col;
-        } else if (name == "operation_start") {
-            operation_start_col = col;
-        }
-        ++col;
-    }
-    if (position_col < 0 || capacity_col < 0) {
-        throw std::runtime_error("Vehicle CSV header must include position and capacity columns");
-    }
+template<char Delim>
+void load_vehicles_csv_impl(std::vector<Vehicle<Amodsim_node>>& vehicles, const std::string& file_path) {
+	using CsvReader = csv2::Reader<csv2::delimiter<Delim>, csv2::quote_character<'"'>, csv2::first_row_is_header<true>,
+		csv2::trim_policy::trim_characters<' ', '\t', '\r', '\n'>>;
+	CsvReader reader;
+	if (!reader.mmap(file_path)) {
+		throw std::runtime_error("Cannot open vehicle CSV file: " + file_path);
+	}
+	int position_col = -1, capacity_col = -1, operation_start_col = -1;
+	int col = 0;
+	for (const auto& cell : reader.header()) {
+		std::string name;
+		cell.read_value(name);
+		if (name == "position") position_col = col;
+		else if (name == "capacity") capacity_col = col;
+		else if (name == "operation_start") operation_start_col = col;
+		++col;
+	}
+	if (position_col < 0 || capacity_col < 0) {
+		throw std::runtime_error("Vehicle CSV header must include position and capacity columns");
+	}
+	unsigned int index = 0;
+	for (const auto& row : reader) {
+		std::vector<std::string> cells;
+		for (const auto& cell : row) {
+			std::string val;
+			cell.read_value(val);
+			cells.push_back(val);
+		}
+		if (cells.empty()) continue;
+		if (static_cast<int>(cells.size()) <= std::max(position_col, capacity_col)) {
+			throw std::runtime_error("Too few columns in vehicle CSV row");
+		}
+		unsigned int position = static_cast<unsigned int>(std::stoul(cells[position_col]));
+		unsigned short capacity = static_cast<unsigned short>(std::stoul(cells[capacity_col]));
+		time_type operation_start = 0;
+		if (operation_start_col >= 0 && static_cast<int>(cells.size()) > operation_start_col && !cells[operation_start_col].empty()) {
+			operation_start = static_cast<time_type>(std::stoul(cells[operation_start_col]));
+		}
+		std::shared_ptr<Amodsim_node> initial_position{new Amodsim_node(position)};
+		vehicles.emplace_back(index++, initial_position, capacity, operation_start);
+	}
 }
 } // namespace
 
@@ -168,52 +181,21 @@ void DARP_benchmark_reader::load_vehicles(std::vector<Vehicle<Amodsim_node>>& ve
 }
 
 void DARP_benchmark_reader::load_vehicles_csv(std::vector<Vehicle<Amodsim_node>>& vehicles, const std::string& file_path) const {
-    spdlog::info("Reading vehicles from CSV file: {}", file_path);
-    unsigned int index = 0;
-
-    std::ifstream file(file_path);
-    if (!file) {
-        throw std::runtime_error("Cannot open vehicle CSV file: " + file_path);
-    }
-
-    std::string header_line;
-    if (!std::getline(file, header_line)) {
-        throw std::runtime_error("Vehicle CSV file is empty: " + file_path);
-    }
-
-    const char delimiter = detect_tab_or_comma_delimiter(header_line);
-
-    int position_col, capacity_col, operation_start_col;
-    try {
-        parse_vehicles_csv_header(header_line, delimiter, position_col, capacity_col, operation_start_col);
-    } catch (const std::exception& e) {
-        throw std::runtime_error(std::string("Vehicle CSV header: ") + e.what());
-    }
-
-    std::string line;
-    while (std::getline(file, line)) {
-        if (line.empty()) continue;
-        std::vector<std::string> cells;
-        std::istringstream iss(line);
-        std::string cell;
-        while (std::getline(iss, cell, delimiter)) {
-            cells.push_back(trim_copy(cell));
-        }
-        if (static_cast<int>(cells.size()) <= std::max(position_col, capacity_col)) {
-            throw std::runtime_error("Too few columns in vehicle CSV row: " + line);
-        }
-
-        unsigned int position = static_cast<unsigned int>(std::stoul(cells[position_col]));
-        unsigned short capacity = static_cast<unsigned short>(std::stoul(cells[capacity_col]));
-        time_type operation_start = 0;
-
-        if (operation_start_col >= 0 && static_cast<int>(cells.size()) > operation_start_col && !cells[operation_start_col].empty()) {
-            operation_start = static_cast<time_type>(std::stoul(cells[operation_start_col]));
-        }
-
-        std::shared_ptr<Amodsim_node> initial_position{new Amodsim_node(position)};
-        vehicles.emplace_back(index++, initial_position, capacity, operation_start);
-    }
+	spdlog::info("Reading vehicles from CSV file: {}", file_path);
+	std::ifstream file(file_path);
+	if (!file) {
+		throw std::runtime_error("Cannot open vehicle CSV file: " + file_path);
+	}
+	std::string header_line;
+	if (!std::getline(file, header_line)) {
+		throw std::runtime_error("Vehicle CSV file is empty: " + file_path);
+	}
+	const char delimiter = detect_tab_or_comma_delimiter(header_line);
+	if (delimiter == '\t') {
+		load_vehicles_csv_impl<'\t'>(vehicles, file_path);
+	} else {
+		load_vehicles_csv_impl<','>(vehicles, file_path);
+	}
 }
 
 // Dispatcher function
@@ -268,100 +250,94 @@ std::unique_ptr<std::vector<Request<Amodsim_node>>> DARP_benchmark_reader::load_
 }
 
 namespace {
-/** Parse request CSV header: accept "time_ms" or "time" (time), "origin", "dest" or "destination". */
-void parse_requests_csv_header(const std::string& header_line,
-	char delimiter,
-    int& time_col, int& origin_col, int& dest_col, bool& time_in_seconds) {
-    std::istringstream iss(header_line);
-    std::string cell;
-    int col = 0;
-    time_col = -1;
-    origin_col = -1;
-    dest_col = -1;
-    time_in_seconds = false;
-    while (std::getline(iss, cell, delimiter)) {
-        std::string name = trim_copy(cell);
-        if (name == "time_ms") {
-            time_col = col;
-            time_in_seconds = false;
-        } else if (name == "time") {
-            time_col = col;
-            time_in_seconds = true;
-        } else if (name == "origin") {
-            origin_col = col;
-        } else if (name == "dest") {
-            dest_col = col;
-        } else if (name == "destination") {
-            dest_col = col;
-        }
-        ++col;
-    }
-    if (time_col < 0 || origin_col < 0 || dest_col < 0) {
-        throw std::runtime_error("Request CSV header must include time/time_ms, origin, and dest/destination columns");
-    }
+template<char Delim>
+std::unique_ptr<std::vector<Request<Amodsim_node>>> load_requests_csv_impl(
+	const std::string& request_filepath_str,
+	unsigned short max_prolongation,
+	const std::shared_ptr<Travel_time_provider<Amodsim_node>>& travel_cost_provider
+) {
+	using CsvReader = csv2::Reader<csv2::delimiter<Delim>, csv2::quote_character<'"'>, csv2::first_row_is_header<true>,
+		csv2::trim_policy::trim_characters<' ', '\t', '\r', '\n'>>;
+	CsvReader reader;
+	if (!reader.mmap(request_filepath_str)) {
+		throw std::runtime_error("Cannot open request CSV file: " + request_filepath_str);
+	}
+	auto requests = std::make_unique<std::vector<Request<Amodsim_node>>>();
+	int time_col = -1, origin_col = -1, dest_col = -1;
+	bool time_in_seconds = false;
+	int col = 0;
+	for (const auto& cell : reader.header()) {
+		std::string name;
+		cell.read_value(name);
+		if (name == "time_ms") {
+			time_col = col;
+			time_in_seconds = false;
+		} else if (name == "time") {
+			time_col = col;
+			time_in_seconds = true;
+		} else if (name == "origin") {
+			origin_col = col;
+		} else if (name == "dest") {
+			dest_col = col;
+		} else if (name == "destination") {
+			dest_col = col;
+		}
+		++col;
+	}
+	if (time_col < 0 || origin_col < 0 || dest_col < 0) {
+		throw std::runtime_error("Request CSV header must include time/time_ms, origin, and dest/destination columns");
+	}
+	const int max_col = std::max({time_col, origin_col, dest_col});
+	unsigned int action_id = 0;
+	unsigned long request_id_counter = 0;
+	for (const auto& row : reader) {
+		std::vector<std::string> cells;
+		for (const auto& cell : row) {
+			std::string val;
+			cell.read_value(val);
+			cells.push_back(val);
+		}
+		if (cells.empty()) continue;
+		if (static_cast<int>(cells.size()) <= max_col) {
+			throw std::runtime_error("Too few columns in request CSV row");
+		}
+		unsigned long time_val = std::stoul(cells[time_col]);
+		unsigned int from = static_cast<unsigned int>(std::stoul(cells[origin_col]));
+		unsigned int to = static_cast<unsigned int>(std::stoul(cells[dest_col]));
+		unsigned int time = time_in_seconds ? static_cast<unsigned int>(time_val) : static_cast<unsigned int>(time_val / 1000);
+		std::shared_ptr<Amodsim_node> pickup_node{new Amodsim_node(from)};
+		std::shared_ptr<Amodsim_node> drop_off_node{new Amodsim_node(to)};
+		auto min_travel_time = static_cast<unsigned short>(travel_cost_provider->get_travel_time(*pickup_node, *drop_off_node));
+		requests->emplace_back(request_id_counter++, action_id, action_id + 1,
+			pickup_node, time, time + max_prolongation,
+			drop_off_node, time + min_travel_time, time + min_travel_time + max_prolongation, min_travel_time);
+		action_id += 2;
+	}
+	return requests;
 }
 } // namespace
 
 // Loader for .csv format: supports header "time" (seconds) or "time_ms" (milliseconds), "origin", "dest" or "destination"
 std::unique_ptr<std::vector<Request<Amodsim_node>>> DARP_benchmark_reader::load_requests_csv(
-    const std::string& request_filepath_str,
-    unsigned short max_prolongation,
-    const std::shared_ptr<Travel_time_provider<Amodsim_node>>& travel_cost_provider
+	const std::string& request_filepath_str,
+	unsigned short max_prolongation,
+	const std::shared_ptr<Travel_time_provider<Amodsim_node>>& travel_cost_provider
 ) {
-    spdlog::info("Loading requests from CSV file: {}", request_filepath_str);
-    auto requests = std::make_unique<std::vector<Request<Amodsim_node>>>();
-    unsigned int action_id = 0;
-    unsigned long request_id_counter = 0;
-
-    std::ifstream file(request_filepath_str);
-    if (!file) {
-        throw std::runtime_error("Cannot open request CSV file: " + request_filepath_str);
-    }
-
-    std::string header_line;
-    if (!std::getline(file, header_line)) {
-        throw std::runtime_error("Request CSV file is empty: " + request_filepath_str);
-    }
-
+	spdlog::info("Loading requests from CSV file: {}", request_filepath_str);
+	std::ifstream file(request_filepath_str);
+	if (!file) {
+		throw std::runtime_error("Cannot open request CSV file: " + request_filepath_str);
+	}
+	std::string header_line;
+	if (!std::getline(file, header_line)) {
+		throw std::runtime_error("Request CSV file is empty: " + request_filepath_str);
+	}
 	const char delimiter = detect_tab_or_comma_delimiter(header_line);
-
-    int time_col, origin_col, dest_col;
-    bool time_in_seconds;
-    try {
-        parse_requests_csv_header(header_line, delimiter, time_col, origin_col, dest_col, time_in_seconds);
-    } catch (const std::exception& e) {
-        throw std::runtime_error(std::string("Request CSV header: ") + e.what());
-    }
-
-    std::string line;
-    while (std::getline(file, line)) {
-        if (line.empty()) continue;
-        std::vector<std::string> cells;
-        std::istringstream iss(line);
-        std::string cell;
-        while (std::getline(iss, cell, delimiter)) {
-            cells.push_back(trim_copy(cell));
-        }
-        const int max_col = std::max({time_col, origin_col, dest_col});
-        if (static_cast<int>(cells.size()) <= max_col) {
-            throw std::runtime_error("Too few columns in request CSV row: " + line);
-        }
-        unsigned long time_val = std::stoul(cells[time_col]);
-        unsigned int from = static_cast<unsigned int>(std::stoul(cells[origin_col]));
-        unsigned int to = static_cast<unsigned int>(std::stoul(cells[dest_col]));
-        unsigned int time = time_in_seconds ? static_cast<unsigned int>(time_val) : static_cast<unsigned int>(time_val / 1000);
-
-        std::shared_ptr<Amodsim_node> pickup_node {new Amodsim_node(from)};
-        std::shared_ptr<Amodsim_node> drop_off_node {new Amodsim_node(to)};
-        auto min_travel_time = static_cast<unsigned short>(travel_cost_provider->get_travel_time(*pickup_node, *drop_off_node));
-
-        requests->emplace_back(request_id_counter++, action_id, action_id + 1,
-                pickup_node, time, time + max_prolongation,
-                drop_off_node, time + min_travel_time, time + min_travel_time + max_prolongation, min_travel_time);
-        action_id += 2;
-    }
-
-    return requests;
+	if (delimiter == '\t') {
+		return load_requests_csv_impl<'\t'>(request_filepath_str, max_prolongation, travel_cost_provider);
+	} else {
+		return load_requests_csv_impl<','>(request_filepath_str, max_prolongation, travel_cost_provider);
+	}
 }
 
 namespace internal {

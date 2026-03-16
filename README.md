@@ -5,7 +5,7 @@ This project uses C++ 20 features, therefore, compiler fully supporting C++ 20 i
 The following libraries are required:
 
 - spdlog
-- csv2
+- [csv2](https://github.com/p-ranav/csv2)
 - nanoflann
 - magic_enum
 - boost-multi-index
