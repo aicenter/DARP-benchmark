@@ -144,7 +144,7 @@ DARP_instance<Amodsim_node> DARP_benchmark_reader::read(std::filesystem::path in
 	if(!configuration->use_virtual_vehicles()){
 	    std::string vehicles_filepath = std::filesystem::path(instance_filepath).remove_filename().string() + "vehicles.csv";
 	    if (file_has_commas(vehicles_filepath)) {
-		    load_vehicles_csv(*vehicles, vehicles_filepath);
+		    internal::load_vehicles_csv(*vehicles, vehicles_filepath);
 	    } else {
 		    load_vehicles(*vehicles, vehicles_filepath);
 	    }
@@ -180,23 +180,7 @@ void DARP_benchmark_reader::load_vehicles(std::vector<Vehicle<Amodsim_node>>& ve
     }
 }
 
-void DARP_benchmark_reader::load_vehicles_csv(std::vector<Vehicle<Amodsim_node>>& vehicles, const std::string& file_path) const {
-	spdlog::info("Reading vehicles from CSV file: {}", file_path);
-	std::ifstream file(file_path);
-	if (!file) {
-		throw std::runtime_error("Cannot open vehicle CSV file: " + file_path);
-	}
-	std::string header_line;
-	if (!std::getline(file, header_line)) {
-		throw std::runtime_error("Vehicle CSV file is empty: " + file_path);
-	}
-	const char delimiter = detect_tab_or_comma_delimiter(header_line);
-	if (delimiter == '\t') {
-		load_vehicles_csv_impl<'\t'>(vehicles, file_path);
-	} else {
-		load_vehicles_csv_impl<','>(vehicles, file_path);
-	}
-}
+
 
 // Dispatcher function
 std::unique_ptr<std::vector<Request<Amodsim_node>>> DARP_benchmark_reader::load_requests(
@@ -375,6 +359,24 @@ std::shared_ptr<DARP_instance_configuration> load_instance_configuration(const Y
 			vehicle_capital_cost,
 			relative_delay_cost
 	);
+}
+
+void load_vehicles_csv(std::vector<Vehicle<Amodsim_node>>& vehicles, const std::string& file_path) {
+	spdlog::info("Reading vehicles from CSV file: {}", file_path);
+	std::ifstream file(file_path);
+	if (!file) {
+		throw std::runtime_error("Cannot open vehicle CSV file: " + file_path);
+	}
+	std::string header_line;
+	if (!std::getline(file, header_line)) {
+		throw std::runtime_error("Vehicle CSV file is empty: " + file_path);
+	}
+	const char delimiter = detect_tab_or_comma_delimiter(header_line);
+	if (delimiter == '\t') {
+		load_vehicles_csv_impl<'\t'>(vehicles, file_path);
+	} else {
+		load_vehicles_csv_impl<','>(vehicles, file_path);
+	}
 }
 
 }

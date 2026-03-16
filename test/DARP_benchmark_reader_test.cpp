@@ -210,6 +210,42 @@ TEST(DARP_benchmark_reader_test, request_loading_di) {
 	assert_requests_equal(actual_requests[2], expected_req_2);
 }
 
+TEST(DARP_benchmark_reader_test, vehicle_loading_csv_without_operation_start) {
+	std::string csv_path = get_test_resource_path("vehicles_no_operation_start.csv").generic_string();
+	std::vector<Vehicle<Amodsim_node>> vehicles;
+	DARP_benchmark_reader reader;
+	internal::load_vehicles_csv(vehicles, csv_path);
+
+	ASSERT_EQ(vehicles.size(), 2u);
+	EXPECT_EQ(vehicles[0].get_index(), 0u);
+	EXPECT_EQ(vehicles[0].get_init_position().get_index(), 1u);
+	EXPECT_EQ(vehicles[0].get_capacity(), 4);
+	EXPECT_EQ(vehicles[0].get_operation_start(), 0u);
+
+	EXPECT_EQ(vehicles[1].get_index(), 1u);
+	EXPECT_EQ(vehicles[1].get_init_position().get_index(), 2u);
+	EXPECT_EQ(vehicles[1].get_capacity(), 6);
+	EXPECT_EQ(vehicles[1].get_operation_start(), 0u);
+}
+
+TEST(DARP_benchmark_reader_test, vehicle_loading_csv_with_operation_start) {
+	std::string csv_path = get_test_resource_path("vehicles_with_operation_start.csv").generic_string();
+	std::vector<Vehicle<Amodsim_node>> vehicles;
+	DARP_benchmark_reader reader;
+	internal::load_vehicles_csv(vehicles, csv_path);
+
+	ASSERT_EQ(vehicles.size(), 2u);
+	EXPECT_EQ(vehicles[0].get_index(), 0u);
+	EXPECT_EQ(vehicles[0].get_init_position().get_index(), 1u);
+	EXPECT_EQ(vehicles[0].get_capacity(), 4);
+	EXPECT_EQ(vehicles[0].get_operation_start(), 0u);
+
+	EXPECT_EQ(vehicles[1].get_index(), 1u);
+	EXPECT_EQ(vehicles[1].get_init_position().get_index(), 2u);
+	EXPECT_EQ(vehicles[1].get_capacity(), 6);
+	EXPECT_EQ(vehicles[1].get_operation_start(), 3600u);
+}
+
 TEST(DARP_benchmark_reader_test, read_grid_instance) {
 	const std::filesystem::path instance_path = get_test_resource_path(std::filesystem::path("grid") / "config.yaml");
 	if (!std::filesystem::exists(instance_path)) {
