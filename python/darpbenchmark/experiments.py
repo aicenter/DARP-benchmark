@@ -10,9 +10,9 @@ import darpinstances.log
 
 from darpinstances.experiments import load_experiment_config
 
-def call_experiment_runner_plain(params: Dict[str, str], timeout: Optional[int] = None) -> bool:
+def call_experiment_runner_plain(params: Dict[str, str], timeout: Optional[int] = None, executable_path: Optional[str] = None) -> bool:
     commands = [
-        "DARP-benchmark"
+        executable_path if executable_path else "DARP-benchmark"
     ]
 
     for param_name, param_value in params.items():
@@ -68,7 +68,7 @@ def run_experiments(instance_paths: List[str], dm_path: str, methods: Dict, out_
                         fail = True
                         break
 
-def run_experiment_using_config(path: str, timeout: Optional[int] = None) -> bool:
+def run_experiment_using_config(path: str, timeout: Optional[int] = None, executable_path: Optional[str] = None) -> bool:
     config = load_experiment_config(path)
     # instance_filename = os.path.normpath(config["instance"]).split(os.sep)[-1]
     if 'timeout' in config:
@@ -87,7 +87,9 @@ def run_experiment_using_config(path: str, timeout: Optional[int] = None) -> boo
     # if os.path.exists(solution_path):
 
     if solution_path is None:
-        return call_experiment_runner_plain(config, timeout)
+        if executable_path:
+            os.chdir(executable_path.parent)
+        return call_experiment_runner_plain(config, timeout, executable_path)
     else:
         logging.info("The solution already exists ('%s')", solution_path)
         return True

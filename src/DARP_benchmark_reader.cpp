@@ -224,8 +224,8 @@ std::unique_ptr<std::vector<Request<Amodsim_node>>> DARP_benchmark_reader::load_
     const auto request_filepath_str = config["demand"]["filepath"].as<std::string>();
     const auto request_filepath = check_path(request_filepath_str); // Ensure path is valid
 	// Grid instances use max_travel_time_delay.seconds; others use max_prolongation (same as Python load_instance)
-	const auto max_prolongation = (config["type"] && config["type"].as<std::string>() == "grid")
-		? static_cast<unsigned short>(config["max_travel_time_delay"]["seconds"].as<unsigned int>())
+	const auto max_prolongation = (config["max_travel_time_delay"] && config["max_travel_time_delay"]["seconds"])
+		? config["max_travel_time_delay"]["seconds"].as<unsigned short>()
 		: config["max_prolongation"].as<unsigned short>();
 
     if (request_filepath.extension() == ".csv") {

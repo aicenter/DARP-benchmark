@@ -17,7 +17,7 @@ The following libraries are required:
 
 All these can be installed via `vcpkg` with the following command:
 ```bash
-vcpkg install spdlog csv2 nanoflann magic_enum boost-multi-index boost-algorithm indicators yaml-cpp HDF5[cpp] future-config
+vcpkg install spdlog p-ranav-csv2 nanoflann magic-enum boost-multi-index boost-algorithm indicators yaml-cpp HDF5[cpp] future-config
 ```
 
 
@@ -163,8 +163,8 @@ Sometimes, configuration needs to be extended, e.g., if we need new parameters f
 
 
 
-
 # Implementation
+
 ## Data Types
 Defined in `aliases.h`
 
@@ -183,6 +183,36 @@ All times are in one second resolution.
 | `vehicle_capacity` | The number of persons that can be transported in the vehicle at the same time | `capacity` | `uint_fast8_t` |
 | `request_index` | Index of a requests. It should be between 0 and requests count - 1. | `request_index` | `uint_fast32_t` |
 | `index_in_plan` | we expect that each plan can be 24 hours long an that the average trip is at least 2 minutes long. that means 24 * 60 *  2  maximum requests and 24 * 60 = 1440 maximum actions. For that, we need a 2 byte type | `index_in_plan` | `uint_fast16_t` |
+
+
+## Vehicle Plan Builders
+For performance reasons, it is essential to prevent memory allocations when building vehicle plans. Therefore, instead of using vehicle plans directly, we use vehicle plan builders. These special structures enables fast adding and removing of actions when trying to find the best plan.
+
+The base class for this purpose is [Vehicle_plan_builder.h](src/solver/Vehicle_plan_builder.h). Each specific solver is expected to inherit from this class  and use it's own customized builder implementation, as the requirements for the builder are different for each solver. However, some common functionality is implemented in the base class.
+
+- `time_adjustments`: delays induced to actions by adding other actions to the plan
+
+
+### Time Adjustments
+This structure is used to store the delays induced to actions by adding other actions to the plan. The size of the structure depends on the solver, but the principle is the same for all solvers:
+
+1. when a new action is added to the, we save a delay value for each action delayed as a result of adding the new action.
+1. later, when we remove this action, we use the saved delay values to revert the plan builder to the state before the action was added.
+
+The initial value for all fields in the time adjustments structure is 0. We can describe an example implementation of the time adjustments structure in the [vehicle plan builder for IH](src/solver/IH/IH_vehicle_plan_builder.h).
+
+<p align="center">
+    <img src="IH_time_adjustments.png" alt="Time adjustments structure"/>
+</p>
+
+Here, first column holds delay data for the pickup action of the new request, and the second column holds delay data for the drop off action of the new request. As Insertion Heuristic adds one request at a time, this is enough to store the delays. The meaning of the rows is:
+
+- The indicators `cp` and `cd` are used to indicate whether the action caused any delay (`1`) or not (`0`).
+- plan delays `sp` and `sd` shows delay in plan departure
+- action delays `p1`,..., `p4` shows delays for existing actions in the plan cause by the new pickup action
+- action delays `d1`,..., `d6` shows delays for existing actions in the plan cause by the new drop off action
+
+These values are stored in a flat aray, for IH plan builder, the order is: `cp`, `sp`, `p1`,..., `pn`, `cd`, `sd`, `d1`,..., `dn`. The size is `$ 4 |p| - 6 + 4 = 4|p| - 2 $`, where `$ |p| $` is the number of actions in the plan, including the new action.
 
 ## Tests
 

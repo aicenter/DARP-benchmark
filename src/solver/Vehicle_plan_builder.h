@@ -255,7 +255,7 @@ protected:
 
 	/**
 	 * @brief Time adjustments from the adjust times method. They need to be reverted when an action is removed from
-	 * plan. The semantic structure is described at:
+	 * plan. The structure is described at:
 	 * https://docs.google.com/spreadsheets/d/1FJWO9nRrsYui55tgJv2pCt7ly7NSHfvCPW4keAmXnK4/edit?usp=sharing
 	*/
 	std::vector<int> time_adjustments;

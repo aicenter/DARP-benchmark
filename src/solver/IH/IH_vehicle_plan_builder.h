@@ -8,8 +8,9 @@ template<class V, Vehicle_plan_builder_action A, Vehicle_plan_builder_plan<V, A>
 class IH_vehicle_plan_builder: public Vehicle_plan_builder<V, A, P> {
 
 public:
-	IH_vehicle_plan_builder(const V& vehicle_par, plan_size_type init_size, unsigned start_time = 0):
-		Vehicle_plan_builder<V, A, P>(vehicle_par, init_size, init_size * 4 + 2, start_time)
+	IH_vehicle_plan_builder(const V& vehicle_par, plan_size_type init_size, unsigned operating_start = 0):
+		Vehicle_plan_builder<V, A, P>(vehicle_par, init_size, init_size * 4 + 2, operating_start),
+		operating_start(operating_start)
 	{}
 
 	template<Vehicle_plan_builder_action_with_request AR = A>
@@ -82,6 +83,10 @@ public:
         return get_last_action().get_departure_time();
     }
 
+	[[nodiscard]] time_type get_operating_start() const {
+		return operating_start;
+	}
+
 	void add_new_request_data(A& pickup_action_data, A& drop_off_action_data) {
 		assert(action_data_used_length <= this->action_data.size());
 		action_data_used_length += 2;
@@ -132,14 +137,14 @@ public:
     		this->departure_time -= this->time_adjustments[start_index + 1];
     		auto time_adjustment_action_index = start_index + 2;
 	        for(plan_size_type i = 0; i < action_data_used_length - 1; ++i) {
-	        	A& action_data_for_rollback = this->action_data[i];
+	        	A& action_data_to_rollback = this->action_data[i];
 
 	        	// arrival time
 //				assert(this->time_adjustments[time_adjustment_action_index] >= 0);
 	        	int time_adjustment = this->time_adjustments[time_adjustment_action_index];
 	        	if(time_adjustment > 0){
-	        		assert(time_adjustment <= static_cast<int>(action_data_for_rollback.get_arrival_time()));
-					action_data_for_rollback.set_arrival_time(action_data_for_rollback.get_arrival_time() - time_adjustment);
+	        		assert(time_adjustment <= static_cast<int>(action_data_to_rollback.get_arrival_time()));
+					action_data_to_rollback.set_arrival_time(action_data_to_rollback.get_arrival_time() - time_adjustment);
 	        		this->time_adjustments[time_adjustment_action_index] = 0;
                 }
 	        	++time_adjustment_action_index;
@@ -147,10 +152,10 @@ public:
 	        	// departure time
 	        	time_adjustment = this->time_adjustments[time_adjustment_action_index];
 	        	if(time_adjustment > 0){
-	        		assert((int) time_adjustment <= action_data_for_rollback.get_departure_time());
-	        		assert(static_cast<int>(action_data_for_rollback.get_departure_time()) - time_adjustment
-						>= static_cast<int>(action_data_for_rollback.get_arrival_time()));
-					action_data_for_rollback.set_departure_time(action_data_for_rollback.get_departure_time() - time_adjustment);
+	        		assert((int) time_adjustment <= action_data_to_rollback.get_departure_time());
+	        		assert(static_cast<int>(action_data_to_rollback.get_departure_time()) - time_adjustment
+						>= static_cast<int>(action_data_to_rollback.get_arrival_time()));
+					action_data_to_rollback.set_departure_time(action_data_to_rollback.get_departure_time() - time_adjustment);
 	        		this->time_adjustments[time_adjustment_action_index] = 0;
                 }
 	        	++time_adjustment_action_index;
@@ -218,6 +223,9 @@ private:
 	 * Cost of the plan before the drop off action was added.
 	 */
 	unsigned int cost_before_drop_off{0};
+
+	time_type operating_start;
+
 };
 
 

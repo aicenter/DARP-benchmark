@@ -239,7 +239,7 @@ public:
     	A* before_action_data = nullptr;
 
     	if(first_action) {
-    		current_time = this->darp_instance_configuration->get_start_time();
+    		current_time = plan.get_operating_start();
     		travel_time_to = this->travel_time_provider->get_travel_time(
 	            vehicle.get_init_position(), new_action_data.get_node());
     	}
@@ -319,10 +319,10 @@ public:
             }
     	}
         else {
-	        // action data on index in plan
+	        // action data of the action right after the newly added one
     		A& after_action_data = plan[action_index_in_plan];
 
-        	// travel time from
+        	// travel time from the new action to the first action after it
         	travel_time_from = this->travel_time_provider->get_travel_time(
 	            new_action_data.get_node(), after_action_data.get_node());
 
@@ -346,9 +346,9 @@ public:
     	std::vector<int>& time_adjustments = plan.get_time_adjustments();
     	
     	// departure time needs to be zeroed if we add action to the beginning of the plan
-    	if(new_action_data_index == 0 && plan.get_departure_time() > this->darp_instance_configuration->get_start_time()) {
+    	if(new_action_data_index == 0 && plan.get_departure_time() > plan.get_operating_start()) {
     		const unsigned int old_departure_time = plan.get_departure_time();
-    		plan.set_departure_time(this->darp_instance_configuration->get_start_time());
+    		plan.set_departure_time(plan.get_operating_start());
     		time_adjustments[adjustment_times_start_index] = 1; // change indicator
     		time_adjustments[adjustment_times_start_index + 1] = -((int) old_departure_time);
     	}
@@ -370,6 +370,7 @@ public:
 
 	    	// delaying action after currently inserted one
 	    	if(action_index > action_index_in_plan){
+	    		assert(action_data.get_arrival_time() >= 0);
 	    		
                 // check max time check for the action
 		        if(action_data.get_max_time() < action_data.get_arrival_time() + diff){
@@ -549,12 +550,13 @@ public:
 			plan.get_vehicle().get_init_position(),
 			first_action_data.get_action().get_node()
 		);
-		auto start_time = this->darp_instance_configuration->get_start_time();
+		auto start_time = plan.get_operating_start();
 		if (start_time + travel_time_to_start < first_action_data.get_min_time()) {
 			first_action_data.set_arrival_time(first_action_data.get_min_time());
 		}
 
 		// set plan departure time to so that the vehicle departure to pick up the first request exactly on time
+		assert(first_action_data.get_arrival_time() - travel_time_to_start >= plan.get_operating_start());
 		plan.set_departure_time(first_action_data.get_arrival_time() - travel_time_to_start);
 
 		// compute plan arrival time

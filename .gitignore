@@ -1,5 +1,6 @@
 # manual build dir
 build
+build_fedora
 
 # Visual Studio
 **/.vs/*
