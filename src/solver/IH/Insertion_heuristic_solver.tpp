@@ -72,12 +72,10 @@ std::unique_ptr<Solution<N>> Insertion_heuristic_solver<N, A, V, P>::compute(con
 		// we start with empty plans for all vehicles if we do not minimize the number of used vehicles
 	else {
 		constexpr unsigned short initial_capacity = 4;
-		const auto global_start_time = this->darp_instance_configuration->get_start_time();
 
 		for (const V& vehicle: vehicles) {
-			const auto vehicle_start_time = std::max(global_start_time, vehicle.get_operation_start());
 			vehicle_plan_builders.emplace_back(
-				vehicle, initial_capacity, vehicle_start_time);
+				vehicle, initial_capacity, vehicle.get_operation_start());
 		}
 	}
 
@@ -276,12 +274,10 @@ void Insertion_heuristic_solver<N, A, V, P>::process_request(const Request<N>& r
 			request.get_pickup().get_node(), unused_vehicles
 		);
 		const auto& nearest_vehicle = *unused_vehicles[nearest_vehicle_index];
-		const auto global_start_time = this->darp_instance_configuration->get_start_time();
-		const auto vehicle_start_time = std::max(global_start_time, nearest_vehicle.get_operation_start());
 		vehicle_plan_builders.emplace_back(
 			nearest_vehicle,
 			static_cast<unsigned short>(6),
-			vehicle_start_time);
+			nearest_vehicle.get_operation_start());
 		unused_vehicles.erase(unused_vehicles.begin() + nearest_vehicle_index);
 
 		process_request_vehicle_combination(pickup_action_data, drop_off_action_data);
@@ -323,8 +319,7 @@ bool Insertion_heuristic_solver<N, A, V, P>::can_serve_request(
 	const A& pickup_action_data,
 	const A& drop_off_action_data
 ) {
-	const auto global_start_time = this->darp_instance_configuration->get_start_time();
-	const auto vehicle_start_time = std::max(global_start_time, vehicle.get_operation_start());
+	const auto vehicle_start_time = vehicle.get_operation_start();
 
 	// node identity - vehicle still needs to wait until operation_start
 	if (nodes_equal(vehicle.get_init_position(), pickup_action_data.get_node())){

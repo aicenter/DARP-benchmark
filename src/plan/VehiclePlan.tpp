@@ -391,9 +391,8 @@ bool DARP_vehicle_plan<N, P, V>::full_check(
 ) const {
 
 	auto start_time = this->vehicle.instance_configuration.get_start_time();
-
 	if constexpr (requires { this->vehicle.get().get_operation_start(); }) {
-		start_time = std::max(start_time, this->vehicle.get().get_operation_start());
+		start_time = this->vehicle.get().get_operation_start();
 	}
 
 	// check that the vehicles do not start too early

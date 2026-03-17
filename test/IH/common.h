@@ -11,8 +11,8 @@
 
 class Test_vehicle {
 public:
-	explicit Test_vehicle(unsigned short capacity)
-		: capacity(capacity) {
+	explicit Test_vehicle(unsigned short capacity, time_type operation_start = 0)
+		: capacity(capacity), operation_start(operation_start) {
 	}
 
 	[[nodiscard]] unsigned short get_capacity() const {
@@ -24,7 +24,7 @@ public:
 	}
 
 	[[nodiscard]] time_type get_operation_start() const {
-		return 0;
+		return operation_start;
 	}
 
 	[[nodiscard]] unsigned int get_index() const {
@@ -33,7 +33,7 @@ public:
 
 private:
 	unsigned short capacity;
-
+	time_type operation_start{0};
 	unsigned init_position{0};
 };
 

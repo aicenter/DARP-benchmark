@@ -87,6 +87,20 @@ TEST(DARP_benchmark_reader_test, darp_instance_configuration_loading_without_veh
 	ASSERT_EQ(darp_config->get_start_time(), 0);
 }
 
+TEST(DARP_benchmark_reader_test, darp_instance_configuration_loading_operation_start_key) {
+	// Key vehicles.operation_start with integer (seconds)
+	YAML::Node config = YAML::Load("vehicles:\n  operation_start: 7200\n");
+	auto darp_config = internal::load_instance_configuration(config);
+	ASSERT_EQ(darp_config->get_start_time(), 7200u);
+}
+
+TEST(DARP_benchmark_reader_test, darp_instance_configuration_loading_start_time_as_integer) {
+	// Key vehicles.start_time also accepts integer (seconds); both keys try int and datetime
+	YAML::Node config = YAML::Load("vehicles:\n  start_time: 3600\n");
+	auto darp_config = internal::load_instance_configuration(config);
+	ASSERT_EQ(darp_config->get_start_time(), 3600u);
+}
+
 TEST(DARP_benchmark_reader_test, request_loading_csv) {
 	std::string request_filepath = get_test_resource_path("requests.csv").generic_string();
 	unsigned short service_time = 0; // Assuming default service time
@@ -214,7 +228,7 @@ TEST(DARP_benchmark_reader_test, vehicle_loading_csv_without_operation_start) {
 	std::string csv_path = get_test_resource_path("vehicles_no_operation_start.csv").generic_string();
 	std::vector<Vehicle<Amodsim_node>> vehicles;
 	DARP_benchmark_reader reader;
-	internal::load_vehicles_csv(vehicles, csv_path);
+	internal::load_vehicles_csv(vehicles, csv_path, 0u);
 
 	ASSERT_EQ(vehicles.size(), 2u);
 	EXPECT_EQ(vehicles[0].get_index(), 0u);
@@ -232,7 +246,7 @@ TEST(DARP_benchmark_reader_test, vehicle_loading_csv_with_operation_start) {
 	std::string csv_path = get_test_resource_path("vehicles_with_operation_start.csv").generic_string();
 	std::vector<Vehicle<Amodsim_node>> vehicles;
 	DARP_benchmark_reader reader;
-	internal::load_vehicles_csv(vehicles, csv_path);
+	internal::load_vehicles_csv(vehicles, csv_path, 0u);
 
 	ASSERT_EQ(vehicles.size(), 2u);
 	EXPECT_EQ(vehicles[0].get_index(), 0u);
@@ -244,6 +258,22 @@ TEST(DARP_benchmark_reader_test, vehicle_loading_csv_with_operation_start) {
 	EXPECT_EQ(vehicles[1].get_init_position().get_index(), 2u);
 	EXPECT_EQ(vehicles[1].get_capacity(), 6);
 	EXPECT_EQ(vehicles[1].get_operation_start(), 3600u);
+}
+
+TEST(DARP_benchmark_reader_test, vehicle_loading_csv_operation_start_conflict_throws) {
+	std::string csv_path = get_test_resource_path("vehicles_with_operation_start.csv").generic_string();
+	std::vector<Vehicle<Amodsim_node>> vehicles;
+	EXPECT_THROW(internal::load_vehicles_csv(vehicles, csv_path, 100u), std::runtime_error);
+}
+
+TEST(DARP_benchmark_reader_test, vehicle_loading_csv_global_start_copied_to_vehicles) {
+	std::string csv_path = get_test_resource_path("vehicles_no_operation_start.csv").generic_string();
+	std::vector<Vehicle<Amodsim_node>> vehicles;
+	internal::load_vehicles_csv(vehicles, csv_path, 100u);
+
+	ASSERT_EQ(vehicles.size(), 2u);
+	EXPECT_EQ(vehicles[0].get_operation_start(), 100u);
+	EXPECT_EQ(vehicles[1].get_operation_start(), 100u);
 }
 
 TEST(DARP_benchmark_reader_test, read_grid_instance) {

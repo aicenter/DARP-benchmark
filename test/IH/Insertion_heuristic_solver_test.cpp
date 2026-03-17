@@ -99,7 +99,11 @@ auto load_data_from_json_file(const std::string& path) {
 	rapidjson::Document doc = load_json_to_dom(get_test_resource_path(path).string());
 	assert(doc.IsObject());
 
-	auto vehicle = std::make_unique<Test_vehicle>(1);
+	time_type vehicle_start_time = 0;
+	if (doc.HasMember("vehicle_start_time")) {
+		vehicle_start_time = doc["vehicle_start_time"].GetUint();
+	}
+	auto vehicle = std::make_unique<Test_vehicle>(1, vehicle_start_time);
 
 	// load plan
 	const auto& plan_data = doc["plan"].GetObj();
@@ -134,11 +138,6 @@ auto load_data_from_json_file(const std::string& path) {
 	// load expected plan
 	auto expected_plan_data = doc["expected_plan"].GetObj();
 	auto expected_plan = std::make_unique<IH_test_plan>(expected_plan_data, *vehicle);
-
-	time_type vehicle_start_time = 0;
-	if (doc.HasMember("vehicle_start_time")) {
-		vehicle_start_time = doc["vehicle_start_time"].GetUint();
-	}
 
 	return std::tuple{
 		std::move(plan),

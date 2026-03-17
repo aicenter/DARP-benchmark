@@ -15,7 +15,7 @@ struct grid_vertex_index_trait<Amodsim_node> {
 namespace internal{
 std::shared_ptr<DARP_instance_configuration> load_instance_configuration(const YAML::Node& config);
 
-void load_vehicles_csv(std::vector<Vehicle<Amodsim_node>>& vehicles, const std::string& file_path);
+void load_vehicles_csv(std::vector<Vehicle<Amodsim_node>>& vehicles, const std::string& file_path, unsigned instance_start_time);
 }
 
 class DARP_benchmark_reader : public Reader<Amodsim_node> {
@@ -43,7 +43,7 @@ private:
 		const std::shared_ptr<Travel_time_provider<Amodsim_node>>& travel_cost_provider
 	);
 
-	void load_vehicles(std::vector<Vehicle<Amodsim_node>>& vehicles, std::string file_path) const;
+	void load_vehicles(std::vector<Vehicle<Amodsim_node>>& vehicles, std::string file_path, unsigned instance_start_time) const;
 
 
 };

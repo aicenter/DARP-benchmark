@@ -42,7 +42,7 @@ char detect_tab_or_comma_delimiter(const std::string& header_line) {
 }
 
 template<char Delim>
-void load_vehicles_csv_impl(std::vector<Vehicle<Amodsim_node>>& vehicles, const std::string& file_path) {
+void load_vehicles_csv_impl(std::vector<Vehicle<Amodsim_node>>& vehicles, const std::string& file_path, unsigned instance_start_time) {
 	using CsvReader = csv2::Reader<csv2::delimiter<Delim>, csv2::quote_character<'"'>, csv2::first_row_is_header<true>,
 		csv2::trim_policy::trim_characters<' ', '\t', '\r', '\n'>>;
 	CsvReader reader;
@@ -62,6 +62,11 @@ void load_vehicles_csv_impl(std::vector<Vehicle<Amodsim_node>>& vehicles, const 
 	if (position_col < 0 || capacity_col < 0) {
 		throw std::runtime_error("Vehicle CSV header must include position and capacity columns");
 	}
+	if (operation_start_col >= 0 && instance_start_time != 0) {
+		throw std::runtime_error(
+			"Vehicle CSV has operation_start column but instance configuration also has a nonzero start time. "
+			"Use only one: either per-vehicle operation_start in CSV or global vehicles.start_time/operation_start in instance config.");
+	}
 	unsigned int index = 0;
 	for (const auto& row : reader) {
 		std::vector<std::string> cells;
@@ -79,6 +84,8 @@ void load_vehicles_csv_impl(std::vector<Vehicle<Amodsim_node>>& vehicles, const 
 		time_type operation_start = 0;
 		if (operation_start_col >= 0 && static_cast<int>(cells.size()) > operation_start_col && !cells[operation_start_col].empty()) {
 			operation_start = static_cast<time_type>(std::stoul(cells[operation_start_col]));
+		} else if (instance_start_time != 0) {
+			operation_start = static_cast<time_type>(instance_start_time);
 		}
 		std::shared_ptr<Amodsim_node> initial_position{new Amodsim_node(position)};
 		vehicles.emplace_back(index++, initial_position, capacity, operation_start);
@@ -140,13 +147,14 @@ DARP_instance<Amodsim_node> DARP_benchmark_reader::read(std::filesystem::path in
     auto travel_cost_provider = std::make_shared<Distance_matrix_node_travel_time_provider<Amodsim_node>>(*dm_reader, dm_filepath.string());
 
     // vehicle loading
+	const unsigned instance_start_time = configuration->get_start_time();
 	auto vehicles = std::make_unique<std::vector<Vehicle<Amodsim_node>>>();
 	if(!configuration->use_virtual_vehicles()){
 	    std::string vehicles_filepath = std::filesystem::path(instance_filepath).remove_filename().string() + "vehicles.csv";
 	    if (file_has_commas(vehicles_filepath)) {
-		    internal::load_vehicles_csv(*vehicles, vehicles_filepath);
+		    internal::load_vehicles_csv(*vehicles, vehicles_filepath, instance_start_time);
 	    } else {
-		    load_vehicles(*vehicles, vehicles_filepath);
+		    load_vehicles(*vehicles, vehicles_filepath, instance_start_time);
 	    }
     }
     // When virtual vehicles mode is enabled, the vehicles vector stays empty.
@@ -163,7 +171,7 @@ DARP_instance<Amodsim_node> DARP_benchmark_reader::read(std::filesystem::path in
 	};
 }
 
-void DARP_benchmark_reader::load_vehicles(std::vector<Vehicle<Amodsim_node>>& vehicles, std::string file_path) const {
+void DARP_benchmark_reader::load_vehicles(std::vector<Vehicle<Amodsim_node>>& vehicles, std::string file_path, unsigned instance_start_time) const {
     spdlog::info("Reading vehicles from: {}", file_path);
 
 	std::ifstream infile(file_path);
@@ -176,7 +184,7 @@ void DARP_benchmark_reader::load_vehicles(std::vector<Vehicle<Amodsim_node>>& ve
     unsigned int index = 0;
 	while (infile >> origin >> capacity) {
         std::shared_ptr<Amodsim_node> initial_position {new Amodsim_node(origin)};
-		vehicles.emplace_back(index++, initial_position, capacity);
+		vehicles.emplace_back(index++, initial_position, capacity, static_cast<time_type>(instance_start_time));
     }
 }
 
@@ -326,18 +334,32 @@ std::unique_ptr<std::vector<Request<Amodsim_node>>> DARP_benchmark_reader::load_
 
 namespace internal {
 
+/** Try to parse a YAML node as start time in seconds: as integer, or as datetime string "%Y-%m-%d %H:%M:%S". */
+static unsigned parse_start_time_seconds(const YAML::Node& node) {
+	if (!node) return 0;
+	try {
+		return node.as<unsigned>();
+	} catch (const YAML::BadConversion&) {
+		const auto str = node.as<std::string>();
+		std::tm t{};
+		std::stringstream(str) >> std::get_time(&t, "%Y-%m-%d %H:%M:%S");
+		return t.tm_sec + t.tm_min * 60 + t.tm_hour * 3600;
+	}
+}
+
 std::shared_ptr<DARP_instance_configuration> load_instance_configuration(const YAML::Node& config) {
 	unsigned start_time_seconds = 0;
 	unsigned short vehicle_capital_cost = 0;
 	double relative_delay_cost = 0.0;
 
-	// vehicle start time parsing
-	if(config["vehicles"] && config["vehicles"]["start_time"]) {
-		const auto start_time_string = config["vehicles"]["start_time"].as<std::string>();
-		std::tm start_datetime{};
-		std::stringstream(start_time_string) >> std::get_time(&start_datetime, "%Y-%m-%d %H:%M:%S");
-		start_time_seconds
-				= start_datetime.tm_sec + start_datetime.tm_min * 60 + start_datetime.tm_hour * 3600;
+	// vehicle start time: check both keys, try integer and datetime for whichever is present
+	if (config["vehicles"]) {
+		const auto& vehicles = config["vehicles"];
+		if (vehicles["operation_start"]) {
+			start_time_seconds = parse_start_time_seconds(vehicles["operation_start"]);
+		} else if (vehicles["start_time"]) {
+			start_time_seconds = parse_start_time_seconds(vehicles["start_time"]);
+		}
 	}
 
 	// vehicle capital cost parsing (optional)
@@ -361,7 +383,7 @@ std::shared_ptr<DARP_instance_configuration> load_instance_configuration(const Y
 	);
 }
 
-void load_vehicles_csv(std::vector<Vehicle<Amodsim_node>>& vehicles, const std::string& file_path) {
+void load_vehicles_csv(std::vector<Vehicle<Amodsim_node>>& vehicles, const std::string& file_path, unsigned instance_start_time) {
 	spdlog::info("Reading vehicles from CSV file: {}", file_path);
 	std::ifstream file(file_path);
 	if (!file) {
@@ -373,9 +395,9 @@ void load_vehicles_csv(std::vector<Vehicle<Amodsim_node>>& vehicles, const std::
 	}
 	const char delimiter = detect_tab_or_comma_delimiter(header_line);
 	if (delimiter == '\t') {
-		load_vehicles_csv_impl<'\t'>(vehicles, file_path);
+		load_vehicles_csv_impl<'\t'>(vehicles, file_path, instance_start_time);
 	} else {
-		load_vehicles_csv_impl<','>(vehicles, file_path);
+		load_vehicles_csv_impl<','>(vehicles, file_path, instance_start_time);
 	}
 }
 
