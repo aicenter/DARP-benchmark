@@ -4,12 +4,13 @@
 
 #pragma once
 
-#include <queue>
-#include <optional>
 #include <filesystem>
+#include <optional>
+#include <queue>
+#include <span>
 
-#include "../Solution.h"
 #include "../DARP_instance.h"
+#include "../Solution.h"
 #include "DARP_solver.h"
 #include "../config/DARP-benchmark_config.h"
 
@@ -48,6 +49,9 @@ class DARP_benchmark_solver_interface
 		const std::string message = "Solver has no performance stats";
 		writer.String(message.c_str());
 	}
+
+	/** Problem kinds this solver can handle (instance `config.yaml` `problem` field). */
+	[[nodiscard]] virtual std::span<const problem_type> supported_problem_types() const = 0;
 };
 
 template<template<typename, class...> class S, typename N>
@@ -97,6 +101,8 @@ public:
 	std::unique_ptr<Solution<N, P>> solve(const DARP_instance<N>& instance) requires(Benchmark_plan<P>);
 
 	std::unique_ptr<Solution_interface<N>> solve_and_get_final_result(const DARP_instance<N>& instance) override;
+
+	[[nodiscard]] std::span<const problem_type> supported_problem_types() const override;
 
 	template<class CheckPlan=P>
 	void check_plans(const std::vector<CheckPlan>& plans);

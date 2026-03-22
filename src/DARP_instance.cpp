@@ -32,3 +32,7 @@ unsigned short DARP_instance_configuration::get_vehicle_capital_cost() const {
 double DARP_instance_configuration::get_relative_delay_cost() const {
 	return relative_delay_cost;
 }
+
+problem_type DARP_instance_configuration::get_problem() const {
+	return problem;
+}

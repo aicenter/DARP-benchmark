@@ -40,6 +40,12 @@ DARP_benchmark_solver<N, P>::solve_and_get_final_result(const DARP_instance<N>& 
 }
 
 template<typename N, class P>
+std::span<const problem_type> DARP_benchmark_solver<N, P>::supported_problem_types() const {
+	static constexpr problem_type types[] = {problem_type::darp};
+	return types;
+}
+
+template<typename N, class P>
 template<class CheckPlan>
 void DARP_benchmark_solver<N, P>::check_plans(const std::vector<CheckPlan>& plans) {
 	for (const CheckPlan& plan: plans) {

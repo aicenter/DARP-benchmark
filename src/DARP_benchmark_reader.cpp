@@ -6,6 +6,7 @@
 #include <vector>
 #include <yaml-cpp/yaml.h>
 #include <filesystem>
+#include <stdexcept>
 #if defined(_MSC_VER)
 	#define NOMINMAX
 #endif
@@ -334,6 +335,21 @@ std::unique_ptr<std::vector<Request<Amodsim_node>>> DARP_benchmark_reader::load_
 
 namespace internal {
 
+static problem_type parse_problem(const YAML::Node& config) {
+	if (!config["problem"]) {
+		return problem_type::darp;
+	}
+	const std::string value = config["problem"].as<std::string>();
+	if (value == "DARP") {
+		return problem_type::darp;
+	}
+	if (value == "fleet-sizing") {
+		return problem_type::fleet_sizing;
+	}
+	throw std::runtime_error(
+		"Invalid 'problem' in instance config: expected 'DARP' or 'fleet-sizing', got: " + value);
+}
+
 /** Try to parse a YAML node as start time in seconds: as integer, or as datetime string "%Y-%m-%d %H:%M:%S". */
 static unsigned parse_start_time_seconds(const YAML::Node& node) {
 	if (!node) return 0;
@@ -372,6 +388,8 @@ std::shared_ptr<DARP_instance_configuration> load_instance_configuration(const Y
 		relative_delay_cost = config["demand"]["relative_delay_cost"].as<double>();
 	}
 
+	const problem_type problem = parse_problem(config);
+
 	return std::make_shared<DARP_instance_configuration>(
 			0,
 			0,
@@ -379,7 +397,8 @@ std::shared_ptr<DARP_instance_configuration> load_instance_configuration(const Y
 			false,
 			start_time_seconds,
 			vehicle_capital_cost,
-			relative_delay_cost
+			relative_delay_cost,
+			problem
 	);
 }
 

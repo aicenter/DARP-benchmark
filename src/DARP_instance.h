@@ -1,7 +1,8 @@
 #pragma once
 
-#include <vector>
+#include <cstdint>
 #include <memory>
+#include <vector>
 
 #include "travel_time_provider/Travel_time_provider.h"
 #include "Vehicle.h"
@@ -25,6 +26,14 @@ private:
 	const unsigned int index;
 };
 
+/**
+ * Instance problem type from instance config.yaml (`problem` key), as in
+ * aicenter/Ridesharing_DARP_instances: default DARP; fleet-sizing omits fixed vehicles from input.
+ */
+enum class problem_type : std::uint8_t {
+	darp,
+	fleet_sizing
+};
 
 class DARP_instance_configuration {
 public:
@@ -35,7 +44,8 @@ public:
 		bool virtual_vehicles = false, 
 		unsigned start_time = 0,
 		unsigned short vehicle_capital_cost = 0,
-		double relative_delay_cost = 0.0
+		double relative_delay_cost = 0.0,
+		problem_type problem = problem_type::darp
 	):
 		max_route_duration(max_route_duration),
 		max_ride_time(max_ride_time),
@@ -43,7 +53,8 @@ public:
 		virtual_vehicles(virtual_vehicles),
 		start_time(start_time),
 		vehicle_capital_cost(vehicle_capital_cost),
-		relative_delay_cost(relative_delay_cost) {
+		relative_delay_cost(relative_delay_cost),
+		problem(problem) {
 	}
 
 	[[nodiscard]] unsigned long get_max_route_duration() const;
@@ -53,6 +64,7 @@ public:
 	[[nodiscard]] unsigned get_start_time() const;
 	[[nodiscard]] unsigned short get_vehicle_capital_cost() const;
 	[[nodiscard]] double get_relative_delay_cost() const;
+	[[nodiscard]] problem_type get_problem() const;
 
 private:
     const unsigned long max_route_duration{0};
@@ -71,6 +83,7 @@ private:
     const unsigned start_time{0};
 	const unsigned short vehicle_capital_cost{0};
 	const double relative_delay_cost{0.0};
+	const problem_type problem{problem_type::darp};
 };
 
 class DARP_instance_interface {
@@ -107,6 +120,8 @@ public:
     [[nodiscard]] bool is_return_to_depot() const;
 
     [[nodiscard]] bool is_virtual_vehicles() const;
+
+	[[nodiscard]] problem_type get_problem() const;
 private:
     std::unique_ptr<std::vector<Vehicle<N>>> vehicles;
     std::unique_ptr<std::vector<Request<N>>> requests;
@@ -127,6 +142,11 @@ bool DARP_instance<N>::is_return_to_depot() const {
 template <typename N>
 bool DARP_instance<N>::is_virtual_vehicles() const {
 	return darp_instance_configuration->use_virtual_vehicles();
+}
+
+template <typename N>
+problem_type DARP_instance<N>::get_problem() const {
+	return darp_instance_configuration->get_problem();
 }
 
 #include "DARP_instance.tpp"

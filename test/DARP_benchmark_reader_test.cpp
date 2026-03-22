@@ -3,6 +3,7 @@
 //
 
 #include <filesystem>
+#include <stdexcept>
 #include <yaml-cpp/yaml.h>
 #include <fstream>   // Add for ifstream
 #include <sstream>   // Add for stringstream
@@ -13,6 +14,7 @@
 #include "gtest_wrapper.h"
 #include "common.h"
 #include "../src/DARP_benchmark_reader.h"
+#include "../src/DARP_instance.h"
 #include "../src/travel_time_provider/Travel_time_provider.h"
 #include "../src/Request.h"
 #include "../src/Action.h"
@@ -73,6 +75,7 @@ TEST(DARP_benchmark_reader_test, darp_instance_configuration_loading) {
 	ASSERT_EQ(darp_config->is_return_to_depot(), false);
 	ASSERT_EQ(darp_config->use_virtual_vehicles(), false);
 	ASSERT_EQ(darp_config->get_start_time(), 63900);
+	ASSERT_EQ(darp_config->get_problem(), problem_type::darp);
 }
 
 TEST(DARP_benchmark_reader_test, darp_instance_configuration_loading_without_vehicles_key) {
@@ -85,6 +88,24 @@ TEST(DARP_benchmark_reader_test, darp_instance_configuration_loading_without_veh
 	ASSERT_EQ(darp_config->is_return_to_depot(), false);
 	ASSERT_EQ(darp_config->use_virtual_vehicles(), false);
 	ASSERT_EQ(darp_config->get_start_time(), 0);
+	ASSERT_EQ(darp_config->get_problem(), problem_type::darp);
+}
+
+TEST(DARP_benchmark_reader_test, darp_instance_configuration_problem_darp_explicit) {
+	YAML::Node config = YAML::Load("problem: DARP\n");
+	auto darp_config = internal::load_instance_configuration(config);
+	ASSERT_EQ(darp_config->get_problem(), problem_type::darp);
+}
+
+TEST(DARP_benchmark_reader_test, darp_instance_configuration_problem_fleet_sizing) {
+	YAML::Node config = YAML::Load("problem: fleet-sizing\n");
+	auto darp_config = internal::load_instance_configuration(config);
+	ASSERT_EQ(darp_config->get_problem(), problem_type::fleet_sizing);
+}
+
+TEST(DARP_benchmark_reader_test, darp_instance_configuration_problem_invalid) {
+	YAML::Node config = YAML::Load("problem: unknown\n");
+	EXPECT_THROW(internal::load_instance_configuration(config), std::runtime_error);
 }
 
 TEST(DARP_benchmark_reader_test, darp_instance_configuration_loading_operation_start_key) {
