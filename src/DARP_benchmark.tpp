@@ -2,11 +2,14 @@
 //
 
 #pragma once
-#include <iostream>
+#include <algorithm>
 #include <fstream>
 #include <filesystem>
-#include <spdlog/spdlog.h>
+#include <iostream>
+#include <stdexcept>
+#include <string>
 #include <magic_enum/magic_enum.hpp>
+#include <spdlog/spdlog.h>
 
 #include "solver/Random_solver.h"
 #include "benchmark.h"
@@ -40,7 +43,19 @@ std::unique_ptr<DARP_benchmark_solver_interface<N>> Solver_registry<NO...>::crea
 	if(!map.contains(method_lower_case)) {
 		throw std::runtime_error(fmt::format("Unknown solver method: {}", method));
 	}
-	return std::get<Solver_factory_map<N>>(solver_factories).at(method_lower_case)(darp_instance, solver_config, out_dir_path);
+	auto solver = std::get<Solver_factory_map<N>>(solver_factories).at(method_lower_case)(
+		darp_instance, solver_config, out_dir_path);
+	const problem_type instance_problem = darp_instance.get_problem();
+	const std::span<const problem_type> supported = solver->supported_problem_types();
+	if (std::find(supported.begin(), supported.end(), instance_problem) == supported.end()) {
+		const auto name_sv = magic_enum::enum_name(instance_problem);
+		const std::string problem_str = name_sv.empty() ? "unknown" : std::string(name_sv);
+		throw std::runtime_error(fmt::format(
+			R"(Solver method "{}" does not support instance problem type "{}")",
+			method,
+			problem_str));
+	}
+	return solver;
 }
 
 template <class N>
