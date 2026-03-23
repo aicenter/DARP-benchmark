@@ -390,7 +390,7 @@ bool DARP_vehicle_plan<N, P, V>::full_check(
 	std::vector<bool>* served_or_dropped_requests
 ) const {
 
-	auto start_time = this->vehicle.instance_configuration.get_start_time();
+	auto start_time = instance_configuration.get_start_time();
 	if constexpr (requires { this->vehicle.get().get_operation_start(); }) {
 		start_time = this->vehicle.get().get_operation_start();
 	}
