@@ -65,6 +65,8 @@ public:
 
     [[nodiscard]] unsigned int get_vehicle_count() const;
 
+	[[nodiscard]] const std::optional<std::unordered_set<request_index_type>>& get_allowed_requests() const;
+
 	void JSON_serialize(rapidjson::PrettyWriter<rapidjson::StringBuffer>& writer) const override;
 
 private:

@@ -27,6 +27,11 @@ unsigned int Virtual_vehicle::get_vehicle_count() const {
     return vehicle_count;
 }
 
+/** When set, only these request indices may appear on plans for this virtual vehicle (e.g. new batch only). */
+[[nodiscard]] const std::optional<std::unordered_set<request_index_type>>& Virtual_vehicle::get_allowed_requests() const {
+	return allowed_requests;
+}
+
 void Virtual_vehicle::JSON_serialize(rapidjson::PrettyWriter<rapidjson::StringBuffer>& writer) const {
 	writer.StartObject();
 	writer.Key("type");
