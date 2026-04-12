@@ -5,6 +5,9 @@
 #pragma once
 
 #include <memory>
+#include <optional>
+#include <unordered_set>
+
 #include "rapidjson/prettywriter.h"
 #include "rapidjson/stringbuffer.h"
 
@@ -51,7 +54,12 @@ public:
      * @param time_to_start Time when the vehicle becomes available.
      * @param vehicle_count Number of vehicles of this type available.
      */
-    Virtual_vehicle(unsigned short capacity, unsigned int time_to_start, unsigned int vehicle_count = 1);
+    Virtual_vehicle(
+	    unsigned short capacity,
+	    unsigned int time_to_start,
+	    unsigned int vehicle_count = 1,
+	    std::optional<std::unordered_set<request_index_type>>&& allowed_requests = std::nullopt
+    );
 
     [[nodiscard]] unsigned int get_time_to_start() const;
 
@@ -62,6 +70,8 @@ public:
 private:
     unsigned int time_to_start;
     unsigned int vehicle_count;
+
+	std::optional<std::unordered_set<request_index_type>> allowed_requests;
 };
 
 

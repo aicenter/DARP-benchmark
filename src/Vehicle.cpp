@@ -4,10 +4,19 @@
 
 #include "Vehicle.h"
 
-Virtual_vehicle::Virtual_vehicle(unsigned short capacity, unsigned int time_to_start, unsigned int vehicle_count)
-    : Vehicle_base(capacity)
-    , time_to_start(time_to_start)
-    , vehicle_count(vehicle_count) {
+#include <utility>
+
+Virtual_vehicle::Virtual_vehicle(
+	unsigned short capacity,
+	unsigned int time_to_start,
+	unsigned int vehicle_count,
+	std::optional<std::unordered_set<request_index_type>>&& allowed_requests
+) :
+	Vehicle_base(capacity),
+	time_to_start(time_to_start),
+	vehicle_count(vehicle_count),
+	allowed_requests(allowed_requests)
+{
 }
 
 unsigned int Virtual_vehicle::get_time_to_start() const {
