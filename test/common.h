@@ -443,6 +443,8 @@ std::unique_ptr<travel_time_type[]> load_dm_from_json(const rapidjson::Document&
 
 fs::path get_test_resource_path(const fs::path& relative_path);
 
+[[nodiscard]] DARP_instance<Amodsim_node> load_test_instance_amodsim(const std::string& instance_id);
+
 #include "common.tpp"
 
 
