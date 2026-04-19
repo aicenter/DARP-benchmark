@@ -2,6 +2,7 @@
 #include <vector>
 #include <string>
 #include <filesystem>
+#include "rapidjson/document.h"
 #include "rapidjson/stringbuffer.h"
 #include <boost/iterator/iterator_adaptor.hpp>
 
@@ -289,5 +290,28 @@ private:
 
 template <typename N, class P = VehiclePlan<N>>
 Solution<N,P> deserialize_json(std::filesystem::path path, const DARP_instance<N>& darp_instance);
+
+/**
+ * Deserializes a JSON array of plans (same objects as under the "plans" key in solution JSON).
+ * Appends virtual vehicles to virtual_vehicles_storage; keep that vector alive while using plans that reference them.
+ */
+template <typename N, Benchmark_plan P>
+void deserialize_vehicle_plans_from_json_array(
+	const rapidjson::Value& plans_array,
+	const DARP_instance<N>& darp_instance,
+	std::vector<Virtual_vehicle>& virtual_vehicles_storage,
+	std::vector<P>& plans_out
+);
+
+/**
+ * Deserializes a single plan JSON object (same shape as one element of the "plans" array).
+ * virtual_vehicles_storage must be kept alive while the returned plan references a virtual vehicle.
+ */
+template <typename N, Benchmark_plan P>
+P deserialize_vehicle_plan_from_json(
+	const rapidjson::Value& plan_object,
+	const DARP_instance<N>& darp_instance,
+	std::vector<Virtual_vehicle>& virtual_vehicles_storage
+);
 
 #include "Solution.tpp"
