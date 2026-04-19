@@ -353,14 +353,14 @@ static problem_type parse_problem(const YAML::Node& config) {
 /** Try to parse a YAML node as start time in seconds: as integer, or as datetime string "%Y-%m-%d %H:%M:%S". */
 static unsigned parse_start_time_seconds(const YAML::Node& node) {
 	if (!node) return 0;
-	try {
-		return node.as<unsigned>();
-	} catch (const YAML::BadConversion&) {
-		const auto str = node.as<std::string>();
-		std::tm t{};
-		std::stringstream(str) >> std::get_time(&t, "%Y-%m-%d %H:%M:%S");
-		return t.tm_sec + t.tm_min * 60 + t.tm_hour * 3600;
+	unsigned seconds = 0;
+	if (YAML::convert<unsigned>::decode(node, seconds)) {
+		return seconds;
 	}
+	const auto str = node.as<std::string>();
+	std::tm t{};
+	std::stringstream(str) >> std::get_time(&t, "%Y-%m-%d %H:%M:%S");
+	return t.tm_sec + t.tm_min * 60 + t.tm_hour * 3600;
 }
 
 std::shared_ptr<DARP_instance_configuration> load_instance_configuration(const YAML::Node& config) {
