@@ -251,9 +251,25 @@ public:
     );
 
 	/**
+	 * Deserialization from JSON when plans may reference Virtual_vehicle objects (not in DARP_instance).
+	 * Backing storage must outlive plans; it is kept in virtual_vehicle_backing (declared before plans).
+	 */
+	Solution(
+		std::vector<P>&& vehicle_plans,
+		unsigned long cost,
+		std::vector<const Request<N>*>&& dropped_requests,
+		std::vector<Virtual_vehicle>&& virtual_vehicle_backing_par
+	);
+
+	/**
 	 * @brief Default constructor. It is used when the solution is not found.
 	 */
 	Solution(): Solution_interface<N>() {};
+
+	Solution(const Solution&);
+	Solution& operator=(const Solution&);
+	Solution(Solution&&) noexcept = default;
+	Solution& operator=(Solution&&) noexcept = default;
 
     [[nodiscard]] const std::vector<P>& get_plans() const;
 
@@ -272,6 +288,11 @@ public:
     const P& operator[] (int index) const;
 
 protected:
+	/**
+	 * Owns Virtual_vehicle instances referenced by plans after JSON deserialization.
+	 * Declared before plans so plans are destroyed first (plans hold references into this vector).
+	 */
+	std::vector<Virtual_vehicle> virtual_vehicle_backing{};
 	std::vector<P> plans;
 
 	/**
