@@ -294,6 +294,8 @@ Solution<N,P> deserialize_json(std::filesystem::path path, const DARP_instance<N
 /**
  * Deserializes a JSON array of plans (same objects as under the "plans" key in solution JSON).
  * Appends virtual vehicles to virtual_vehicles_storage; keep that vector alive while using plans that reference them.
+ * Supports onboard requests: if a dropoff appears with no matching pickup earlier in the same plan, the dropoff
+ * ActionData is linked with other_action_data_index == -1 (pickup not present in the plan).
  */
 template <typename N, Benchmark_plan P>
 void deserialize_vehicle_plans_from_json_array(

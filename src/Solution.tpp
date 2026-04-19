@@ -329,8 +329,14 @@ void deserialize_vehicle_plans_from_json_array(
 			auto request_index = json_action["request_index"].GetUint();
 			index_in_plan other_index = 0;
 			if (action_type == Action_type::dropoff) {
-				other_index = pickups[request_index];
-				actions[other_index].set_other_action_data_index(static_cast<index_in_plan>(i));
+				const auto pickup_it = pickups.find(request_index);
+				if (pickup_it != pickups.end()) {
+					other_index = pickup_it->second;
+					actions[other_index].set_other_action_data_index(static_cast<index_in_plan>(i));
+				} else {
+					// Onboard request: pickup is not in the serialized plan (passenger already on the vehicle).
+					other_index = static_cast<index_in_plan>(-1);
+				}
 			} else {
 				pickups[request_index] = i;
 			}
