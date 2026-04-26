@@ -106,7 +106,7 @@ public:
 		const L& last_action_location,
 		const L& next_action_location,
 		time_type time_since_last_action_departure
-	) override;
+	) const override;
 
 
 	size_t get_nearest_vehicle(const L& location, const std::vector<const Vehicle<L>*>& vehicles) override;

@@ -50,7 +50,7 @@ public:
 	[[nodiscard]] std::tuple<const N&, travel_time_type> get_vehicle_location_info(
 		const N& last_action_location,
 		const N& next_action_location,
-		time_type time_since_last_action_departure) override {
+		time_type time_since_last_action_departure) const override {
 		const unsigned from_idx = grid_vertex_index_trait<N>::get(last_action_location);
 		const unsigned to_idx = grid_vertex_index_trait<N>::get(next_action_location);
 		const travel_time_type total_time = get_travel_time_impl(from_idx, to_idx);

@@ -549,7 +549,7 @@ std::pair<
 		std::tuple<const unsigned&, travel_time_type> get_vehicle_location_info(
 			const unsigned& last_action_location,
 			const unsigned& next_action_location,
-			time_type time_since_last_action_departure) override {
+			time_type time_since_last_action_departure) const override {
 			Test_action_data<> last_node(last_action_location, Action_type::depot, 0);
 			Test_action_data<> next_node(next_action_location, Action_type::depot, 0);
 			auto [loc, t] = inner_->get_vehicle_location_info(last_node, next_node, time_since_last_action_departure);
