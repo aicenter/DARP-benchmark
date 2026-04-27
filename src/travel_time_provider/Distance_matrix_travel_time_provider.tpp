@@ -67,7 +67,7 @@ std::tuple<const L&, travel_time_type> Distance_matrix_node_travel_time_provider
 		next_action_location.get_index(),
 		time_since_last_action_departure
 	);
-	return std::make_tuple(*nodes.at(index), time_to_next_node);
+	return std::tuple<const L&, travel_time_type>(*nodes.at(index), time_to_next_node);
 }
 
 
