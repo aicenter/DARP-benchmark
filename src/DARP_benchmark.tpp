@@ -22,10 +22,8 @@ namespace DARP {
 
 
 template<typename... NO>
-Solver_registry<NO...> Solver_registry<NO...>::instance{};
-
-template<typename... NO>
 Solver_registry<NO...>& Solver_registry<NO...>::get() {
+	static Solver_registry instance;
 	return instance;
 }
 

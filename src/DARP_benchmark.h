@@ -70,8 +70,6 @@ public:
 	Solver_registry& operator=(Solver_registry&&) = delete;
 
 private:
-	static Solver_registry instance;
-
 	Solver_registry() = default;
 
 	~Solver_registry() = default;
