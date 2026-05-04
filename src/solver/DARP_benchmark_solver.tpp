@@ -4,25 +4,14 @@
 
 template<typename N, class P>
 DARP_benchmark_solver<N, P>::DARP_benchmark_solver(const DARP_instance<N>& instance, const DARP_benchmark_config& config) :
-	DARP_solver<N>(instance.get_travelcost_provider(), instance.get_darp_instance_configuration()),
 	darp_instance(&instance),
-	solver_config(config) {
+	solver_config(config),
+	context(instance) {
 }
 
 template<typename N, class P>
-DARP_benchmark_solver<N, P>::DARP_benchmark_solver(
-	const std::shared_ptr<Travel_time_provider<N>>& travel_time_provider,
-	const std::shared_ptr<DARP_instance_configuration>& instance_configuration,
-	const DARP_benchmark_config& config
-) :
-	DARP_solver<N>(travel_time_provider, instance_configuration),
-	solver_config(config) {
-}
-
-template<typename N, class P>
-std::unique_ptr<Solution<N, P>> DARP_benchmark_solver<N, P>::solve(const DARP_instance<N>& instance) requires(Benchmark_plan<P>)
+std::unique_ptr<Solution<N, P>> DARP_benchmark_solver<N, P>::solve() requires(Benchmark_plan<P>)
 {
-	darp_instance = &instance;
 #if defined(_MSC_VER)
 #pragma warning(push)
 #pragma warning(disable: 4702)
@@ -35,8 +24,8 @@ std::unique_ptr<Solution<N, P>> DARP_benchmark_solver<N, P>::solve(const DARP_in
 
 template<typename N, class P>
 std::unique_ptr<Solution_interface<N>>
-DARP_benchmark_solver<N, P>::solve_and_get_final_result(const DARP_instance<N>& instance) {
-	return solve(instance);
+DARP_benchmark_solver<N, P>::solve_and_get_final_result() {
+	return solve();
 }
 
 template<typename N, class P>
@@ -49,7 +38,7 @@ template<typename N, class P>
 template<class CheckPlan>
 void DARP_benchmark_solver<N, P>::check_plans(const std::vector<CheckPlan>& plans) {
 	for (const CheckPlan& plan: plans) {
-		plan.check(*this->darp_instance_configuration);
+		plan.check(*this->darp_instance_configuration());
 	}
 }
 
@@ -151,11 +140,11 @@ std::optional<P> DARP_benchmark_solver<N, P>::insert_into_plan(
 		// travel time increment
 		unsigned int travel_time;
 		if (new_plan_index == 0) {
-			travel_time = this->travel_time_provider.get()->get_travel_time(
+			travel_time = this->travel_time_provider().get()->get_travel_time(
 				vehicle.get_init_position(), new_action->get_node());
 		} else {
 			travel_time =
-				this->travel_time_provider.get()->get_travel_time(previous_action->get_node(), new_action->get_node());
+				this->travel_time_provider().get()->get_travel_time(previous_action->get_node(), new_action->get_node());
 		}
 		current_time += travel_time;
 		new_plan_cost += travel_time;
@@ -197,7 +186,7 @@ std::optional<P> DARP_benchmark_solver<N, P>::insert_into_plan(
 			new_action_data.set_other(&pickup_action_data);
 
 			// max ride time check
-			if (current_time - pickup_action_data.get_departure_time() > this->max_ride_time) {
+			if (current_time - pickup_action_data.get_departure_time() > this->get_max_ride_time()) {
 				if (!adjust_times(vehicle_plan, Adjustment_reason::max_ride_time, vehicle.get_init_position())) {
 					//std::cout << "Adjust time failed\n";
 					return std::nullopt;
@@ -209,7 +198,7 @@ std::optional<P> DARP_benchmark_solver<N, P>::insert_into_plan(
 		current_time += new_action->get_service_duration();
 
 		// check max route time
-		if (current_time - vehicle_plan.get_departure_time() > this->max_route_duration) {
+		if (current_time - vehicle_plan.get_departure_time() > this->get_max_route_duration()) {
 			if (!adjust_times(vehicle_plan, Adjustment_reason::max_route_time, vehicle.get_init_position())) {
 				//std::cout << "Adjust time failed\n";
 				return std::nullopt;
@@ -268,14 +257,14 @@ std::optional<P> DARP_benchmark_solver<N, P>::insert_into_plan(
 	}
 
 	// add cost of returning to depot
-	const unsigned int travel_time_to_depot = this->travel_time_provider.get()->get_travel_time(
+	const unsigned int travel_time_to_depot = this->travel_time_provider().get()->get_travel_time(
 		previous_action->get_node(), vehicle.get_init_position());
 	new_plan_cost += travel_time_to_depot;
 	current_time += travel_time_to_depot;
 	vehicle_plan.set_arrival_time(current_time);
 
 	// max route time check
-	if (current_time - vehicle_plan.get_departure_time() > this->max_route_duration) {
+	if (current_time - vehicle_plan.get_departure_time() > this->get_max_route_duration()) {
 		if (!adjust_times(vehicle_plan, Adjustment_reason::max_route_time, vehicle.get_init_position())) {
 			//std::cout << "Adjust time failed\n";
 			return std::nullopt;
@@ -312,14 +301,14 @@ bool DARP_benchmark_solver<N, P>::adjust_times(
 
 		if (reason == Adjustment_reason::max_ride_time) {
 			pickup_action_data = vehicle_plan->get_other(drop_off_action_data);
-			diff = drop_off_service_time - pickup_action_data->get_departure_time() - this->max_ride_time;
+			diff = drop_off_service_time - pickup_action_data->get_departure_time() - static_cast<int>(this->get_max_ride_time());
 		} else {
 			pickup_action_data = &vehicle_plan[0];
-			travel_time_to_depot = this->travel_time_provider->get_travel_time(
+			travel_time_to_depot = this->travel_time_provider()->get_travel_time(
 				drop_off_action_data->get_action().get_node(), station_position
 			);
 			diff = drop_off_service_time + drop_off_action_data->get_action().get_service_duration()
-				   + travel_time_to_depot - this->max_route_duration;
+				   + travel_time_to_depot - static_cast<int>(this->get_max_route_duration());
 		}
 
 		// it can happen that the problem was already solved by moving different action
@@ -389,20 +378,20 @@ bool DARP_benchmark_solver<N, P>::adjust_times(
 
 					// max ride time check
 					if (service_time - vehicle_plan.get_other(action_data)->get_departure_time()
-						> this->max_ride_time) {
+						> this->get_max_ride_time()) {
 						drop_offs_to_resolve.emplace(&action_data, Adjustment_reason::max_ride_time);
 					}
 
 					// max route time check
 					if (&action_data == &vehicle_plan[vehicle_plan.get_length() - 1]) {
 						if (travel_time_to_depot == 0) {
-							travel_time_to_depot = this->travel_time_provider->get_travel_time(
+							travel_time_to_depot = this->travel_time_provider()->get_travel_time(
 								drop_off_action_data->get_action().get_node(), station_position
 							);
 						}
 
 						if (action_data.get_departure_time() + travel_time_to_depot - vehicle_plan.get_departure_time()
-							> this->max_route_duration) {
+							> this->get_max_route_duration()) {
 							drop_offs_to_resolve.emplace(&action_data, Adjustment_reason::max_route_time);
 						}
 					}

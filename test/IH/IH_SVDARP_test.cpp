@@ -9,6 +9,7 @@
 #include "../../src/Vehicle.h"
 #include "../../src/solver/IH/IH_vehicle_plan_builder.h"
 #include "../../src/solver/IH/SVDARP.h"
+#include "../../src/solver/DARP_context.h"
 #include "../../src/travel_time_provider/Distance_matrix_travel_time_provider.h"
 
 namespace {
@@ -66,10 +67,12 @@ std::pair<
 
 		Instance_data(unsigned service_time,
 			const std::shared_ptr<Travel_time_provider<Cordeau_node>>& travel_time_provider,
+			const std::shared_ptr<DARP_instance_configuration>& darp_instance_configuration,
 			const SVDARP<Cordeau_node, Vehicle<Cordeau_node>, ActionData<Cordeau_node>, VehiclePlan<Cordeau_node>>& solver,
 			Request_generator_cordeau_node& request_generator)
 			: service_time(service_time),
 			  travel_time_provider(travel_time_provider),
+			  darp_instance_configuration(darp_instance_configuration),
 			  solver(solver),
 			request_generator(request_generator){
 		}
@@ -77,6 +80,8 @@ std::pair<
 		unsigned int service_time;
 		
 		std::shared_ptr<Travel_time_provider<Cordeau_node>> travel_time_provider;
+
+		std::shared_ptr<DARP_instance_configuration> darp_instance_configuration;
 
 		SVDARP<Cordeau_node, Vehicle<Cordeau_node>, ActionData<Cordeau_node>, VehiclePlan<Cordeau_node>> solver;
 
@@ -103,13 +108,12 @@ std::pair<
 		unsigned short service_time = 10 * 60u;
 		const std::shared_ptr<Travel_time_provider<Cordeau_node>> travel_time_provider
 			= std::make_shared<Euclidean_travel_time_provider<Cordeau_node>>((unsigned short)60);
-		SVDARP<Cordeau_node, Vehicle<Cordeau_node>, ActionData<Cordeau_node>, VehiclePlan<Cordeau_node>> solver{
-			travel_time_provider,
-			std::make_shared<DARP_instance_configuration>(
-				480 * 60u, 90 * 60u, true)
-		};
+		const std::shared_ptr<DARP_instance_configuration> darp_instance_configuration
+			= std::make_shared<DARP_instance_configuration>(480 * 60u, 90 * 60u, true);
+		const DARP_context<Cordeau_node> context(travel_time_provider, darp_instance_configuration);
+		SVDARP<Cordeau_node, Vehicle<Cordeau_node>, ActionData<Cordeau_node>, VehiclePlan<Cordeau_node>> solver{context};
 		Request_generator_cordeau_node rg{ travel_time_provider, service_time };
-		return Instance_data{service_time, travel_time_provider, solver, rg};
+		return Instance_data{service_time, travel_time_provider, darp_instance_configuration, solver, rg};
 	}
 
 	
@@ -211,7 +215,7 @@ std::pair<
 		const unsigned int second_segment_traveltime
 			= id.travel_time_provider->get_travel_time(pickup.get_node(), dropoff.get_node());
 		pickup.set_arrival_time(first_segment_traveltime);
-		pickup.set_departure_time(dropoff.get_departure_time() - id.service_time - id.solver.get_max_ride_time());
+		pickup.set_departure_time(dropoff.get_departure_time() - id.service_time - id.darp_instance_configuration->get_max_ride_time());
 		expected_plan.set_departure_time(0);
 		expected_plan.set_cost(first_segment_traveltime * 2);
 		expected_plan.set_cost_before_drop_off();
@@ -279,7 +283,7 @@ std::pair<
 		const unsigned int second_segment_traveltime
 			= id.travel_time_provider->get_travel_time(r1_pickup.get_node(), r0_pickup.get_node());
 		r0_pickup.set_arrival_time(r1_pickup.get_departure_time() + second_segment_traveltime);
-		r0_pickup.set_departure_time(r0_drop_off.get_departure_time() - id.service_time - id.solver.get_max_ride_time());
+		r0_pickup.set_departure_time(r0_drop_off.get_departure_time() - id.service_time - id.darp_instance_configuration->get_max_ride_time());
 		const unsigned int third_segment_traveltime
 			= id.travel_time_provider->get_travel_time(r0_pickup.get_node(), r0_drop_off.get_node());
 		r0_drop_off.set_arrival_time(r0_pickup.get_departure_time() + third_segment_traveltime);
@@ -506,7 +510,7 @@ std::pair<
 		ActionData<Cordeau_node>& r1_pickup = expected_plan[0];
 		ActionData<Cordeau_node>& r1_dropoff_expected = expected_plan[3];
 		unsigned int time_adjustment
-			= r1_dropoff_expected.get_departure_time() - id.service_time - r1_pickup.get_departure_time() - id.solver.get_max_ride_time();
+			= r1_dropoff_expected.get_departure_time() - id.service_time - r1_pickup.get_departure_time() - id.darp_instance_configuration->get_max_ride_time();
 		// change action times
 		r1_pickup.set_departure_time(r1_pickup.get_departure_time() + time_adjustment);
 		ActionData<Cordeau_node>& r0_pickup = expected_plan[1];
@@ -577,8 +581,8 @@ std::pair<
 
 		// create IH SVDARP
 		auto config = std::make_shared<DARP_instance_configuration>(0, 0, false);
-		SVDARP<unsigned, Test_vehicle, Test_action_data<>, IH_SVDARP_test_plan<>> solver(
-			travel_time_provider, std::move(config));
+		const DARP_context<unsigned> context(travel_time_provider, config);
+		SVDARP<unsigned, Test_vehicle, Test_action_data<>, IH_SVDARP_test_plan<>> solver(context);
 
 		// try to add both requests
 		solver.insert_request_into_plan_optimally(

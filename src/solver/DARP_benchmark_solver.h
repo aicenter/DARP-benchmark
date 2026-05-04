@@ -11,24 +11,11 @@
 
 #include "../DARP_instance.h"
 #include "../Solution.h"
-#include "DARP_solver.h"
+#include "DARP_context.h"
 #include "../config/DARP-benchmark_config.h"
 
 namespace fs = std::filesystem;
 
-
-// class DARP_benchmark_solver_interface_node_agnostic {
-// public:
-// 	virtual ~DARP_benchmark_solver_interface_node_agnostic() = default;
-//
-// 	virtual std::unique_ptr<Solution_interface<N>>
-// 	solve_and_get_final_result(const DARP_instance<N>& instance) = 0;
-//
-// 	virtual void export_performance(rapidjson::PrettyWriter<rapidjson::StringBuffer>& writer) const {
-// 		const std::string message = "Solver has no performance stats";
-// 		writer.String(message.c_str());
-// 	}
-// };
 
 /**
  * @brief Type erasure interface for DARP benchmark solvers. It can be used to solve the DARP benchmark instances
@@ -37,13 +24,14 @@ namespace fs = std::filesystem;
  */
 template<typename N>
 class DARP_benchmark_solver_interface
-// public DARP_benchmark_solver_interface_node_agnostic
 {
 	public:
 	virtual ~DARP_benchmark_solver_interface() = default;
 
-	virtual std::unique_ptr<Solution_interface<N>>
-	solve_and_get_final_result(const DARP_instance<N>& instance) = 0;
+	/**
+	 * @brief Runs the solver on the instance bound when the concrete solver was constructed.
+	 */
+	virtual std::unique_ptr<Solution_interface<N>> solve_and_get_final_result() = 0;
 
 	virtual void export_performance(rapidjson::PrettyWriter<rapidjson::StringBuffer>& writer) const {
 		const std::string message = "Solver has no performance stats";
@@ -62,48 +50,45 @@ concept DARP_benchmark_solver_constructor_interface =
 	};
 
 /**
- * @brief Base class for DARP benchmark solvers. It can solve the DARP like the DARP_solver, but additionally it can
- * also be called from the main benchmark executable, i.e. it can be used as the root solver to solve the
- * DARP benchmark instances.
+ * @brief Base class for DARP benchmark solvers.
  *
- * The solver should be configured by the DARP_instance_configuration object supplied to the constructor. For each new
- * configuration, a new solver should be created. The DARP instance to be solved is supplied to the solve method.
- * Because of that, multiple DARP instances can be solved by a single solver instance. Moreover, some helper methods
- * can be provided by a solver, which do not require the DARP instance to be supplied.
- * @tparam N
- * @tparam P
+ * Each solver object is bound to exactly one `DARP_instance` for its entire lifetime (the instance passed to the
+ * constructor). `solve()` operates on that bound instance only; callers must construct a new solver per instance.
+ *
+ * @tparam N node type
+ * @tparam P plan type (default `VehiclePlan<N>`)
  */
 template<typename N, class P = VehiclePlan<N>>
-class DARP_benchmark_solver : public DARP_solver<N>, public DARP_benchmark_solver_interface<N> {
+class DARP_benchmark_solver : public DARP_benchmark_solver_interface<N> {
 public:
 
 	using solution_impl_ret_val = std::unique_ptr<Solution<N, P>>;
 
+	/**
+	 * @brief Binds the solver to the given instance and benchmark configuration.
+	 * @param instance problem instance; must outlive the solver if stored by reference elsewhere
+	 * @param config solver / benchmark configuration (typically loaded from YAML)
+	 */
 	DARP_benchmark_solver(const DARP_instance<N>& instance, const DARP_benchmark_config& config);
 
-	DARP_benchmark_solver(
-		const std::shared_ptr<Travel_time_provider<N>>& travel_time_provider,
-		const std::shared_ptr<DARP_instance_configuration>& instance_configuration,
-		const DARP_benchmark_config& config
-	);
-
-
-	void set_darp_instance(const DARP_instance<N>* darp_instance_par) {
-		darp_instance = darp_instance_par;
-	}
-
+	/**
+	 * @brief Runs the solver on the instance supplied at construction time.
+	 * @return typed solution, or implementation-defined empty result on failure
+	 */
+	std::unique_ptr<Solution<N, P>> solve() requires(Benchmark_plan<P>);
 
 	/**
-	 * @brief Solves the supplied DARP instance. It assigns the instance to the solver and calls the solve_impl method.
-	 * @param instance
-	 * @return
+	 * @brief Type-erased entry point used by the benchmark harness; same semantics as `solve()`.
 	 */
-	std::unique_ptr<Solution<N, P>> solve(const DARP_instance<N>& instance) requires(Benchmark_plan<P>);
-
-	std::unique_ptr<Solution_interface<N>> solve_and_get_final_result(const DARP_instance<N>& instance) override;
+	std::unique_ptr<Solution_interface<N>> solve_and_get_final_result() override;
 
 	[[nodiscard]] std::span<const problem_type> supported_problem_types() const override;
 
+	/**
+	 * @brief Validates each plan against the bound instance configuration (e.g. time windows).
+	 * @tparam CheckPlan plan type supporting `check` against `DARP_instance_configuration`
+	 * @param plans plans to validate
+	 */
 	template<class CheckPlan=P>
 	void check_plans(const std::vector<CheckPlan>& plans);
 
@@ -112,45 +97,58 @@ protected:
 		max_ride_time, max_route_time
 	};
 
-	const DARP_instance<N>* darp_instance{nullptr};
+	/** Instance pointer set at construction; `solve()` / `solve_impl()` use only this object. */
+	const DARP_instance<N>* const darp_instance;
 
+	/** Benchmark YAML configuration; reference must remain valid for the solver lifetime. */
 	const DARP_benchmark_config& solver_config;
+
+	/** Travel-time provider and instance configuration derived from the bound instance (immutable for the solver lifetime). */
+	const DARP_context<N> context;
 
 	unsigned short max_delay_time{0};
 
 	unsigned long solution_cost{0};
 
+	[[nodiscard]] unsigned long get_max_route_duration() const {
+		return context.get_max_route_duration();
+	}
+
+	[[nodiscard]] unsigned long get_max_ride_time() const {
+		return context.get_max_ride_time();
+	}
+
+	[[nodiscard]] bool is_return_to_depot() const {
+		return context.is_return_to_depot();
+	}
+
+	[[nodiscard]] const std::shared_ptr<Travel_time_provider<N>>& travel_time_provider() const {
+		return context.travel_time_provider();
+	}
+
+	[[nodiscard]] const std::shared_ptr<DARP_instance_configuration>& darp_instance_configuration() const {
+		return context.darp_instance_configuration();
+	}
+
 	/**
-	 * This method should be implemented by each specific solver class. It should be the main solver method.
-	 * @return
+	 * @brief Solver-specific implementation invoked by `solve()` after any common setup.
+	 * @return typed solution in the solver's plan representation
 	 */
 	virtual solution_impl_ret_val solve_impl() = 0;
 
 	/**
-	 * Computes the optimal plan for a request-vehicle combination.
-	 * @param current_plan The current plan of the vehicle.
-	 * @param request The request being added.
-	 * @return New plan for vehicle or std::nullopt if there is no feasible plan that can be created by inserting the
-	 * new request into the current vehicle plan.
-     * result in an infeasible plan.
+	 * @brief Enumerates pickup/drop-off insertion positions to minimize cost increment for one additional request.
+	 * @param current_plan feasible plan for a single vehicle
+	 * @param request request to insert
+	 * @return best resulting plan, or `std::nullopt` if no feasible insertion exists
 	 */
 	std::optional<VehiclePlan<N>> compute_optimal_plan(
 		const VehiclePlan<N>& current_plan,
 		const Request<N>& request
 	);
 
-
 	/**
-	 * Computes new plan from the current plan by inserting the pickup request and the drop off request on the specified
-	 * indexes.
-	 * @param current_plan The current plan of the vehicle.
-	 * @param pickup_option_index Index of the pick up action in the new plan. It can range from 0 to
-	*  current_plan.size().
-	 * @param drop_off_option_index Index of the drop off action in the new plan. It can range from 1 to
-	*  current_plan.size() + 1.
-	 * @param request New request to add into plan.
-	 * @return New plan for vehicle or std::nullopt if the inserting the requests' actions at specified indexes would
-	 * result in an infeasible plan.
+	 * @brief Inserts a request into a plan of type `P` at given pickup/drop-off indices (used by heuristics on structured plans).
 	 */
 	std::optional<P> insert_into_plan(
 		const P& current_plan,
@@ -159,11 +157,17 @@ protected:
 		const Request<N>& request
 	);
 
+	/**
+	 * @brief Adjusts action times on a `VehiclePlan` to restore feasibility (max ride / max route constraints).
+	 * @param vehicle_plan plan to modify in place
+	 * @param initial_reason which constraint triggered the adjustment pass
+	 * @param station_position depot / station node for route-duration checks
+	 * @return true if a feasible adjustment was found
+	 */
 	bool adjust_times(VehiclePlan<N>& vehicle_plan, Adjustment_reason initial_reason, N station_position);
 };
 
 
 #include "DARP_benchmark_solver.tpp"
-
 
 

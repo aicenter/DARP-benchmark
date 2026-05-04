@@ -65,13 +65,6 @@ public:
 		std::shared_ptr<Nearest_vehicle_provider<N>> nearest_vehicle_provider = nullptr
 	);
 
-	Insertion_heuristic_solver(
-		const std::shared_ptr<Travel_time_provider<N>>& travel_time_provider,
-		const std::shared_ptr<DARP_instance_configuration>& instance_configuration,
-		const DARP_benchmark_config& solver_config
-	);
-
-
 	DARP_benchmark_solver<N>::solution_impl_ret_val solve_impl() override;
 
 	template<class R, Iterable<V> I>

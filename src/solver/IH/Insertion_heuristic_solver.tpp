@@ -24,18 +24,8 @@ Insertion_heuristic_solver<N, A, V, P>::Insertion_heuristic_solver(
 ):
 	DARP_benchmark_solver<N>(instance, solver_config),
 	minimize_used_vehicles(minimize_used_vehicles),
-	SVDARP_solver(instance.get_travelcost_provider(), instance.get_darp_instance_configuration()),
+	SVDARP_solver(DARP_context<N>(instance)),
 	nearest_vehicle_provider(nearest_vehicle_provider) {
-}
-
-template<typename N, Vehicle_plan_builder_action A, IH_vehicle V, IH_vehicle_plan<V, A> P>
-Insertion_heuristic_solver<N, A, V, P>::Insertion_heuristic_solver(
-	const std::shared_ptr<Travel_time_provider<N>>& travel_time_provider,
-	const std::shared_ptr<DARP_instance_configuration>& instance_configuration,
-	const DARP_benchmark_config& solver_config
-):
-	DARP_benchmark_solver<N>(travel_time_provider, instance_configuration, solver_config),
-	SVDARP_solver(travel_time_provider, instance_configuration) {
 }
 
 
@@ -326,7 +316,7 @@ bool Insertion_heuristic_solver<N, A, V, P>::can_serve_request(
 		return vehicle_start_time < pickup_action_data.get_max_time();
 	}
 
-	const auto travel_time_to_pickup = this->travel_time_provider.get()->get_travel_time(
+	const auto travel_time_to_pickup = this->travel_time_provider().get()->get_travel_time(
 		vehicle.get_init_position(), pickup_action_data.get_node());
 
 	// pickup feasibility check: earliest arrival = vehicle_start_time + travel_time
@@ -334,7 +324,7 @@ bool Insertion_heuristic_solver<N, A, V, P>::can_serve_request(
 	const bool can_serve = earliest_pickup_arrival < pickup_action_data.get_max_time();
 
 	if (can_serve) {
-		const auto travel_time_to_dropoff = this->travel_time_provider.get()->get_travel_time(
+		const auto travel_time_to_dropoff = this->travel_time_provider().get()->get_travel_time(
 			vehicle.get_init_position(), drop_off_action_data.get_node());
 		const auto earliest_dropoff_arrival = vehicle_start_time + travel_time_to_dropoff + pickup_action_data.get_service_duration();
 

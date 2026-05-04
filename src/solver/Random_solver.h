@@ -10,13 +10,8 @@ public:
     Random_solver(const DARP_instance<N>& instance, const DARP_benchmark_config& config)
         : DARP_benchmark_solver<N>(instance, config) {}
 
-    Random_solver(
-        const std::shared_ptr<Travel_time_provider<N>>& travel_time_provider,
-        const std::shared_ptr<DARP_instance_configuration>& instance_configuration,
-        const DARP_benchmark_config& config
-    ) : DARP_benchmark_solver<N>(travel_time_provider, instance_configuration, config) {}
+    typename DARP_benchmark_solver<N>::solution_impl_ret_val solve_impl() override;
 
-    Solution<N> solve() override;
 private:
     unsigned int min_cost_increment{0};
     std::optional<VehiclePlan<N>> best_plan{};

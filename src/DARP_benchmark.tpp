@@ -105,8 +105,7 @@ void DARP_benchmark<N>::process_instance(
 	spdlog::info("Running {} solver", method);
 	auto result = benchmark(
 		&DARP_benchmark_solver_interface<N>::solve_and_get_final_result,
-		solver,
-		darp_instance
+		solver
 	);
 
 	spdlog::info("Solving time: {}", format_number(result.count()));

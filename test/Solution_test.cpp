@@ -3,6 +3,8 @@
 #include <filesystem>
 #include <sstream>
 
+namespace fs = std::filesystem;
+
 #include <future-config/configuration.h>
 
 #include "common.h"
@@ -12,8 +14,6 @@
 #include "../src/DARP_benchmark_reader.h"
 #include "../src/DARP_benchmark_node.h"
 #include "../src/config/DARP-benchmark_config.h"
-
-namespace fs = std::filesystem;
 
 namespace {
 
@@ -90,12 +90,8 @@ TEST(Solution_test, export_simple_csv_from_ih_solver) {
 		config
 	);
 	auto solver_config = fc::load<DARP_benchmark_config>();
-	Insertion_heuristic_solver<Cordeau_node> solver(
-		travel_time_provider,
-		config,
-		solver_config
-	);
-	std::unique_ptr<Solution<Cordeau_node>> solution = solver.solve(*instance);
+	Insertion_heuristic_solver<Cordeau_node> solver(*instance, solver_config, fs::path{});
+	std::unique_ptr<Solution<Cordeau_node>> solution = solver.solve();
 
 	ASSERT_TRUE(solution->is_feasible());
 	std::string csv = solution->export_simple_csv();

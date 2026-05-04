@@ -3,12 +3,13 @@
 #include <algorithm>
 
 template<typename N>
-Solution<N> Random_solver<N>::solve() {
+typename DARP_benchmark_solver<N>::solution_impl_ret_val Random_solver<N>::solve_impl() {
     std::random_device device;
     std::mt19937 generator(device());
     this->rand_g = generator;
 
-    return compute(this->darp_instance.get_requests(), this->darp_instance.get_vehicles());
+    Solution<N> sol = compute(this->darp_instance->get_requests(), this->darp_instance->get_vehicles());
+    return std::make_unique<Solution<N>>(std::move(sol));
 }
 
 template<typename N>
@@ -81,12 +82,12 @@ bool Random_solver<N>::can_serve_request(const Vehicle<N> &vehicle, const Reques
     }
 
     // pickup feasibility check
-    bool can_serve = this->travel_time_provider.get()->get_travel_time(
+    bool can_serve = this->travel_time_provider().get()->get_travel_time(
 	    vehicle.get_init_position(), request.get_pickup().get_node()) < request.get_pickup().get_max_time();
 
     if(can_serve){
         // drop off feasibility check
-        return this->travel_time_provider.get()->get_travel_time(
+        return this->travel_time_provider().get()->get_travel_time(
 		        vehicle.get_init_position(), request.get_dropoff().get_node()) + request.get_pickup().get_service_duration()
                < request.get_dropoff().get_max_time();
     }
@@ -214,9 +215,9 @@ unsigned short pickup_option_index, unsigned short dropoff_option_index, const V
 
         // travel time increment
         if (new_plan_index == 0)
-            travel_time = this->travel_time_provider.get()->get_travel_time(vehicle.get_init_position(), new_action.get_node());
+            travel_time = this->travel_time_provider().get()->get_travel_time(vehicle.get_init_position(), new_action.get_node());
         else
-            travel_time = this->travel_time_provider.get()->get_travel_time(new_plan_tasks[new_plan_index - 1].get_action().get_node(), new_action.get_node());
+            travel_time = this->travel_time_provider().get()->get_travel_time(new_plan_tasks[new_plan_index - 1].get_action().get_node(), new_action.get_node());
 
         new_plan_travel_time += travel_time;
         new_plan_cost += travel_time;
@@ -239,7 +240,7 @@ unsigned short pickup_option_index, unsigned short dropoff_option_index, const V
             pickup_action_data->set_other(&new_action_data);
             new_action_data.set_other(pickup_action_data);
 
-            if (new_plan_travel_time - pickup_map[new_action.get_request().get_index()]->get_departure_time() > this->max_ride_time){
+            if (new_plan_travel_time - pickup_map[new_action.get_request().get_index()]->get_departure_time() > this->get_max_ride_time()){
                 if (!this->adjust_times(new_plan_tasks)) {
                     return std::nullopt;
                 }
@@ -250,7 +251,7 @@ unsigned short pickup_option_index, unsigned short dropoff_option_index, const V
         new_plan_travel_time += new_action.get_service_duration();
 
         // check max route time
-        if (new_plan_travel_time > this->max_route_duration)
+        if (new_plan_travel_time > this->get_max_route_duration())
             return std::nullopt;
 
         // check max time for actions in the current plan
@@ -288,12 +289,12 @@ unsigned short pickup_option_index, unsigned short dropoff_option_index, const V
     }
 
     // add cost of returning to depot
-    unsigned int travel_time_to_depot = this->travel_time_provider.get()->get_travel_time(new_plan_tasks[new_plan_tasks.size() - 1].get_action().get_node(), vehicle.get_init_position());
+    unsigned int travel_time_to_depot = this->travel_time_provider().get()->get_travel_time(new_plan_tasks[new_plan_tasks.size() - 1].get_action().get_node(), vehicle.get_init_position());
     new_plan_cost += travel_time_to_depot;
     new_plan_travel_time += travel_time_to_depot;
 
     // max route time check
-    if (new_plan_travel_time > this->max_route_duration)
+    if (new_plan_travel_time > this->get_max_route_duration())
         return std::nullopt;
 
     //std::cout << "Found for req " << request.get_index() << "\n";
@@ -315,7 +316,7 @@ bool Random_solver<N>::adjust_times(std::vector<ActionData<N>>& new_plan_tasks) 
         unsigned long drop_off_arrival_time = pickup_action_data->get_other()->get_arrival_time();
 
         // difference between current ride time (which breaks constraint) and max ride time
-        unsigned long diff = drop_off_arrival_time - pickup_action_data->get_departure_time() - this->max_ride_time;
+        unsigned long diff = drop_off_arrival_time - pickup_action_data->get_departure_time() - this->get_max_ride_time();
 
         // fail if pick up cannot be delayed
         if (pickup_action_data->get_departure_time() - pickup_action.get_service_duration() + diff > pickup_action.get_max_time())
@@ -346,7 +347,7 @@ bool Random_solver<N>::adjust_times(std::vector<ActionData<N>>& new_plan_tasks) 
                 diff = action_data.get_departure_time() - departure_time;
 
                 // max ride time check
-                if(action.get_action_type() == Action_type::dropoff && action_data.get_arrival_time() - action_data.get_other()->get_departure_time() > this->max_ride_time)
+                if(action.get_action_type() == Action_type::dropoff && action_data.get_arrival_time() - action_data.get_other()->get_departure_time() > this->get_max_ride_time())
                     pickups_to_resolve.push(action_data.get_other());
 
                 // if the delay is 0, we can stop

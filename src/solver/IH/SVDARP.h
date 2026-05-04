@@ -1,7 +1,7 @@
 #pragma once
 
 #include "IH_SVDARP_interfaces.h"
-#include "../DARP_solver.h"
+#include "../DARP_context.h"
 #include "IH_vehicle_plan_builder.h"
 
 
@@ -17,12 +17,12 @@
  * @tparam P plan builder type
  */
 template<typename N, IH_SVDARP_vehicle<N> V, IH_SVDARP_action<N> A, Vehicle_plan_builder_plan<V,A> P>
-class SVDARP: public DARP_solver<N>{
+class SVDARP {
 
 public:
 
-	// constructor inheritance
-    using DARP_solver<N>::DARP_solver;
+	explicit SVDARP(const DARP_context<N>& context_par): context(context_par) {
+	}
 
 	bool adjust_times(
 		unsigned short action_position,
@@ -74,7 +74,7 @@ public:
             	assert(vehicle_plan.get_action_order()[pickup_position_in_plan] == pickup_action_data_index);
             	
                 diff = drop_off_service_start_time - pickup_action_data->get_departure_time()
-            		- this->darp_instance_configuration->get_max_ride_time();
+            		- this->context.darp_instance_configuration()->get_max_ride_time();
             }
             else {
             	pickup_action_data_index = vehicle_plan.get_action_order()[0];
@@ -83,10 +83,10 @@ public:
             	pickup_position_in_plan = pickup_action_data->get_position_in_plan();
             	assert(vehicle_plan.get_action_order()[pickup_position_in_plan] == pickup_action_data_index);
             	
-                travel_time_to_depot = this->travel_time_provider->get_travel_time(
+                travel_time_to_depot = this->context.travel_time_provider()->get_travel_time(
 	                drop_off_action_data.get_node(), vehicle_plan.get_vehicle().get_init_position());
                 diff = drop_off_service_start_time + drop_off_action_data.get_service_duration()
-                    + travel_time_to_depot - this->darp_instance_configuration->get_max_route_duration() - vehicle_plan.get_departure_time();
+                    + travel_time_to_depot - this->context.darp_instance_configuration()->get_max_route_duration() - vehicle_plan.get_departure_time();
             }
         	assert(pickup_action_data->get_action_type() == Action_type::pickup);
         	
@@ -196,7 +196,7 @@ public:
 
                     // max ride time check
                     if (service_time - vehicle_plan.get_other(action_data).get_departure_time() 
-						> this->darp_instance_configuration->get_max_ride_time()) {
+						> this->context.darp_instance_configuration()->get_max_ride_time()) {
 						++stack_top_index;
                         assert(stack_top_index < (Vehicle_plan_builder<V, A, P>::adj_stack_size));
                         adj_stack[stack_top_index] = {action_index, Adjustment_reason::max_ride_time};
@@ -240,14 +240,14 @@ public:
 
     	if(first_action) {
     		current_time = plan.get_operating_start();
-    		travel_time_to = this->travel_time_provider->get_travel_time(
+    		travel_time_to = this->context.travel_time_provider()->get_travel_time(
 	            vehicle.get_init_position(), new_action_data.get_node());
     	}
         else {
 	        // action data before index in plan
     		before_action_data = &plan[action_index_in_plan - 1];
         	current_time = before_action_data->get_departure_time();
-    		travel_time_to = this->travel_time_provider->get_travel_time(
+    		travel_time_to = this->context.travel_time_provider()->get_travel_time(
 	            before_action_data->get_node(), new_action_data.get_node());
         }
 
@@ -297,8 +297,8 @@ public:
     	if(last_action) {
 
     		// travel time from
-    		if(this->darp_instance_configuration->is_return_to_depot()) {
-    			travel_time_from = this->travel_time_provider->get_travel_time(
+    		if(this->context.darp_instance_configuration()->is_return_to_depot()) {
+    			travel_time_from = this->context.travel_time_provider()->get_travel_time(
 	                new_action_data.get_node(), vehicle.get_init_position());
     		}
             else {
@@ -310,11 +310,11 @@ public:
     		diff = 0;
 
     		//direct travel time
-    		if(first_action || !this->darp_instance_configuration->is_return_to_depot()) {
+    		if(first_action || !this->context.darp_instance_configuration()->is_return_to_depot()) {
     			direct_travel_time = 0;
     		}
             else {
-	            direct_travel_time = this->travel_time_provider->get_travel_time(
+	            direct_travel_time = this->context.travel_time_provider()->get_travel_time(
 		            before_action_data->get_node(), vehicle.get_init_position());
             }
     	}
@@ -323,7 +323,7 @@ public:
     		A& after_action_data = plan[action_index_in_plan];
 
         	// travel time from the new action to the first action after it
-        	travel_time_from = this->travel_time_provider->get_travel_time(
+        	travel_time_from = this->context.travel_time_provider()->get_travel_time(
 	            new_action_data.get_node(), after_action_data.get_node());
 
         	// diff
@@ -401,8 +401,8 @@ public:
 
 	    	// max ride time check
 			if(action_data.get_action_type() == Action_type::dropoff){
-	            if(this->darp_instance_configuration->get_max_ride_time() && action_data.get_service_start_time() 
-                    - plan.get_other(action_data).get_departure_time() > this->darp_instance_configuration->get_max_ride_time()
+	            if(this->context.darp_instance_configuration()->get_max_ride_time() && action_data.get_service_start_time() 
+                    - plan.get_other(action_data).get_departure_time() > this->context.darp_instance_configuration()->get_max_ride_time()
                 ){
 	                if(!adjust_times(action_index, plan, Adjustment_reason::max_ride_time)) {
 	                	plan.remove_lastly_added_action(pickup);
@@ -413,18 +413,18 @@ public:
 				// check max route time
 				// TODO the performance can be probably slightly improved by checking max route time for pickup too.
 				// However, it requires some changes in adjust times method.
-		        if(this->darp_instance_configuration->get_max_route_duration()){
+		        if(this->context.darp_instance_configuration()->get_max_route_duration()){
 		        	unsigned long plan_arrival_time;
-		        	if(this->darp_instance_configuration->is_return_to_depot()){
+		        	if(this->context.darp_instance_configuration()->is_return_to_depot()){
 		        		// add cost of returning to depot
-						const unsigned int travel_time_to_depot = this->travel_time_provider->get_travel_time(
+						const unsigned int travel_time_to_depot = this->context.travel_time_provider()->get_travel_time(
 							action_data.get_node(), vehicle.get_init_position());
 		        		plan_arrival_time = action_data.get_departure_time() + travel_time_to_depot;
                     }
                     else{
                     	plan_arrival_time = action_data.get_arrival_time();
                     }
-	                if(plan_arrival_time - plan.get_departure_time() > this->darp_instance_configuration->get_max_route_duration()){
+	                if(plan_arrival_time - plan.get_departure_time() > this->context.darp_instance_configuration()->get_max_route_duration()){
 			            if (!adjust_times(action_index, plan, Adjustment_reason::max_route_time)) {
 	            			plan.remove_lastly_added_action(pickup);
 			                return false;
@@ -546,7 +546,7 @@ public:
 	void finalize_plan(IH_vehicle_plan_builder<V, A, P>& plan) const {
 		// adjust arrival time of the first action so that the vehicle does not wait at the pickup location
 		auto& first_action_data = plan[0];
-		auto travel_time_to_start = this->travel_time_provider->get_travel_time(
+		auto travel_time_to_start = this->context.travel_time_provider()->get_travel_time(
 			plan.get_vehicle().get_init_position(),
 			first_action_data.get_action().get_node()
 		);
@@ -560,8 +560,8 @@ public:
 		plan.set_departure_time(first_action_data.get_arrival_time() - travel_time_to_start);
 
 		// compute plan arrival time
-		if(this->darp_instance_configuration->is_return_to_depot()) {
-			unsigned int travel_time = this->travel_time_provider->get_travel_time(
+		if(this->context.darp_instance_configuration()->is_return_to_depot()) {
+			unsigned int travel_time = this->context.travel_time_provider()->get_travel_time(
 				plan.get_last_action().get_node(), plan.get_vehicle().get_init_position());
 			plan.set_arrival_time(plan.get_servicing_end() + travel_time);
 		}
@@ -570,5 +570,7 @@ public:
 	    }
 	}
 
+private:
+	const DARP_context<N> context;
 };
 
