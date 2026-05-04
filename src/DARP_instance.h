@@ -66,24 +66,33 @@ public:
 	[[nodiscard]] double get_relative_delay_cost() const;
 	[[nodiscard]] problem_type get_problem() const;
 
+	void set_max_route_duration(unsigned long value);
+	void set_max_ride_time(unsigned long value);
+	void set_return_to_depot(bool value);
+	void set_virtual_vehicles(bool value);
+	void set_start_time(unsigned value);
+	void set_vehicle_capital_cost(unsigned short value);
+	void set_relative_delay_cost(double value);
+	void set_problem(problem_type value);
+
 private:
-    const unsigned long max_route_duration{0};
+    unsigned long max_route_duration{0};
 
 	/**
 	 * Maximum ride time for a request. The ride time is computed as the interval between the departure from the pickup
 	 * location and the start of the service at the drop off location.
 	 */
-    const unsigned long max_ride_time{0};
+    unsigned long max_ride_time{0};
 
 	/**
 	* @brief Specifies whether vehicles have to return to the depot after serving the last request
 	*/
-	const bool return_to_depot{true};
-	const bool virtual_vehicles{false};
-    const unsigned start_time{0};
-	const unsigned short vehicle_capital_cost{0};
-	const double relative_delay_cost{0.0};
-	const problem_type problem{problem_type::darp};
+	bool return_to_depot{true};
+	bool virtual_vehicles{false};
+    unsigned start_time{0};
+	unsigned short vehicle_capital_cost{0};
+	double relative_delay_cost{0.0};
+	problem_type problem{problem_type::darp};
 };
 
 class DARP_instance_interface {
