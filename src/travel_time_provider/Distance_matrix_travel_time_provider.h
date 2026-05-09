@@ -50,6 +50,14 @@ public:
 		time_type time_since_last_action_departure
 	) const;
 
+	[[nodiscard]] unsigned get_matrix_width() const {
+		return width;
+	}
+
+	[[nodiscard]] unsigned get_matrix_height() const {
+		return height;
+	}
+
 protected:
 	unsigned width;
 	unsigned height;
@@ -108,6 +116,9 @@ public:
 		time_type time_since_last_action_departure
 	) const override;
 
+	[[nodiscard]] const L& get_canonical_node(unsigned index) const {
+		return *nodes.at(index);
+	}
 
 	size_t get_nearest_vehicle(const L& location, const std::vector<const Vehicle<L>*>& vehicles) override;
 };

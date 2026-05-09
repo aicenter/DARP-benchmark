@@ -1,5 +1,9 @@
 
 #include <fstream>
+#include <cstring>
+#include <stdexcept>
+#include <type_traits>
+#include <unordered_map>
 
 //
 // Created by Fido on 2020-04-02.
@@ -32,6 +36,83 @@ DARP_vehicle_plan<N,P,V>::DARP_vehicle_plan(const V& vehicle, unsigned short siz
     free_capacity{vehicle.get_capacity()}
 {
     this->actions.reserve(size);
+}
+
+template <typename N, class P, class V>
+P DARP_vehicle_plan<N, P, V>::JSON_deserialize(
+	const rapidjson::Value& plan_data,
+	const DARP_instance<N>& darp_instance,
+	std::vector<Virtual_vehicle>& virtual_vehicles_storage
+) {
+	const auto& veh_json = plan_data["vehicle"];
+	const bool is_virtual = veh_json.HasMember("type") && std::strcmp(veh_json["type"].GetString(), "virtual") == 0;
+	if (is_virtual && !std::is_same_v<P, VehiclePlan<N, Vehicle_base>>) {
+		throw std::runtime_error(
+			"Solution contains virtual vehicles; use run_functional_test<N, VehiclePlan<N, Vehicle_base>> for fleet sizing"
+		);
+	}
+
+	std::unordered_map<unsigned, const Action<N>&> actions_mapped_by_id;
+	for (const auto& request : darp_instance.get_requests()) {
+		const auto& pickup = request.get_pickup();
+		const auto& drop_off = request.get_dropoff();
+		actions_mapped_by_id.insert(std::pair<unsigned, const Action<N>&>(pickup.get_action_id(), pickup));
+		actions_mapped_by_id.insert(std::pair<unsigned, const Action<N>&>(drop_off.get_action_id(), drop_off));
+	}
+
+	std::unordered_map<unsigned, const Vehicle<N>&> vehicles_mapped_by_index;
+	for (const auto& vehicle : darp_instance.get_vehicles()) {
+		vehicles_mapped_by_index.insert({vehicle.get_index(), vehicle});
+	}
+
+	const Vehicle_base* vehicle_base_ptr = nullptr;
+	const Vehicle<N>* vehicle_n_ptr = nullptr;
+	if (is_virtual) {
+		const unsigned short capacity = veh_json.HasMember("capacity")
+			? static_cast<unsigned short>(veh_json["capacity"].GetUint())
+			: 4;
+		const unsigned int time_to_start = veh_json.HasMember("time_to_start") ? veh_json["time_to_start"].GetUint() : 0;
+		const unsigned int vehicle_count = veh_json.HasMember("vehicle_count") ? veh_json["vehicle_count"].GetUint() : 1;
+		virtual_vehicles_storage.emplace_back(capacity, time_to_start, vehicle_count);
+		vehicle_base_ptr = &virtual_vehicles_storage.back();
+	} else {
+		const auto vehicle_index = veh_json["index"].GetUint();
+		vehicle_n_ptr = &vehicles_mapped_by_index.at(vehicle_index);
+		vehicle_base_ptr = vehicle_n_ptr;
+	}
+
+	const auto& json_actions = plan_data["actions"].GetArray();
+	std::vector<ActionData<N>> actions;
+	std::unordered_map<unsigned, index_in_plan> pickups;
+	for (index_in_plan i = 0; i < static_cast<index_in_plan>(json_actions.Size()); ++i) {
+		const auto& json_action_data = json_actions[i];
+		const auto& json_action = json_action_data["action"];
+		auto action_type = action_type_from_string(json_action["type"].GetString());
+		auto request_index = json_action["request_index"].GetUint();
+		index_in_plan other_index = 0;
+		if (action_type == Action_type::dropoff) {
+			const auto pickup_it = pickups.find(request_index);
+			if (pickup_it != pickups.end()) {
+				other_index = pickup_it->second;
+				actions[other_index].set_other_action_data_index(static_cast<index_in_plan>(i));
+			} else {
+				other_index = static_cast<index_in_plan>(-1);
+			}
+		} else {
+			pickups[request_index] = i;
+		}
+		const auto& action = actions_mapped_by_id.at(json_action["id"].GetUint());
+		actions.emplace_back(json_action_data, i, other_index, action);
+	}
+
+	const unsigned int cost = plan_data["cost"].GetUint();
+	const unsigned int departure_time = plan_data["departure_time"].GetUint();
+	const unsigned int arrival_time = plan_data["arrival_time"].GetUint();
+	if constexpr (std::is_same_v<P, VehiclePlan<N, Vehicle_base>>) {
+		return P(static_cast<const V&>(*vehicle_base_ptr), cost, std::move(actions), departure_time, arrival_time);
+	} else {
+		return P(static_cast<const V&>(*vehicle_n_ptr), cost, std::move(actions), departure_time, arrival_time);
+	}
 }
 
 template <typename N, class P, class V>
@@ -551,4 +632,30 @@ index_in_plan VehiclePlan<N, V>::get_last_service_action_index() const {
 	return static_cast<index_in_plan>(this->get_length()) - 1;
 }
 
+template <typename N, Benchmark_plan P>
+void deserialize_vehicle_plans_from_json_array(
+	const rapidjson::Value& plans_array,
+	const DARP_instance<N>& darp_instance,
+	std::vector<Virtual_vehicle>& virtual_vehicles_storage,
+	std::vector<P>& plans_out
+) {
+	if (!plans_array.IsArray()) {
+		throw std::runtime_error("deserialize_vehicle_plans_from_json_array: expected a JSON array");
+	}
+
+	size_t virtual_plan_count = 0;
+	for (const auto& plan_data : plans_array.GetArray()) {
+		const auto& veh_json = plan_data["vehicle"];
+		const bool is_virtual = veh_json.HasMember("type") && std::strcmp(veh_json["type"].GetString(), "virtual") == 0;
+		if (is_virtual) {
+			++virtual_plan_count;
+		}
+	}
+	virtual_vehicles_storage.reserve(virtual_plan_count);
+
+	plans_out.clear();
+	for (const auto& plan_data : plans_array.GetArray()) {
+		plans_out.push_back(P::JSON_deserialize(plan_data, darp_instance, virtual_vehicles_storage));
+	}
+}
 

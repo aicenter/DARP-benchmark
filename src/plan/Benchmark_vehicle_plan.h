@@ -1,6 +1,7 @@
 #pragma once
 
 #include <sstream>
+#include <type_traits>
 
 #include "../ActionData.h"
 #include "../Vehicle.h"
@@ -27,5 +28,8 @@ public:
 	[[nodiscard]] virtual unsigned long get_passenger_delay() const = 0;
 
 };
+
+template<class P>
+concept Benchmark_plan = std::is_base_of_v<Benchmark_vehicle_plan, P>;
 
 #include "Benchmark_vehicle_plan.tpp"

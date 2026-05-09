@@ -42,9 +42,6 @@ protected:
 };
 
 
-template<class P>
-concept Benchmark_plan = std::is_base_of<Benchmark_vehicle_plan, P>::value;
-
 /*
  * Iterator adapter. It transforms the vector iterator over concrete plan type into a reference to the
  * Benchmark_vehicle_plan class
@@ -309,32 +306,7 @@ private:
 	int non_empty_plan_count{-1};
 };
 
-template <typename N, class P = VehiclePlan<N>>
+template <typename N, Benchmark_plan P = VehiclePlan<N>>
 Solution<N,P> deserialize_json(std::filesystem::path path, const DARP_instance<N>& darp_instance);
-
-/**
- * Deserializes a JSON array of plans (same objects as under the "plans" key in solution JSON).
- * Appends virtual vehicles to virtual_vehicles_storage; keep that vector alive while using plans that reference them.
- * Supports onboard requests: if a dropoff appears with no matching pickup earlier in the same plan, the dropoff
- * ActionData is linked with other_action_data_index == -1 (pickup not present in the plan).
- */
-template <typename N, Benchmark_plan P>
-void deserialize_vehicle_plans_from_json_array(
-	const rapidjson::Value& plans_array,
-	const DARP_instance<N>& darp_instance,
-	std::vector<Virtual_vehicle>& virtual_vehicles_storage,
-	std::vector<P>& plans_out
-);
-
-/**
- * Deserializes a single plan JSON object (same shape as one element of the "plans" array).
- * virtual_vehicles_storage must be kept alive while the returned plan references a virtual vehicle.
- */
-template <typename N, Benchmark_plan P>
-P deserialize_vehicle_plan_from_json(
-	const rapidjson::Value& plan_object,
-	const DARP_instance<N>& darp_instance,
-	std::vector<Virtual_vehicle>& virtual_vehicles_storage
-);
 
 #include "Solution.tpp"

@@ -231,10 +231,24 @@ All tests are located in the `Chaining_test.cpp` file. The data structures for c
 Each component test type (variant generation, network generation, MCFP solver) has it's own data structures that are the minimal implementations of the component interface. 
 
 
+
 # Methodology
 
 ## Waiting times
 In DARP, we the vehicle sometimes needs to wait to satisfy the time window constraints. It is not specified in the problem definition where exactly we should wait, i.e., we can wait at the action location, or we can wait at the previous location. All methods in this project follow the following strategy:
+
 - departure time of the vehicle/plan is the latest possible so that the vehicle can make it to the min time of the first action (plan departure = first action arrival time - travle time to first action)
-- all other times are minimized to minimize the passenger delay, even if it causes more waiting for the vehicle 
+- all other times are minimized to minimize the passenger delay, even if it causes more waiting for the vehicle.
+
+
+
+# Tests
+Solver tests are designed to use declarative input files, instead of hardcoding the inputs into the test code. Unless the solver test only test some specific subproblems, the following data should be used:
+
+- for input, the DARP instance, as specified in the [DARP instances project](https://github.com/aicenter/Ridesharing_DARP_instances), including:
+    - `config.yaml`,
+    - `requests.csv`,
+    - `vehicles.csv`,
+    - `dm.csv`
+- for expected output, the solution serialized as a JSON file, again, as specified in the [DARP instances project](https://github.com/aicenter/Ridesharing_DARP_instances)
 

@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include <functional>
 #include <vector>
 #include <optional>
 #include <rapidjson/document.h>
@@ -68,6 +69,15 @@ public:
      * @return 
     */
     DARP_vehicle_plan(const V& vehicle, unsigned short size);
+
+	/**
+	 * @brief Parse one JSON object (same shape as an element of solution "plans") and construct a plan
+	 * via the full-data constructor.
+	 */
+	[[nodiscard]] static P JSON_deserialize(
+		const rapidjson::Value& plan_data,
+		const DARP_instance<N>& darp_instance,
+		std::vector<Virtual_vehicle>& virtual_vehicles_storage);
 
 	DARP_vehicle_plan(const DARP_vehicle_plan& other) = default;
 	DARP_vehicle_plan(DARP_vehicle_plan&& other) noexcept = default;
@@ -249,6 +259,20 @@ public:
 //    using Benchmark_vehicle_plan<N>::operator[];
     using DARP_vehicle_plan<N, VehiclePlan<N, V>, V>::operator[];
 };
+
+/**
+ * Deserializes a JSON array of plans (same objects as under the "plans" key in solution JSON).
+ * Appends virtual vehicles to virtual_vehicles_storage; keep that vector alive while using plans that reference them.
+ * Supports onboard requests: if a dropoff appears with no matching pickup earlier in the same plan, the dropoff
+ * ActionData is linked with other_action_data_index == -1 (pickup not present in the plan).
+ */
+template <typename N, Benchmark_plan P>
+void deserialize_vehicle_plans_from_json_array(
+	const rapidjson::Value& plans_array,
+	const DARP_instance<N>& darp_instance,
+	std::vector<Virtual_vehicle>& virtual_vehicles_storage,
+	std::vector<P>& plans_out
+);
 
 #include "VehiclePlan.tpp"
 
