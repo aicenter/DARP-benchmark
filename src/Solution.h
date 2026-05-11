@@ -1,5 +1,6 @@
 #pragma once
 #include <vector>
+#include <optional>
 #include <string>
 #include <filesystem>
 #include "rapidjson/document.h"
@@ -248,14 +249,22 @@ public:
     );
 
 	/**
-	 * Deserialization from JSON when plans may reference Virtual_vehicle objects (not in DARP_instance).
-	 * Backing storage must outlive plans; it is kept in virtual_vehicle_backing (declared before plans).
+	 * Deserialization from JSON when plans may reference a shared \c Virtual_vehicle (not in DARP_instance).
+	 * Backing storage must outlive plans; it is kept in \c virtual_vehicle_backing (declared before plans).
 	 */
 	Solution(
 		std::vector<P>&& vehicle_plans,
 		unsigned long cost,
 		std::vector<const Request<N>*>&& dropped_requests,
-		std::vector<Virtual_vehicle>&& virtual_vehicle_backing_par
+		std::optional<Virtual_vehicle>&& virtual_vehicle_backing_par
+	);
+
+	Solution(
+		std::vector<P>&& vehicle_plans,
+		unsigned long cost,
+		std::vector<const Request<N>*>&& dropped_requests,
+		std::optional<Virtual_vehicle>&& virtual_vehicle_backing_par,
+		std::optional<std::vector<Vehicle<N>>>&& fleet_sizing_vehicle_backing_par
 	);
 
 	/**
@@ -284,12 +293,25 @@ public:
 
     const P& operator[] (int index) const;
 
+	/**
+	 * @brief \c true when this solution uses fleet-sizing materialized vehicle backing (\c deserialize_json with
+	 * \c problem_type::fleet_sizing). \c false for classic DARP. When \c true, \c fleet_sizing_vehicle_backing may still
+	 * hold an empty vector (e.g. no materialized vehicles in the JSON).
+	 */
+	[[nodiscard]] bool is_fleet_sizing_vehicle_backing_engaged() const noexcept;
+
 protected:
 	/**
-	 * Owns Virtual_vehicle instances referenced by plans after JSON deserialization.
-	 * Declared before plans so plans are destroyed first (plans hold references into this vector).
+	 * When \c std::nullopt, this solution is not in fleet-sizing mode (no fleet JSON materialization backing).
+	 * When engaged, holds \c Vehicle<N> materialized from solution JSON for fleet-sizing (vector may be empty, e.g. no
+	 * materialized vehicles needed). Declared before plans.
 	 */
-	std::vector<Virtual_vehicle> virtual_vehicle_backing{};
+	std::optional<std::vector<Vehicle<N>>> fleet_sizing_vehicle_backing{};
+	/**
+	 * Owns the single \c Virtual_vehicle referenced by plans after JSON deserialization (when present; all virtual
+	 * plans share this object). Declared before plans so plans are destroyed first.
+	 */
+	std::optional<Virtual_vehicle> virtual_vehicle_backing{};
 	std::vector<P> plans;
 
 	/**

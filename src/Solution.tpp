@@ -1,10 +1,9 @@
 
 #include <cmath>
-#include <cstring>
+#include <algorithm>
 #include <sstream>
 #include <unordered_map>
 #include <unordered_set>
-#include <algorithm>
 #include <type_traits>
 #include <stdexcept>
 #include <functional>
@@ -130,9 +129,11 @@ Solution<N,P>::Solution(
 	std::vector<P>&& vehicle_plans,
 	unsigned long cost,
 	std::vector<const Request<N>*>&& dropped_requests,
-	std::vector<Virtual_vehicle>&& virtual_vehicle_backing_par
+	std::optional<Virtual_vehicle>&& virtual_vehicle_backing_par,
+	std::optional<std::vector<Vehicle<N>>>&& fleet_sizing_vehicle_backing_par
 ):
 	Solution_interface<N>(cost, std::move(dropped_requests), true),
+	fleet_sizing_vehicle_backing{std::move(fleet_sizing_vehicle_backing_par)},
 	virtual_vehicle_backing{std::move(virtual_vehicle_backing_par)},
 	plans{std::move(vehicle_plans)}
 {
@@ -140,20 +141,36 @@ Solution<N,P>::Solution(
 }
 
 template<typename N, Benchmark_plan P>
+Solution<N,P>::Solution(
+	std::vector<P>&& vehicle_plans,
+	unsigned long cost,
+	std::vector<const Request<N>*>&& dropped_requests,
+	std::optional<Virtual_vehicle>&& virtual_vehicle_backing_par
+):
+	Solution(
+		std::move(vehicle_plans),
+		cost,
+		std::move(dropped_requests),
+		std::move(virtual_vehicle_backing_par),
+		std::nullopt)
+{
+}
+
+template<typename N, Benchmark_plan P>
 Solution<N,P>::Solution(const Solution<N,P>& other):
 	Solution_interface<N>(other),
+	fleet_sizing_vehicle_backing(other.fleet_sizing_vehicle_backing),
 	virtual_vehicle_backing(other.virtual_vehicle_backing),
 	plans()
 {
 	plans.reserve(other.plans.size());
-	std::size_t virtual_idx = 0;
 	for (const P& p : other.plans) {
 		P plan_copy = p;
 		if (dynamic_cast<const Virtual_vehicle*>(&p.get_vehicle()) != nullptr) {
-			if (virtual_idx >= virtual_vehicle_backing.size()) {
-				throw std::runtime_error("Solution copy: virtual vehicle plan/backing mismatch");
+			if (!virtual_vehicle_backing.has_value()) {
+				throw std::runtime_error("Solution copy: virtual plan without virtual_vehicle_backing");
 			}
-			const Virtual_vehicle& vv = virtual_vehicle_backing[virtual_idx++];
+			const Virtual_vehicle& vv = *virtual_vehicle_backing;
 			if constexpr (requires {
 				std::declval<P&>().set_vehicle(
 					std::cref(static_cast<const Vehicle_base&>(std::declval<const Virtual_vehicle&>())));
@@ -164,11 +181,27 @@ Solution<N,P>::Solution(const Solution<N,P>& other):
 					"Solution copy: virtual vehicle in plan is incompatible with this plan type (use Vehicle_base plans for fleet-sizing JSON)"
 				);
 			}
+		} else {
+			const auto* vn = dynamic_cast<const Vehicle<N>*>(&p.get_vehicle());
+			if (vn != nullptr && other.fleet_sizing_vehicle_backing.has_value()) {
+				for (size_t i = 0; i < other.fleet_sizing_vehicle_backing->size(); ++i) {
+					if (vn == &(*other.fleet_sizing_vehicle_backing)[i]) {
+						if constexpr (requires {
+							std::declval<P&>().set_vehicle(
+								std::cref(static_cast<const Vehicle_base&>(std::declval<const Vehicle<N>&>())));
+						}) {
+							plan_copy.set_vehicle(
+								std::cref(static_cast<const Vehicle_base&>((*fleet_sizing_vehicle_backing)[i])));
+						} else {
+							throw std::runtime_error(
+								"Solution copy: fleet-sized materialized vehicle requires Vehicle_base plans");
+						}
+						break;
+					}
+				}
+			}
 		}
 		plans.push_back(std::move(plan_copy));
-	}
-	if (virtual_idx != virtual_vehicle_backing.size()) {
-		throw std::runtime_error("Solution copy: virtual vehicle plan/backing mismatch");
 	}
 	assert(check());
 }
@@ -290,6 +323,10 @@ const P& Solution<N,P>::operator[](int index) const{
     return plans[index];
 }
 
+template<typename N, Benchmark_plan P>
+bool Solution<N, P>::is_fleet_sizing_vehicle_backing_engaged() const noexcept {
+	return fleet_sizing_vehicle_backing.has_value();
+}
 
 template <typename N, Benchmark_plan P>
 bool Solution<N, P>::check() {
@@ -343,9 +380,24 @@ Solution<N, P> deserialize_json(std::filesystem::path path, const DARP_instance<
 		requests_mapped_by_id.emplace(request.get_index(), request);
 	}
 
-	std::vector<Virtual_vehicle> virtual_vehicles;
+	std::optional<Virtual_vehicle> shared_virtual_vehicle;
+	std::vector<Vehicle<N>> fleet_materialized_vehicles;
 	std::vector<P> plans;
-	deserialize_vehicle_plans_from_json_array(d["plans"], darp_instance, virtual_vehicles, plans);
+	const auto& plans_json = d["plans"];
+	if (!plans_json.IsArray()) {
+		throw std::runtime_error("deserialize_json: expected plans array");
+	}
+	deserialize_vehicle_plans_from_json_array<N, P>(
+		plans_json, darp_instance, shared_virtual_vehicle, fleet_materialized_vehicles, plans);
+
+	std::optional<std::vector<Vehicle<N>>> fleet_sizing_backing;
+	if (darp_instance.get_problem() == problem_type::fleet_sizing) {
+		fleet_sizing_backing.emplace(std::move(fleet_materialized_vehicles));
+	} else if (!fleet_materialized_vehicles.empty()) {
+		throw std::runtime_error(
+			"deserialize_json: solution JSON materialized vehicles not in the instance fleet, but the instance is not "
+			"problem_type::fleet_sizing");
+	}
 
 	std::vector<const Request<N>*> dropped_requests;
 	for (const auto& request_data : d["dropped_requests"].GetArray()) {
@@ -355,7 +407,8 @@ Solution<N, P> deserialize_json(std::filesystem::path path, const DARP_instance<
 		std::move(plans),
 		d["cost"].GetUint(),
 		std::move(dropped_requests),
-		std::move(virtual_vehicles)
+		std::move(shared_virtual_vehicle),
+		std::move(fleet_sizing_backing)
 	};
 }
 
