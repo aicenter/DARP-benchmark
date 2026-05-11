@@ -1,4 +1,5 @@
 #include "common.h"
+#include "../src/inout.h"
 #include "src/DARP_benchmark_reader.h"
 
 std::unique_ptr<travel_time_type[]> load_dm_from_json(const rapidjson::Document& doc) {
@@ -22,9 +23,7 @@ fs::path get_test_resource_path(const fs::path& relative_path) {
 
 /**
  * Loads an Amodsim test instance using DARP_benchmark_reader::read and a YAML config.
- * The instance config (e.g. test_resources/instance_1/config.yaml) references dm, vehicles,
- * and demand files in the same directory or via paths relative to cwd.
- * Travel time provider is stored in the returned instance.
+ * Relative paths in YAML are resolved against the instance directory (parent of the config file), not the process cwd.
  */
 [[nodiscard]] DARP_instance<Amodsim_node> load_test_instance_amodsim(const std::string& instance_id) {
 	const fs::path config_path = get_test_resource_path("instance_" + instance_id + "/config.yaml");
