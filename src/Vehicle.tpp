@@ -83,12 +83,12 @@ Vehicle<N> Vehicle<N>::JSON_deserialize(const rapidjson::Value& vehicle_json, co
 			throw std::runtime_error(
 				"Vehicle::JSON_deserialize(materialize): fleet-sizing vehicle requires init_position.index in JSON");
 		}
-		if (!vehicle_json.HasMember("capacity")) {
-			throw std::runtime_error("Vehicle::JSON_deserialize(materialize): fleet-sizing vehicle requires capacity in JSON");
+		unsigned short cap = 4;
+		if (vehicle_json.HasMember("capacity")) {
+			cap = static_cast<unsigned short>(vehicle_json["capacity"].GetUint());
 		}
 		const auto vehicle_index = vehicle_json["index"].GetUint();
 		const unsigned init_idx = vehicle_json["init_position"]["index"].GetUint();
-		const unsigned short cap = static_cast<unsigned short>(vehicle_json["capacity"].GetUint());
 		std::shared_ptr<N> pos = std::make_shared<N>(init_idx);
 		return Vehicle<N>(vehicle_index, std::move(pos), cap, operation_start);
 	}

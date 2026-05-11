@@ -119,7 +119,7 @@ public:
 		const std::vector<Vehicle<N>>& vehicles);
 
 	/**
-	 * @brief Materialize \c Vehicle<N> from fleet-sizing solution JSON (\c index, \c init_position.index, \c capacity).
+	 * @brief Materialize \c Vehicle<N> from plan JSON (\c index, \c init_position.index; \c capacity defaults to 4 if omitted, per vehicle plan schema).
 	 * Not for \c type:\c virtual. \p operation_start is typically \c DARP_instance_configuration::get_start_time().
 	 * @param vehicle_json Object under plan \c "vehicle".
 	 * @param operation_start Vehicle operation start time from instance configuration.
