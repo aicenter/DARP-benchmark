@@ -2,6 +2,10 @@
 // Created by Fido on 2020-04-02.
 //
 
+#include <cstring>
+#include <stdexcept>
+#include <type_traits>
+
 #include "serialization.h"
 
 // Concept to check if a type has JSON_serialize method
@@ -36,6 +40,58 @@ unsigned int Vehicle<N>::get_index() const {
 template <typename N>
 time_type Vehicle<N>::get_operation_start() const {
     return operation_start;
+}
+
+template <typename N>
+const Vehicle<N>& Vehicle<N>::JSON_deserialize(
+	const rapidjson::Value& vehicle_json,
+	const std::vector<Vehicle<N>>& vehicles
+) {
+	if (vehicle_json.HasMember("actions")) {
+		throw std::runtime_error(
+			"Vehicle::JSON_deserialize: value looks like a full plan (has \"actions\"); pass the vehicle object only");
+	}
+	if (vehicle_json.HasMember("type") && std::strcmp(vehicle_json["type"].GetString(), "virtual") == 0) {
+		throw std::runtime_error("Vehicle::JSON_deserialize(collection): virtual vehicle is not Vehicle<N>");
+	}
+	if (!vehicle_json.HasMember("index")) {
+		throw std::runtime_error("Vehicle::JSON_deserialize(collection): missing index");
+	}
+	const unsigned vehicle_index = vehicle_json["index"].GetUint();
+	for (const Vehicle<N>& v : vehicles) {
+		if (v.get_index() == vehicle_index) {
+			return v;
+		}
+	}
+	throw std::runtime_error("Vehicle::JSON_deserialize(collection): index not found in vehicle collection");
+}
+
+template <typename N>
+Vehicle<N> Vehicle<N>::JSON_deserialize(const rapidjson::Value& vehicle_json, const time_type operation_start) {
+	if (vehicle_json.HasMember("actions")) {
+		throw std::runtime_error(
+			"Vehicle::JSON_deserialize: value looks like a full plan (has \"actions\"); pass the vehicle object only");
+	}
+	if (vehicle_json.HasMember("type") && std::strcmp(vehicle_json["type"].GetString(), "virtual") == 0) {
+		throw std::runtime_error("Vehicle::JSON_deserialize(materialize): virtual vehicle object cannot be materialized as Vehicle<N>");
+	}
+	if constexpr (!std::is_constructible_v<N, unsigned>) {
+		throw std::runtime_error(
+			"Vehicle::JSON_deserialize(materialize): fleet-sized vehicle materialization is not supported for this node type");
+	} else {
+		if (!vehicle_json.HasMember("init_position") || !vehicle_json["init_position"].HasMember("index")) {
+			throw std::runtime_error(
+				"Vehicle::JSON_deserialize(materialize): fleet-sizing vehicle requires init_position.index in JSON");
+		}
+		if (!vehicle_json.HasMember("capacity")) {
+			throw std::runtime_error("Vehicle::JSON_deserialize(materialize): fleet-sizing vehicle requires capacity in JSON");
+		}
+		const auto vehicle_index = vehicle_json["index"].GetUint();
+		const unsigned init_idx = vehicle_json["init_position"]["index"].GetUint();
+		const unsigned short cap = static_cast<unsigned short>(vehicle_json["capacity"].GetUint());
+		std::shared_ptr<N> pos = std::make_shared<N>(init_idx);
+		return Vehicle<N>(vehicle_index, std::move(pos), cap, operation_start);
+	}
 }
 
 template<typename N>

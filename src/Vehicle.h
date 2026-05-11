@@ -7,7 +7,9 @@
 #include <memory>
 #include <optional>
 #include <unordered_set>
+#include <vector>
 
+#include "rapidjson/document.h"
 #include "rapidjson/prettywriter.h"
 #include "rapidjson/stringbuffer.h"
 
@@ -69,6 +71,19 @@ public:
 
 	void JSON_serialize(rapidjson::PrettyWriter<rapidjson::StringBuffer>& writer) const override;
 
+	/**
+	 * @brief Build a virtual vehicle from solution JSON (\c type:\c virtual). Missing \c capacity defaults to 4,
+	 * \c time_to_start to 0, \c vehicle_count to 1. Rejects a value that contains \c "actions" (full plan).
+	 */
+	[[nodiscard]] static Virtual_vehicle JSON_deserialize(const rapidjson::Value& vehicle_json);
+
+	/**
+	 * @brief Ensure \p vehicle_json describes the same virtual spec as \p expected for every field present in JSON
+	 * (\c capacity, \c time_to_start, \c vehicle_count). Missing properties are not an error. Requires \c type:\c virtual.
+	 * Rejects a value that contains \c "actions".
+	 */
+	static void JSON_deserialize(const rapidjson::Value& vehicle_json, const Virtual_vehicle& expected);
+
 private:
     unsigned int time_to_start;
     unsigned int vehicle_count;
@@ -93,6 +108,25 @@ public:
     [[nodiscard]] const std::shared_ptr<N>& get_init_position_ptr() const;
 
     void JSON_serialize(rapidjson::PrettyWriter<rapidjson::StringBuffer>& writer) const override;
+
+	/**
+	 * @brief Resolve a concrete vehicle from JSON by \c index against an existing fleet (e.g. \c DARP_instance::get_vehicles()).
+	 * @param vehicle_json Object under plan \c "vehicle" (not a full plan; must not contain \c "actions").
+	 * @param vehicles Fleet to search by \c get_index(); throws if \c index is missing from the collection.
+	 */
+	[[nodiscard]] static const Vehicle<N>& JSON_deserialize(
+		const rapidjson::Value& vehicle_json,
+		const std::vector<Vehicle<N>>& vehicles);
+
+	/**
+	 * @brief Materialize \c Vehicle<N> from fleet-sizing solution JSON (\c index, \c init_position.index, \c capacity).
+	 * Not for \c type:\c virtual. \p operation_start is typically \c DARP_instance_configuration::get_start_time().
+	 * @param vehicle_json Object under plan \c "vehicle".
+	 * @param operation_start Vehicle operation start time from instance configuration.
+	 */
+	[[nodiscard]] static Vehicle<N> JSON_deserialize(
+		const rapidjson::Value& vehicle_json,
+		time_type operation_start);
 
     [[nodiscard]] unsigned int get_index() const;
 
