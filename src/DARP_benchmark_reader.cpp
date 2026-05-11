@@ -94,10 +94,20 @@ void load_vehicles_csv_impl(std::vector<Vehicle<Amodsim_node>>& vehicles, const 
 }
 } // namespace
 
+namespace {
+
+[[nodiscard]] fs::path resolve_against_instance_dir(const fs::path& instance_dir, const fs::path& p) {
+	return p.is_absolute() ? p : (instance_dir / p);
+}
+
+} // namespace
+
 DARP_instance<Amodsim_node> DARP_benchmark_reader::read(std::filesystem::path instance_filepath) {
-    spdlog::info("Reading Amodsim instance from: {}", instance_filepath.string());
-    std::ifstream infile(instance_filepath);
-	YAML::Node config = YAML::LoadFile(instance_filepath.string());
+	const fs::path config_path = fs::absolute(instance_filepath);
+	const fs::path instance_dir = config_path.parent_path();
+
+	spdlog::info("Reading Amodsim instance from: {}", config_path.string());
+	YAML::Node config = YAML::LoadFile(config_path.string());
 
 	auto configuration = internal::load_instance_configuration(config);
 
@@ -108,7 +118,10 @@ DARP_instance<Amodsim_node> DARP_benchmark_reader::read(std::filesystem::path in
 		auto travel_cost_provider = std::make_shared<fleet_sizing::Grid_travel_time_provider<Amodsim_node>>(grid_size, distance);
 		spdlog::info("Using grid travel time provider (size={}, distance={})", grid_size, distance);
 		auto vehicles = std::make_unique<std::vector<Vehicle<Amodsim_node>>>();
-		auto requests = load_requests(config, std::static_pointer_cast<Travel_time_provider<Amodsim_node>>(travel_cost_provider));
+		auto requests = load_requests(
+			config,
+			std::static_pointer_cast<Travel_time_provider<Amodsim_node>>(travel_cost_provider),
+			instance_dir);
 		return {
 			std::move(requests),
 			std::move(vehicles),
@@ -120,17 +133,17 @@ DARP_instance<Amodsim_node> DARP_benchmark_reader::read(std::filesystem::path in
     // dm loading (non-grid)
     fs::path dm_filepath;
     if(config["dm_filepath"]) {
-	    dm_filepath = fs::path(config["dm_filepath"].as<std::string>());
+	    dm_filepath = resolve_against_instance_dir(instance_dir, fs::path(config["dm_filepath"].as<std::string>()));
     }
 	else {
 		fs::path dm_dir;
 		if(config["area_dir"]) {
-			dm_dir = fs::path(config["area_dir"].as<std::string>());
+			dm_dir = resolve_against_instance_dir(instance_dir, fs::path(config["area_dir"].as<std::string>()));
 		}
 		// if not specified, the distance matrix is loaded from file dm.csv located in the same directory as the instance
 		// file
 		else {
-			dm_dir = instance_filepath.parent_path();
+			dm_dir = instance_dir;
 		}
 		auto hdf_filepath = dm_dir / "dm.h5";
 		if(fs::exists(hdf_filepath)) {
@@ -151,18 +164,22 @@ DARP_instance<Amodsim_node> DARP_benchmark_reader::read(std::filesystem::path in
 	const unsigned instance_start_time = configuration->get_start_time();
 	auto vehicles = std::make_unique<std::vector<Vehicle<Amodsim_node>>>();
 	if(!configuration->use_virtual_vehicles()){
-	    std::string vehicles_filepath = std::filesystem::path(instance_filepath).remove_filename().string() + "vehicles.csv";
-	    if (file_has_commas(vehicles_filepath)) {
-		    internal::load_vehicles_csv(*vehicles, vehicles_filepath, instance_start_time);
+	    const fs::path vehicles_filepath = instance_dir / "vehicles.csv";
+	    const std::string vehicles_filepath_str = vehicles_filepath.string();
+	    if (file_has_commas(vehicles_filepath_str)) {
+		    internal::load_vehicles_csv(*vehicles, vehicles_filepath_str, instance_start_time);
 	    } else {
-		    load_vehicles(*vehicles, vehicles_filepath, instance_start_time);
+		    load_vehicles(*vehicles, vehicles_filepath_str, instance_start_time);
 	    }
     }
     // When virtual vehicles mode is enabled, the vehicles vector stays empty.
     // Algorithms supporting virtual vehicles will create Virtual_vehicle instances as needed.
 
     // request loading - Calls dispatcher
-    auto requests = load_requests(config, std::static_pointer_cast<Travel_time_provider<Amodsim_node>>(travel_cost_provider));
+    auto requests = load_requests(
+		config,
+		std::static_pointer_cast<Travel_time_provider<Amodsim_node>>(travel_cost_provider),
+		instance_dir);
 
     return {
 		std::move(requests),
@@ -194,10 +211,12 @@ void DARP_benchmark_reader::load_vehicles(std::vector<Vehicle<Amodsim_node>>& ve
 // Dispatcher function
 std::unique_ptr<std::vector<Request<Amodsim_node>>> DARP_benchmark_reader::load_requests(
     const YAML::Node& config,
-    const std::shared_ptr<Travel_time_provider<Amodsim_node>>& travel_cost_provider
+    const std::shared_ptr<Travel_time_provider<Amodsim_node>>& travel_cost_provider,
+    const std::filesystem::path& instance_directory
 ) {
-    const auto request_filepath_str = config["demand"]["filepath"].as<std::string>();
-    const auto request_filepath = check_path(request_filepath_str); // Ensure path is valid
+    const fs::path request_raw(config["demand"]["filepath"].as<std::string>());
+    const fs::path request_resolved = resolve_against_instance_dir(instance_directory, request_raw);
+    const auto request_filepath = check_path(request_resolved.string());
 	// Grid instances use max_travel_time_delay.seconds; others use max_prolongation (same as Python load_instance)
 	const auto max_prolongation = (config["max_travel_time_delay"] && config["max_travel_time_delay"]["seconds"])
 		? config["max_travel_time_delay"]["seconds"].as<unsigned short>()
@@ -389,12 +408,13 @@ std::shared_ptr<DARP_instance_configuration> load_instance_configuration(const Y
 	}
 
 	const problem_type problem = parse_problem(config);
+	const bool virtual_vehicles = (problem == problem_type::fleet_sizing);
 
 	return std::make_shared<DARP_instance_configuration>(
 			0,
 			0,
 			false,
-			false,
+			virtual_vehicles,
 			start_time_seconds,
 			vehicle_capital_cost,
 			relative_delay_cost,

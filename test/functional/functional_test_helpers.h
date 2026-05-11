@@ -25,19 +25,8 @@ fs::path run_benchmark(std::vector<std::string>& arguments);
  */
 template<typename N>
 DARP_instance<N> load_instance(const fs::path& instance_path) {
-	// Set working directory to instance directory for relative paths in config
-	const auto original_working_dir = fs::current_path();
-	const auto absolute_instance_path = fs::absolute(instance_path);
-	const auto instance_dir = absolute_instance_path.parent_path();
-	fs::current_path(instance_dir);
-	
 	DARP_benchmark_reader reader;
-	DARP_instance<N> darp_instance = reader.read(absolute_instance_path);
-	
-	// Restore working directory
-	fs::current_path(original_working_dir);
-	
-	return darp_instance;
+	return reader.read(fs::absolute(instance_path));
 }
 
 /**

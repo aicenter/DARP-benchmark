@@ -85,10 +85,7 @@ void DARP_benchmark<N>::process_instance(
 	unsigned short trial_number
 ) const
 {
-	// set working dir to input path
-	const auto instance_dir = std::filesystem::path(instance_file_path).remove_filename();
-	std::filesystem::current_path(instance_dir);
-
+	// reader->read sets cwd to the instance directory for the duration of loading, then restores it
 	const DARP_instance<N> darp_instance = reader->read(instance_file_path);
 
 	// create output directory if it does not exist (before setting current_path)

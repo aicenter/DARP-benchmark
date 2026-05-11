@@ -32,16 +32,12 @@ TEST(Solution_test, export_simple_csv_from_deserialized_solution) {
 	ASSERT_TRUE(fs::exists(instance_path)) << "Instance path: " << fs::absolute(instance_path);
 	ASSERT_TRUE(fs::exists(solution_path)) << "Solution path: " << fs::absolute(solution_path);
 
-	const auto original_cwd = fs::current_path();
 	const auto abs_instance_path = fs::absolute(instance_path);
 	const auto abs_solution_path = fs::absolute(solution_path);
-	fs::current_path(abs_instance_path.parent_path());
 
 	DARP_benchmark_reader reader;
 	DARP_instance<Amodsim_node> darp_instance = reader.read(abs_instance_path);
 	Solution<Amodsim_node> solution = deserialize_json<Amodsim_node>(abs_solution_path, darp_instance);
-
-	fs::current_path(original_cwd);
 
 	ASSERT_TRUE(solution.is_feasible());
 	std::string csv = solution.export_simple_csv();

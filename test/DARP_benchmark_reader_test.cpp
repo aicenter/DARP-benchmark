@@ -101,6 +101,7 @@ TEST(DARP_benchmark_reader_test, darp_instance_configuration_problem_fleet_sizin
 	YAML::Node config = YAML::Load("problem: fleet-sizing\n");
 	auto darp_config = internal::load_instance_configuration(config);
 	ASSERT_EQ(darp_config->get_problem(), problem_type::fleet_sizing);
+	EXPECT_TRUE(darp_config->use_virtual_vehicles());
 }
 
 TEST(DARP_benchmark_reader_test, darp_instance_configuration_problem_invalid) {
@@ -142,7 +143,8 @@ TEST(DARP_benchmark_reader_test, request_loading_csv) {
 		= std::make_shared<Zero_travel_time_provider>();
 
 	// Call static load_requests with config (should dispatch to CSV loader)
-	auto requests_ptr = DARP_benchmark_reader::load_requests(config, travel_cost_provider);
+	const auto instance_dir = get_test_resource_path("requests.csv").parent_path();
+	auto requests_ptr = DARP_benchmark_reader::load_requests(config, travel_cost_provider, instance_dir);
 	const auto& actual_requests = *requests_ptr;
 
     ASSERT_EQ(actual_requests.size(), 3); // Expect 3 requests from requests.csv
@@ -209,7 +211,8 @@ TEST(DARP_benchmark_reader_test, request_loading_di) {
 	std::shared_ptr<Travel_time_provider<Amodsim_node>> travel_cost_provider
 		= std::make_shared<Zero_travel_time_provider>();
 
-	auto requests_ptr = DARP_benchmark_reader::load_requests(config, travel_cost_provider);
+	const auto instance_dir = get_test_resource_path("trips.di").parent_path();
+	auto requests_ptr = DARP_benchmark_reader::load_requests(config, travel_cost_provider, instance_dir);
 	const auto& actual_requests = *requests_ptr;
 
 	ASSERT_EQ(actual_requests.size(), 3);
@@ -303,16 +306,10 @@ TEST(DARP_benchmark_reader_test, read_grid_instance) {
 		GTEST_SKIP() << "Grid instance not found: " << instance_path.string();
 	}
 
-	// Resolve paths relative to instance dir (config has demand.filepath: ./requests.csv)
 	const auto absolute_instance_path = std::filesystem::absolute(instance_path);
-	const auto instance_dir = absolute_instance_path.parent_path();
-	const auto saved_cwd = std::filesystem::current_path();
-	std::filesystem::current_path(instance_dir);
 
 	DARP_benchmark_reader reader;
 	DARP_instance<Amodsim_node> instance = reader.read(absolute_instance_path);
-
-	std::filesystem::current_path(saved_cwd);
 
 	ASSERT_GT(instance.get_requests().size(), 0u);
 

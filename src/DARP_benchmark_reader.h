@@ -22,10 +22,11 @@ class DARP_benchmark_reader : public Reader<Amodsim_node> {
 public:
 	DARP_instance<Amodsim_node> read(std::filesystem::path filepath) override;
 
-	// Main dispatcher based on file extension
+	// Main dispatcher based on file extension. Relative demand.filepath is resolved against \p instance_directory.
 	static std::unique_ptr<std::vector<Request<Amodsim_node>>> load_requests(
 		const YAML::Node& config,
-		const std::shared_ptr<Travel_time_provider<Amodsim_node>>& travel_cost_provider
+		const std::shared_ptr<Travel_time_provider<Amodsim_node>>& travel_cost_provider,
+		const std::filesystem::path& instance_directory
 	);
 
 private:
