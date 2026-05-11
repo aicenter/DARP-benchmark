@@ -5,6 +5,8 @@
 #pragma once
 
 #include <functional>
+#include <memory>
+#include <utility>
 #include <vector>
 #include <optional>
 #include <rapidjson/document.h>
@@ -71,13 +73,23 @@ public:
     DARP_vehicle_plan(const V& vehicle, unsigned short size);
 
 	/**
-	 * @brief Parse one JSON object (same shape as an element of solution "plans") and construct a plan
-	 * via the full-data constructor.
+	 * @brief Deserialize plan JSON after materializing the vehicle from \c plan_data["vehicle"] (\c Virtual_vehicle or
+	 * concrete \c Vehicle<N> via \c Vehicle<N>::JSON_deserialize_real_or_virtual). Caller must keep the returned
+	 * \c unique_ptr alive for the plan lifetime.
+	 */
+	[[nodiscard]] static std::pair<P, std::unique_ptr<Vehicle_base>> JSON_deserialize(
+		const rapidjson::Value& plan_data,
+		const DARP_instance<N>& darp_instance,
+		time_type operation_start_for_concrete);
+
+	/**
+	 * @brief Deserialize plan JSON using \c Vehicle<N>::JSON_deserialize_real_or_virtual (lookup or validate virtual).
 	 */
 	[[nodiscard]] static P JSON_deserialize(
 		const rapidjson::Value& plan_data,
 		const DARP_instance<N>& darp_instance,
-		std::vector<Virtual_vehicle>& virtual_vehicles_storage);
+		const std::vector<Vehicle<N>>& vehicles,
+		const Virtual_vehicle& expected_when_virtual);
 
 	DARP_vehicle_plan(const DARP_vehicle_plan& other) = default;
 	DARP_vehicle_plan(DARP_vehicle_plan&& other) noexcept = default;
@@ -249,6 +261,8 @@ class VehiclePlan:
 
 public:
 
+	using vehicle_type = V;
+
 	/**
 	 * @brief Temporary method for HALNS solver that returns the last service action index. Later, the vehicle
 	 * plan should be replaced by some plan builder in HALNS.
@@ -261,18 +275,33 @@ public:
 };
 
 /**
- * Deserializes a JSON array of plans (same objects as under the "plans" key in solution JSON).
- * Appends virtual vehicles to virtual_vehicles_storage; keep that vector alive while using plans that reference them.
- * Supports onboard requests: if a dropoff appears with no matching pickup earlier in the same plan, the dropoff
- * ActionData is linked with other_action_data_index == -1 (pickup not present in the plan).
+ * Plan JSON body parser (actions, cost, times) after the vehicle row is resolved to pointers.
+ * Used by solution-style plan-array loaders and by \c DARP_vehicle_plan::JSON_deserialize_real_or_virtual.
+ */
+namespace darp_vehicle_plan_json_detail {
+
+template<typename N, class P, class V>
+[[nodiscard]] P deserialize_plan_json_given_resolved_vehicle_pointers(
+	const rapidjson::Value& plan_data,
+	const DARP_instance<N>& darp_instance,
+	const Vehicle_base* vehicle_base_ptr,
+	const Vehicle<N>* vehicle_n_ptr);
+
+}
+
+/**
+ * Deserializes a JSON array of plan objects (same shape as solution \c "plans").
+ * Virtual rows share at most one \c Virtual_vehicle in \p shared_virtual_vehicle_across_plans; concrete rows resolve
+ * against \p darp_instance.get_vehicles() or are materialized into \p fleet_sizing_materialized_vehicles_storage when
+ * \c darp_instance.is_virtual_vehicles() and the index is absent from the instance fleet.
  */
 template <typename N, Benchmark_plan P>
 void deserialize_vehicle_plans_from_json_array(
 	const rapidjson::Value& plans_array,
 	const DARP_instance<N>& darp_instance,
-	std::vector<Virtual_vehicle>& virtual_vehicles_storage,
-	std::vector<P>& plans_out
-);
+	std::optional<Virtual_vehicle>& shared_virtual_vehicle_across_plans,
+	std::vector<Vehicle<N>>& fleet_sizing_materialized_vehicles_storage,
+	std::vector<P>& plans_out);
 
 #include "VehiclePlan.tpp"
 

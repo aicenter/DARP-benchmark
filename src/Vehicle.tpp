@@ -94,6 +94,30 @@ Vehicle<N> Vehicle<N>::JSON_deserialize(const rapidjson::Value& vehicle_json, co
 	}
 }
 
+template <typename N>
+std::unique_ptr<Vehicle_base> Vehicle<N>::JSON_deserialize_real_or_virtual(
+	const rapidjson::Value& vehicle_json,
+	const time_type operation_start_for_concrete
+) {
+	if (vehicle_json.HasMember("type") && std::strcmp(vehicle_json["type"].GetString(), "virtual") == 0) {
+		return std::make_unique<Virtual_vehicle>(Virtual_vehicle::JSON_deserialize(vehicle_json));
+	}
+	return std::make_unique<Vehicle<N>>(Vehicle<N>::JSON_deserialize(vehicle_json, operation_start_for_concrete));
+}
+
+template <typename N>
+const Vehicle_base& Vehicle<N>::JSON_deserialize_real_or_virtual(
+	const rapidjson::Value& vehicle_json,
+	const std::vector<Vehicle<N>>& vehicles,
+	const Virtual_vehicle& expected_when_virtual
+) {
+	if (vehicle_json.HasMember("type") && std::strcmp(vehicle_json["type"].GetString(), "virtual") == 0) {
+		Virtual_vehicle::JSON_deserialize(vehicle_json, expected_when_virtual);
+		return expected_when_virtual;
+	}
+	return Vehicle<N>::JSON_deserialize(vehicle_json, vehicles);
+}
+
 template<typename N>
 void Vehicle<N>::JSON_serialize(rapidjson::PrettyWriter<rapidjson::StringBuffer>& writer) const {
     writer.StartObject();

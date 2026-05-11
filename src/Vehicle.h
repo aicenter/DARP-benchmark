@@ -128,6 +128,23 @@ public:
 		const rapidjson::Value& vehicle_json,
 		time_type operation_start);
 
+	/**
+	 * @brief Materialize after reading \c type from JSON: \c Virtual_vehicle or concrete \c Vehicle<N>.
+	 * \p operation_start_for_concrete is used only for the concrete branch.
+	 */
+	[[nodiscard]] static std::unique_ptr<Vehicle_base> JSON_deserialize_real_or_virtual(
+		const rapidjson::Value& vehicle_json,
+		time_type operation_start_for_concrete);
+
+	/**
+	 * @brief Non-materializing: if JSON is \c type:\c virtual, validate against \p expected_when_virtual and return
+	 * a reference to it; else resolve concrete by \c index in \p vehicles and return that \c Vehicle<N> as \c Vehicle_base.
+	 */
+	[[nodiscard]] static const Vehicle_base& JSON_deserialize_real_or_virtual(
+		const rapidjson::Value& vehicle_json,
+		const std::vector<Vehicle<N>>& vehicles,
+		const Virtual_vehicle& expected_when_virtual);
+
     [[nodiscard]] unsigned int get_index() const;
 
     [[nodiscard]] time_type get_operation_start() const;
