@@ -137,6 +137,8 @@ def run_vehicle_sizing_experiments(instance_config_file: Path, experiment_config
     interval_size = math.inf  #
     epsilon = 1
     dropped_requests_count = 0
+    # import os
+    # os.chdir(r"C:\Workspaces\AIC\DARP-Benchmark\cmake-build-release")
 
     while not (dropped_requests_count == 0 and interval_size <= epsilon):
         if not sizing_did_run(sizing_file):
@@ -162,7 +164,7 @@ def run_vehicle_sizing_experiments(instance_config_file: Path, experiment_config
 
         # 2. run experiment
         delete_result_files(experiment_config_file)
-        darpbenchmark.experiments.run_experiment_using_config(str(experiment_config_file))
+        darpbenchmark.experiments.run_experiment_using_config(str(experiment_config_file), executable_path=Path(r"C:\Workspaces\AIC\DARP-Benchmark\cmake-build-release/DARP-Benchmark.exe"))
 
         # 3. read dropped vehicle count
         dropped_requests_count = get_dropped_requests_count(experiment_config_file)
@@ -199,7 +201,7 @@ def calculate_sizing_for_instance(experiment_config_file: Path):
 
     # Check sizing was not already performed
     instance_config = load_yaml(instance_config_file)
-    if "vehicle_count" in instance_config["vehicles"]:
+    if hasattr(instance_config, "vehicles") and "vehicle_count" in instance_config["vehicles"]:
         logger.error(f"The instance already contains sizing info! {instance_config}")
         return None
 

@@ -3,9 +3,9 @@ import logging
 import os
 import re
 import pandas as pd
+from pathlib import Path
 
-
-import darpinstances.exec
+import roadgraphtool.exec
 import darpinstances.log
 
 from darpinstances.experiments import load_experiment_config
@@ -27,7 +27,7 @@ def call_experiment_runner_plain(params: Dict[str, str], timeout: Optional[int] 
 
     commands = [str(arg) for arg in commands]
 
-    return darpinstances.exec.call_executable(commands, timeout)
+    return roadgraphtool.exec.call_executable(commands, timeout)
 
 
 def call_experiment_runner(
@@ -68,7 +68,7 @@ def run_experiments(instance_paths: List[str], dm_path: str, methods: Dict, out_
                         fail = True
                         break
 
-def run_experiment_using_config(path: str, timeout: Optional[int] = None, executable_path: Optional[str] = None) -> bool:
+def run_experiment_using_config(path: str, timeout: Optional[int] = None, executable_path: Optional[Path] = None) -> bool:
     config = load_experiment_config(path)
     # instance_filename = os.path.normpath(config["instance"]).split(os.sep)[-1]
     if 'timeout' in config:
