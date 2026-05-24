@@ -1,12 +1,14 @@
 
 #include <cmath>
 #include <algorithm>
+#include <cstring>
 #include <sstream>
 #include <unordered_map>
 #include <unordered_set>
 #include <type_traits>
 #include <stdexcept>
 #include <functional>
+#include <utility>
 #include <rapidjson/istreamwrapper.h>
 #include "inout.h"
 #include "rapidjson/prettywriter.h"
@@ -33,6 +35,7 @@ rapidjson::StringBuffer  Solution_interface<N>::JSON_serialize(unsigned short re
 		writer.Uint64(cost);
 		writer.Key("cost_minutes");
 		writer.Uint64(static_cast<unsigned long>(std::round(static_cast<double>(cost) / resolution)));
+		this->JSON_serialize_extra_fields(writer);
 		writer.Key("total_passenger_delay");
 		writer.Uint64(this->get_total_passenger_delay());
 		writer.Key("total_passenger_ride_time");
@@ -77,6 +80,12 @@ std::string Solution_interface<N>::export_simple_csv() const {
 		++plan_index;
 	}
 	return csv.str();
+}
+
+template <typename N>
+void Solution_interface<N>::JSON_serialize_extra_fields(
+	[[maybe_unused]] rapidjson::PrettyWriter<rapidjson::StringBuffer>& writer
+) const {
 }
 
 template <typename N>
@@ -133,10 +142,44 @@ Solution<N,P>::Solution(
 	std::optional<std::vector<Vehicle<N>>>&& fleet_sizing_vehicle_backing_par
 ):
 	Solution_interface<N>(cost, std::move(dropped_requests), true),
+	problem{fleet_sizing_vehicle_backing_par.has_value() ? problem_type::fleet_sizing : problem_type::darp},
 	fleet_sizing_vehicle_backing{std::move(fleet_sizing_vehicle_backing_par)},
 	virtual_vehicle_backing{std::move(virtual_vehicle_backing_par)},
 	plans{std::move(vehicle_plans)}
 {
+	for (P& plan : plans) {
+		if (dynamic_cast<const Virtual_vehicle*>(&plan.get_vehicle()) != nullptr) {
+			if (!virtual_vehicle_backing.has_value()) {
+				throw std::runtime_error("Solution: virtual plan without virtual_vehicle_backing");
+			}
+			if constexpr (requires {
+				std::declval<P&>().set_vehicle(
+					std::cref(static_cast<const Vehicle_base&>(std::declval<const Virtual_vehicle&>())));
+			}) {
+				plan.set_vehicle(std::cref(static_cast<const Vehicle_base&>(*virtual_vehicle_backing)));
+			} else {
+				throw std::runtime_error(
+					"Solution: virtual vehicle in plan is incompatible with this plan type");
+			}
+		}
+		const auto* vn = dynamic_cast<const Vehicle<N>*>(&plan.get_vehicle());
+		if (vn != nullptr && fleet_sizing_vehicle_backing.has_value()) {
+			const auto it = std::find_if(fleet_sizing_vehicle_backing->begin(), fleet_sizing_vehicle_backing->end(),
+				[&](const Vehicle<N>& v) { return v.get_index() == vn->get_index(); });
+			if (it != fleet_sizing_vehicle_backing->end()) {
+				if constexpr (requires {
+					std::declval<P&>().set_vehicle(std::cref(std::declval<const Vehicle<N>&>()));
+				}) {
+					plan.set_vehicle(std::cref(*it));
+				} else if constexpr (requires {
+					std::declval<P&>().set_vehicle(
+						std::cref(static_cast<const Vehicle_base&>(std::declval<const Vehicle<N>&>())));
+				}) {
+					plan.set_vehicle(std::cref(static_cast<const Vehicle_base&>(*it)));
+				}
+			}
+		}
+	}
 	assert(check());
 }
 
@@ -159,6 +202,7 @@ Solution<N,P>::Solution(
 template<typename N, Benchmark_plan P>
 Solution<N,P>::Solution(const Solution<N,P>& other):
 	Solution_interface<N>(other),
+	problem(other.problem),
 	fleet_sizing_vehicle_backing(other.fleet_sizing_vehicle_backing),
 	virtual_vehicle_backing(other.virtual_vehicle_backing),
 	plans()
@@ -187,6 +231,10 @@ Solution<N,P>::Solution(const Solution<N,P>& other):
 				for (size_t i = 0; i < other.fleet_sizing_vehicle_backing->size(); ++i) {
 					if (vn == &(*other.fleet_sizing_vehicle_backing)[i]) {
 						if constexpr (requires {
+							std::declval<P&>().set_vehicle(std::cref(std::declval<const Vehicle<N>&>()));
+						}) {
+							plan_copy.set_vehicle(std::cref((*fleet_sizing_vehicle_backing)[i]));
+						} else if constexpr (requires {
 							std::declval<P&>().set_vehicle(
 								std::cref(static_cast<const Vehicle_base&>(std::declval<const Vehicle<N>&>())));
 						}) {
@@ -222,6 +270,7 @@ Solution<N,P>::Solution(
     std::vector<P>&& vehicle_plans
 ):
 	Solution_interface<N>(0, std::vector<const Request<N>*>{}, true),
+	problem{instance.get_problem()},
     plans{ vehicle_plans }
 {
 
@@ -248,6 +297,64 @@ Solution<N,P>::Solution(
     }
 
     assert(check());
+}
+
+template<typename N, Benchmark_plan P>
+Solution<N,P>::Solution(
+	const DARP_instance<N>& instance,
+	std::vector<P>&& vehicle_plans,
+	std::unique_ptr<std::vector<Vehicle<N>>>&& fleet_sizing_vehicle_backing_par
+):
+	Solution_interface<N>(0, std::vector<const Request<N>*>{}, true),
+	problem{instance.get_problem()},
+	plans{std::move(vehicle_plans)}
+{
+	if (fleet_sizing_vehicle_backing_par != nullptr) {
+		fleet_sizing_vehicle_backing.emplace(std::move(*fleet_sizing_vehicle_backing_par));
+	}
+	if (fleet_sizing_vehicle_backing.has_value()) {
+		for (P& plan : plans) {
+			const auto* vn = dynamic_cast<const Vehicle<N>*>(&plan.get_vehicle());
+			if (vn == nullptr) {
+				continue;
+			}
+			const auto it = std::find_if(fleet_sizing_vehicle_backing->begin(), fleet_sizing_vehicle_backing->end(),
+				[&](const Vehicle<N>& v) { return v.get_index() == vn->get_index(); });
+			if (it == fleet_sizing_vehicle_backing->end()) {
+				continue;
+			}
+			if constexpr (requires {
+				std::declval<P&>().set_vehicle(std::cref(std::declval<const Vehicle<N>&>()));
+			}) {
+				plan.set_vehicle(std::cref(*it));
+			} else if constexpr (requires {
+				std::declval<P&>().set_vehicle(
+					std::cref(static_cast<const Vehicle_base&>(std::declval<const Vehicle<N>&>())));
+			}) {
+				plan.set_vehicle(std::cref(static_cast<const Vehicle_base&>(*it)));
+			}
+		}
+	}
+
+	std::unordered_set<const Request<N>*> served_requests;
+	for(const P& plan : plans) {
+		this->cost += plan.get_cost();
+		for (const ActionData<N>& action_data : plan) {
+			if(action_data.get_action_type() != Action_type::depot){
+				const Request<N>& request = dynamic_cast<const Service_action<N>&>(action_data.get_action()).get_request();
+				if(!served_requests.contains(&request)) {
+					served_requests.insert(&request);
+				}
+			}
+		}
+	}
+	for (const Request<N>& request : instance.get_requests()) {
+		if (!served_requests.contains(&request)) {
+			this->dropped_requests.push_back(&request);
+		}
+	}
+
+	assert(check());
 }
 
 template <typename N>
@@ -328,6 +435,52 @@ bool Solution<N, P>::is_fleet_sizing_vehicle_backing_engaged() const noexcept {
 	return fleet_sizing_vehicle_backing.has_value();
 }
 
+template<typename N, Benchmark_plan P>
+void Solution<N, P>::JSON_serialize_extra_fields(
+	rapidjson::PrettyWriter<rapidjson::StringBuffer>& writer
+) const {
+	const bool fleet_sizing =
+		(problem.has_value() && *problem == problem_type::fleet_sizing)
+		|| fleet_sizing_vehicle_backing.has_value();
+	const Virtual_vehicle* virtual_vehicle = nullptr;
+	std::vector<const Vehicle<N>*> concrete_vehicles;
+	for (const P& plan : plans) {
+		if (const auto* vv = dynamic_cast<const Virtual_vehicle*>(&plan.get_vehicle())) {
+			virtual_vehicle = vv;
+			continue;
+		}
+		if (const auto* vn = dynamic_cast<const Vehicle<N>*>(&plan.get_vehicle())) {
+			const auto it = std::find_if(concrete_vehicles.begin(), concrete_vehicles.end(),
+				[&](const Vehicle<N>* existing) { return existing->get_index() == vn->get_index(); });
+			if (it == concrete_vehicles.end()) {
+				concrete_vehicles.push_back(vn);
+			}
+		}
+	}
+
+	if (fleet_sizing || virtual_vehicle != nullptr) {
+		writer.Key("problem");
+		writer.String("fleet-sizing");
+		writer.Key("vehicles");
+		writer.StartArray();
+		if (fleet_sizing_vehicle_backing.has_value()) {
+			for (const Vehicle<N>& vehicle : *fleet_sizing_vehicle_backing) {
+				vehicle.JSON_serialize(writer);
+			}
+		} else {
+			for (const Vehicle<N>* vehicle : concrete_vehicles) {
+				vehicle->JSON_serialize(writer);
+			}
+		}
+		writer.EndArray();
+	}
+
+	if (virtual_vehicle != nullptr) {
+		writer.Key("virtual_vehicle");
+		virtual_vehicle->JSON_serialize(writer);
+	}
+}
+
 template <typename N, Benchmark_plan P>
 bool Solution<N, P>::check() {
     Solution_interface<N>::check();
@@ -381,23 +534,34 @@ Solution<N, P> deserialize_json(std::filesystem::path path, const DARP_instance<
 	}
 
 	std::optional<Virtual_vehicle> shared_virtual_vehicle;
-	std::vector<Vehicle<N>> fleet_materialized_vehicles;
+	if (d.HasMember("virtual_vehicle") && !d["virtual_vehicle"].IsNull()) {
+		shared_virtual_vehicle.emplace(Virtual_vehicle::JSON_deserialize(d["virtual_vehicle"]));
+	}
+
+	std::optional<std::vector<Vehicle<N>>> fleet_sizing_backing;
+	if (darp_instance.get_problem() == problem_type::fleet_sizing
+		|| (d.HasMember("problem") && std::strcmp(d["problem"].GetString(), "fleet-sizing") == 0)) {
+		if (!d.HasMember("vehicles") || !d["vehicles"].IsArray()) {
+			throw std::runtime_error("deserialize_json: fleet-sizing solution JSON requires top-level vehicles array");
+		}
+		fleet_sizing_backing.emplace(deserialize_vehicle_list_from_json_array<N>(
+			d["vehicles"],
+			darp_instance.get_darp_instance_configuration()->get_start_time()));
+	}
+
 	std::vector<P> plans;
 	const auto& plans_json = d["plans"];
 	if (!plans_json.IsArray()) {
 		throw std::runtime_error("deserialize_json: expected plans array");
 	}
+	const std::vector<Vehicle<N>>& vehicles_for_plan_references =
+		fleet_sizing_backing.has_value() ? *fleet_sizing_backing : darp_instance.get_vehicles();
 	deserialize_vehicle_plans_from_json_array<N, P>(
-		plans_json, darp_instance, shared_virtual_vehicle, fleet_materialized_vehicles, plans);
-
-	std::optional<std::vector<Vehicle<N>>> fleet_sizing_backing;
-	if (darp_instance.get_problem() == problem_type::fleet_sizing) {
-		fleet_sizing_backing.emplace(std::move(fleet_materialized_vehicles));
-	} else if (!fleet_materialized_vehicles.empty()) {
-		throw std::runtime_error(
-			"deserialize_json: solution JSON materialized vehicles not in the instance fleet, but the instance is not "
-			"problem_type::fleet_sizing");
-	}
+		plans_json,
+		darp_instance,
+		vehicles_for_plan_references,
+		shared_virtual_vehicle.has_value() ? &*shared_virtual_vehicle : nullptr,
+		plans);
 
 	std::vector<const Request<N>*> dropped_requests;
 	for (const auto& request_data : d["dropped_requests"].GetArray()) {
@@ -416,5 +580,3 @@ template <typename N, Benchmark_plan P>
 const Benchmark_vehicle_plan& Solution_iterator_adapter<N, P>::dereference() const {
 	return *this->base_reference();
 }
-
-

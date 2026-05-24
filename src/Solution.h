@@ -3,6 +3,7 @@
 #include <optional>
 #include <string>
 #include <filesystem>
+#include <memory>
 #include "rapidjson/document.h"
 #include "rapidjson/stringbuffer.h"
 #include <boost/iterator/iterator_adaptor.hpp>
@@ -193,6 +194,7 @@ protected:
 	Solution_interface& operator=(Solution_interface&& other) noexcept = default;
 
     virtual bool check();
+	virtual void JSON_serialize_extra_fields(rapidjson::PrettyWriter<rapidjson::StringBuffer>& writer) const;
 private:
 	[[nodiscard]] virtual std::unique_ptr<Solution_iterator_interface<N>> begin() const = 0;
     [[nodiscard]] virtual std::unique_ptr<Solution_iterator_interface<N>> end() const = 0;
@@ -232,6 +234,12 @@ public:
         const DARP_instance<N>& instance, 
         std::vector<P>&& vehicle_plans
     );
+
+	Solution(
+		const DARP_instance<N>& instance,
+		std::vector<P>&& vehicle_plans,
+		std::unique_ptr<std::vector<Vehicle<N>>>&& fleet_sizing_vehicle_backing_par
+	);
 
 	/**
 	 * Constructor for potentially infeasible solution. This one is used when the solution may be infeasible, but
@@ -301,6 +309,7 @@ public:
 	[[nodiscard]] bool is_fleet_sizing_vehicle_backing_engaged() const noexcept;
 
 protected:
+	std::optional<problem_type> problem{};
 	/**
 	 * When \c std::nullopt, this solution is not in fleet-sizing mode (no fleet JSON materialization backing).
 	 * When engaged, holds \c Vehicle<N> materialized from solution JSON for fleet-sizing (vector may be empty, e.g. no
@@ -320,6 +329,7 @@ protected:
 	 * @return Always returns true, the problems are propagated using asserts.
 	*/
 	bool check();
+	void JSON_serialize_extra_fields(rapidjson::PrettyWriter<rapidjson::StringBuffer>& writer) const override;
 
 private:
     [[nodiscard]] std::unique_ptr<Solution_iterator_interface<N>> begin() const override;

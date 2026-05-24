@@ -36,8 +36,8 @@ unsigned int Virtual_vehicle::get_vehicle_count() const {
 
 namespace {
 
-void require_virtual_type_in_json(const rapidjson::Value& vehicle_json) {
-	if (!vehicle_json.HasMember("type") || std::strcmp(vehicle_json["type"].GetString(), "virtual") != 0) {
+void reject_non_virtual_type_in_json(const rapidjson::Value& vehicle_json) {
+	if (vehicle_json.HasMember("type") && std::strcmp(vehicle_json["type"].GetString(), "virtual") != 0) {
 		throw std::runtime_error("Virtual_vehicle::JSON_deserialize: expected type \"virtual\"");
 	}
 }
@@ -45,17 +45,21 @@ void require_virtual_type_in_json(const rapidjson::Value& vehicle_json) {
 } // namespace
 
 Virtual_vehicle Virtual_vehicle::JSON_deserialize(const rapidjson::Value& vehicle_json) {
-	require_virtual_type_in_json(vehicle_json);
-	const unsigned short capacity = vehicle_json.HasMember("capacity")
-		? static_cast<unsigned short>(vehicle_json["capacity"].GetUint())
-		: static_cast<unsigned short>(4);
-	const unsigned int time_to_start = vehicle_json.HasMember("time_to_start") ? vehicle_json["time_to_start"].GetUint() : 0;
-	const unsigned int vehicle_count = vehicle_json.HasMember("vehicle_count") ? vehicle_json["vehicle_count"].GetUint() : 1;
+	reject_non_virtual_type_in_json(vehicle_json);
+	if (!vehicle_json.HasMember("capacity")
+		|| !vehicle_json.HasMember("time_to_start")
+		|| !vehicle_json.HasMember("vehicle_count")) {
+		throw std::runtime_error(
+			"Virtual_vehicle::JSON_deserialize: expected capacity, time_to_start, and vehicle_count");
+	}
+	const auto capacity = static_cast<unsigned short>(vehicle_json["capacity"].GetUint());
+	const unsigned int time_to_start = vehicle_json["time_to_start"].GetUint();
+	const unsigned int vehicle_count = vehicle_json["vehicle_count"].GetUint();
 	return Virtual_vehicle(capacity, time_to_start, vehicle_count);
 }
 
 void Virtual_vehicle::JSON_deserialize(const rapidjson::Value& vehicle_json, const Virtual_vehicle& expected) {
-	require_virtual_type_in_json(vehicle_json);
+	reject_non_virtual_type_in_json(vehicle_json);
 	if (vehicle_json.HasMember("capacity")) {
 		const auto c = static_cast<unsigned short>(vehicle_json["capacity"].GetUint());
 		if (c != expected.get_capacity()) {

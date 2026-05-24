@@ -79,43 +79,18 @@ Vehicle<N> Vehicle<N>::JSON_deserialize(const rapidjson::Value& vehicle_json, co
 		throw std::runtime_error(
 			"Vehicle::JSON_deserialize(materialize): fleet-sized vehicle materialization is not supported for this node type");
 	} else {
-		if (!vehicle_json.HasMember("init_position") || !vehicle_json["init_position"].HasMember("index")) {
+		if (!vehicle_json.HasMember("index")
+			|| !vehicle_json.HasMember("capacity")
+			|| !vehicle_json.HasMember("initial_location")) {
 			throw std::runtime_error(
-				"Vehicle::JSON_deserialize(materialize): fleet-sizing vehicle requires init_position.index in JSON");
+				"Vehicle::JSON_deserialize: vehicle JSON requires index, capacity, and initial_location");
 		}
-		unsigned short cap = 4;
-		if (vehicle_json.HasMember("capacity")) {
-			cap = static_cast<unsigned short>(vehicle_json["capacity"].GetUint());
-		}
+		const auto cap = static_cast<unsigned short>(vehicle_json["capacity"].GetUint());
 		const auto vehicle_index = vehicle_json["index"].GetUint();
-		const unsigned init_idx = vehicle_json["init_position"]["index"].GetUint();
+		const unsigned init_idx = vehicle_json["initial_location"].GetUint();
 		std::shared_ptr<N> pos = std::make_shared<N>(init_idx);
 		return Vehicle<N>(vehicle_index, std::move(pos), cap, operation_start);
 	}
-}
-
-template <typename N>
-std::unique_ptr<Vehicle_base> Vehicle<N>::JSON_deserialize_real_or_virtual(
-	const rapidjson::Value& vehicle_json,
-	const time_type operation_start_for_concrete
-) {
-	if (vehicle_json.HasMember("type") && std::strcmp(vehicle_json["type"].GetString(), "virtual") == 0) {
-		return std::make_unique<Virtual_vehicle>(Virtual_vehicle::JSON_deserialize(vehicle_json));
-	}
-	return std::make_unique<Vehicle<N>>(Vehicle<N>::JSON_deserialize(vehicle_json, operation_start_for_concrete));
-}
-
-template <typename N>
-const Vehicle_base& Vehicle<N>::JSON_deserialize_real_or_virtual(
-	const rapidjson::Value& vehicle_json,
-	const std::vector<Vehicle<N>>& vehicles,
-	const Virtual_vehicle& expected_when_virtual
-) {
-	if (vehicle_json.HasMember("type") && std::strcmp(vehicle_json["type"].GetString(), "virtual") == 0) {
-		Virtual_vehicle::JSON_deserialize(vehicle_json, expected_when_virtual);
-		return expected_when_virtual;
-	}
-	return Vehicle<N>::JSON_deserialize(vehicle_json, vehicles);
 }
 
 template<typename N>
@@ -123,17 +98,19 @@ void Vehicle<N>::JSON_serialize(rapidjson::PrettyWriter<rapidjson::StringBuffer>
     writer.StartObject();
     writer.Key("index");
     writer.Uint(index);
-    writer.Key("init_position");
-    if constexpr (HasJSONSerialize<N>) {
-        if(init_position){
-            serialize_node(writer, *init_position);
-        } else {
-            writer.Null();
-        }
-    } else {
-        writer.String("not serializable");
-    }
     writer.Key("capacity");
     writer.Uint(get_capacity());
+    writer.Key("initial_location");
+    if(init_position){
+	    if constexpr (requires(const N& node) { node.get_index(); }) {
+		    writer.Uint(init_position->get_index());
+	    } else if constexpr (HasJSONSerialize<N>) {
+		    serialize_node(writer, *init_position);
+	    } else {
+		    writer.Null();
+	    }
+    } else {
+	    writer.Null();
+    }
     writer.EndObject();
 }

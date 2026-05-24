@@ -87,6 +87,70 @@ template <typename N, class P, class V>
 
 } // namespace darp_vehicle_plan_json_detail
 
+inline bool vehicle_plan_json_references_virtual_vehicle(const rapidjson::Value& vehicle_json) {
+	if (vehicle_json.HasMember("actions")) {
+		throw std::runtime_error(
+			"vehicle_plan_json_references_virtual_vehicle: value looks like a full plan (has \"actions\"); pass the vehicle object only");
+	}
+	if (!vehicle_json.HasMember("type")) {
+		return false;
+	}
+	if (!vehicle_json["type"].IsString()) {
+		throw std::runtime_error("vehicle_plan_json_references_virtual_vehicle: vehicle type must be a string");
+	}
+	return std::strcmp(vehicle_json["type"].GetString(), "virtual") == 0;
+}
+
+inline void validate_virtual_vehicle_plan_reference(
+	const rapidjson::Value& vehicle_json,
+	const Virtual_vehicle& expected_virtual_vehicle
+) {
+	if (!vehicle_plan_json_references_virtual_vehicle(vehicle_json)) {
+		throw std::runtime_error("validate_virtual_vehicle_plan_reference: plan vehicle does not reference a virtual vehicle");
+	}
+	Virtual_vehicle::JSON_deserialize(vehicle_json, expected_virtual_vehicle);
+}
+
+template <typename N>
+const Vehicle<N>& validate_normal_vehicle_plan_reference(
+	const rapidjson::Value& vehicle_json,
+	const std::vector<Vehicle<N>>& vehicles
+) {
+	if (vehicle_plan_json_references_virtual_vehicle(vehicle_json)) {
+		throw std::runtime_error("validate_normal_vehicle_plan_reference: virtual vehicle is not Vehicle<N>");
+	}
+	if (vehicle_json.HasMember("type")) {
+		throw std::runtime_error("validate_normal_vehicle_plan_reference: normal vehicle references must not declare type");
+	}
+	if (!vehicle_json.HasMember("index")) {
+		throw std::runtime_error("validate_normal_vehicle_plan_reference: normal vehicle reference requires index");
+	}
+	const unsigned vehicle_index = vehicle_json["index"].GetUint();
+	const auto it = std::find_if(vehicles.begin(), vehicles.end(),
+		[&](const Vehicle<N>& v) { return v.get_index() == vehicle_index; });
+	if (it != vehicles.end()) {
+		return *it;
+	}
+	throw std::runtime_error("validate_normal_vehicle_plan_reference: index not found in provided vehicle collection");
+}
+
+template <typename N>
+std::vector<Vehicle<N>> deserialize_vehicle_list_from_json_array(
+	const rapidjson::Value& vehicles_array,
+	time_type operation_start
+) {
+	if (!vehicles_array.IsArray()) {
+		throw std::runtime_error("deserialize_vehicle_list_from_json_array: expected a JSON array");
+	}
+	std::vector<Vehicle<N>> vehicles;
+	const auto arr = vehicles_array.GetArray();
+	vehicles.reserve(arr.Size());
+	for (const auto& vehicle_json : arr) {
+		vehicles.push_back(Vehicle<N>::JSON_deserialize(vehicle_json, operation_start));
+	}
+	return vehicles;
+}
+
 template <typename N, class P, class V>
 DARP_vehicle_plan<N,P,V>::DARP_vehicle_plan(
     const V& vehicle, 
@@ -117,25 +181,33 @@ DARP_vehicle_plan<N,P,V>::DARP_vehicle_plan(const V& vehicle, unsigned short siz
 }
 
 template <typename N, class P, class V>
-std::pair<P, std::unique_ptr<Vehicle_base>> DARP_vehicle_plan<N, P, V>::JSON_deserialize(
+P DARP_vehicle_plan<N, P, V>::JSON_deserialize(
 	const rapidjson::Value& plan_data,
 	const DARP_instance<N>& darp_instance,
-	const time_type operation_start_for_concrete
+	const std::vector<Vehicle<N>>& vehicles,
+	const Virtual_vehicle* virtual_vehicle
 ) {
 	const auto& veh_json = plan_data["vehicle"];
-	const bool is_virtual = veh_json.HasMember("type") && std::strcmp(veh_json["type"].GetString(), "virtual") == 0;
+	const bool is_virtual = vehicle_plan_json_references_virtual_vehicle(veh_json);
 	if (is_virtual && !std::is_same_v<P, VehiclePlan<N, Vehicle_base>>) {
 		throw std::runtime_error(
 			"Solution contains virtual vehicles; use run_functional_test<N, VehiclePlan<N, Vehicle_base>> for fleet sizing"
 		);
 	}
-	std::unique_ptr<Vehicle_base> owned =
-		Vehicle<N>::JSON_deserialize_real_or_virtual(veh_json, operation_start_for_concrete);
-	const Vehicle_base* vehicle_base_ptr = owned.get();
-	const Vehicle<N>* vehicle_n_ptr = dynamic_cast<const Vehicle<N>*>(vehicle_base_ptr);
-	P plan = darp_vehicle_plan_json_detail::deserialize_plan_json_given_resolved_vehicle_pointers<N, P, V>(
+	const Vehicle_base* vehicle_base_ptr = nullptr;
+	const Vehicle<N>* vehicle_n_ptr = nullptr;
+	if (is_virtual) {
+		if (virtual_vehicle == nullptr) {
+			throw std::runtime_error("DARP_vehicle_plan::JSON_deserialize: plan references virtual vehicle but no top-level virtual_vehicle was loaded");
+		}
+		validate_virtual_vehicle_plan_reference(veh_json, *virtual_vehicle);
+		vehicle_base_ptr = virtual_vehicle;
+	} else {
+		vehicle_n_ptr = &validate_normal_vehicle_plan_reference<N>(veh_json, vehicles);
+		vehicle_base_ptr = vehicle_n_ptr;
+	}
+	return darp_vehicle_plan_json_detail::deserialize_plan_json_given_resolved_vehicle_pointers<N, P, V>(
 		plan_data, darp_instance, vehicle_base_ptr, vehicle_n_ptr);
-	return {std::move(plan), std::move(owned)};
 }
 
 template <typename N, class P, class V>
@@ -145,18 +217,7 @@ P DARP_vehicle_plan<N, P, V>::JSON_deserialize(
 	const std::vector<Vehicle<N>>& vehicles,
 	const Virtual_vehicle& expected_when_virtual
 ) {
-	const auto& veh_json = plan_data["vehicle"];
-	const bool is_virtual = veh_json.HasMember("type") && std::strcmp(veh_json["type"].GetString(), "virtual") == 0;
-	if (is_virtual && !std::is_same_v<P, VehiclePlan<N, Vehicle_base>>) {
-		throw std::runtime_error(
-			"Solution contains virtual vehicles; use run_functional_test<N, VehiclePlan<N, Vehicle_base>> for fleet sizing"
-		);
-	}
-	const Vehicle_base& vehicle_base_ref =
-		Vehicle<N>::JSON_deserialize(veh_json, vehicles, expected_when_virtual);
-	const Vehicle<N>* vehicle_n_ptr = dynamic_cast<const Vehicle<N>*>(&vehicle_base_ref);
-	return darp_vehicle_plan_json_detail::deserialize_plan_json_given_resolved_vehicle_pointers<N, P, V>(
-		plan_data, darp_instance, &vehicle_base_ref, vehicle_n_ptr);
+	return JSON_deserialize(plan_data, darp_instance, vehicles, &expected_when_virtual);
 }
 
 template <typename N, class P, class V>
@@ -680,8 +741,8 @@ template <typename N, Benchmark_plan P>
 void deserialize_vehicle_plans_from_json_array(
 	const rapidjson::Value& plans_array,
 	const DARP_instance<N>& darp_instance,
-	std::optional<Virtual_vehicle>& shared_virtual_vehicle_across_plans,
-	std::vector<Vehicle<N>>& fleet_sizing_materialized_vehicles_storage,
+	const std::vector<Vehicle<N>>& vehicles,
+	const Virtual_vehicle* virtual_vehicle,
 	std::vector<P>& plans_out
 ) {
 	if (!plans_array.IsArray()) {
@@ -689,53 +750,9 @@ void deserialize_vehicle_plans_from_json_array(
 	}
 
 	const auto arr = plans_array.GetArray();
-	fleet_sizing_materialized_vehicles_storage.reserve(
-		fleet_sizing_materialized_vehicles_storage.size() + static_cast<size_t>(arr.Size()));
-
 	plans_out.clear();
+	plans_out.reserve(arr.Size());
 	for (const auto& plan_data : arr) {
-		const auto& veh_json = plan_data["vehicle"];
-		const bool is_virtual =
-			veh_json.HasMember("type") && std::strcmp(veh_json["type"].GetString(), "virtual") == 0;
-		if (is_virtual && !std::is_same_v<P, VehiclePlan<N, Vehicle_base>>) {
-			throw std::runtime_error(
-				"Solution contains virtual vehicles; use run_functional_test<N, VehiclePlan<N, Vehicle_base>> for fleet sizing");
-		}
-		const Vehicle_base* vehicle_base_ptr = nullptr;
-		const Vehicle<N>* vehicle_n_ptr = nullptr;
-		if (is_virtual) {
-			if (!shared_virtual_vehicle_across_plans.has_value()) {
-				shared_virtual_vehicle_across_plans.emplace(Virtual_vehicle::JSON_deserialize(veh_json));
-			} else {
-				const Virtual_vehicle candidate = Virtual_vehicle::JSON_deserialize(veh_json);
-				const Virtual_vehicle& canon = *shared_virtual_vehicle_across_plans;
-				if (candidate.get_capacity() != canon.get_capacity()
-					|| candidate.get_time_to_start() != canon.get_time_to_start()
-					|| candidate.get_vehicle_count() != canon.get_vehicle_count()) {
-					throw std::runtime_error(
-						"deserialize_vehicle_plans_from_json_array: multiple virtual plans must specify the same virtual vehicle (capacity, time_to_start, vehicle_count)");
-				}
-			}
-			vehicle_base_ptr = &*shared_virtual_vehicle_across_plans;
-		} else {
-			const auto& vehicles = darp_instance.get_vehicles();
-			const auto vehicle_index = veh_json["index"].GetUint();
-			const auto it_v = std::find_if(vehicles.begin(), vehicles.end(), [&](const Vehicle<N>& v) {
-				return v.get_index() == vehicle_index;
-			});
-			if (it_v != vehicles.end()) {
-				vehicle_n_ptr = &*it_v;
-			} else if (darp_instance.is_virtual_vehicles()) {
-				fleet_sizing_materialized_vehicles_storage.push_back(Vehicle<N>::JSON_deserialize(
-					veh_json,
-					darp_instance.get_darp_instance_configuration()->get_start_time()));
-				vehicle_n_ptr = &fleet_sizing_materialized_vehicles_storage.back();
-			} else {
-				vehicle_n_ptr = &Vehicle<N>::JSON_deserialize(veh_json, vehicles);
-			}
-			vehicle_base_ptr = vehicle_n_ptr;
-		}
-		plans_out.push_back(darp_vehicle_plan_json_detail::deserialize_plan_json_given_resolved_vehicle_pointers<
-			N, P, typename P::vehicle_type>(plan_data, darp_instance, vehicle_base_ptr, vehicle_n_ptr));
+		plans_out.push_back(P::JSON_deserialize(plan_data, darp_instance, vehicles, virtual_vehicle));
 	}
 }

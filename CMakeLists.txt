@@ -9,6 +9,8 @@ set(CMAKE_CXX_STANDARD 23)
 set(DARP_BENCHMARK_SOLVER_PLUGIN_DIRS "" CACHE STRING "Semicolon-separated extra solver dirs")
 set(DARP_BENCHMARK_EXTERNAL_MAIN_CONFIG_FILE "" CACHE FILEPATH "Path to external main config file for downstream projects")
 
+include(CTest)
+
 find_package(RapidJSON CONFIG REQUIRED)
 find_package(OpenMP)
 find_package(spdlog CONFIG REQUIRED)
