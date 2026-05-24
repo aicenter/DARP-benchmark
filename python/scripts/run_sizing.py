@@ -4,7 +4,7 @@ import sys
 from pathlib import Path
 
 import darpbenchmark.log
-from darpbenchmark.sizing import calculate_sizing_for_instance
+from darpbenchmark.sizing import FleetSizing
 
 
 def main() -> int:
@@ -23,7 +23,8 @@ def main() -> int:
     if not config_path.is_file():
         parser.error(f"Experiment config not found: {config_path}")
 
-    calculate_sizing_for_instance(config_path)
+    fleet_sizing = FleetSizing(config_path)
+    fleet_sizing.calculate_sizing_for_instance()
     return 0
 
 
