@@ -195,16 +195,16 @@ class FleetSizing:
         self.recover_result_files()
 
         if self.solution_file.is_file():
-            if not self.last_sizing_record_matches_solution():
-                vehicle_count = self.get_vehicle_count()
-                interval_size = self.interval_size_for_unrecorded_solution()
-                self.ensure_sizing_csv_header()
-                dropped_requests_count = self.get_dropped_requests_count()
-                self.write_sizing_info(vehicle_count, dropped_requests_count, interval_size)
-                logger.debug(
-                    f"Recorded unwritten sizing result: vehicle_count={vehicle_count}, "
-                    f"dropped_requests={dropped_requests_count}, interval_size={interval_size}"
-                )
+            # if not self.last_sizing_record_matches_solution():
+            #     vehicle_count = self.get_vehicle_count()
+            #     interval_size = self.interval_size_for_unrecorded_solution()
+            #     self.ensure_sizing_csv_header()
+            #     dropped_requests_count = self.get_dropped_requests_count()
+            #     self.write_sizing_info(vehicle_count, dropped_requests_count, interval_size)
+            #     logger.debug(
+            #         f"Recorded unwritten sizing result: vehicle_count={vehicle_count}, "
+            #         f"dropped_requests={dropped_requests_count}, interval_size={interval_size}"
+            #     )
             
             vehicle_count, interval_size = self.compute_next_sizing_parameters()
         else:
@@ -215,6 +215,8 @@ class FleetSizing:
             interval_size = initial_vehicle_count
             # epsilon = math.ceil(epsilon_percentage * initial_vehicle_count)  # 5% of vehicle count
             assert epsilon > 0, "Epsilon must be greater than 0"      
+
+        logger.info(f"Starting sizing with vehicle count: {vehicle_count} and interval size: {interval_size}")
 
         while not (dropped_requests_count == 0 and interval_size <= epsilon):
             # 1. set vehicles file
@@ -235,6 +237,7 @@ class FleetSizing:
             
             # 5. compute next sizing parameters
             vehicle_count, interval_size = self.compute_next_sizing_parameters()
+            logger.info(f"Next sizing parameters: vehicle count: {vehicle_count} and interval size: {interval_size}")
 
         logger.debug(
             f"Sizing for instance {self.instance_config_file} finished. Vehicle count: {vehicle_count} with interval {interval_size}")
