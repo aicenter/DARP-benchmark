@@ -147,6 +147,153 @@ std::pair<
 		}
 	}
 
+	template<class V, class A, class P>
+	void check_test_plan_builders_equal(
+		const IH_vehicle_plan_builder<V, A, P>& computed_plan,
+		const IH_vehicle_plan_builder<V, A, P>& expected_plan
+	) {
+		EXPECT_EQ(computed_plan.get_cost(), expected_plan.get_cost());
+		ASSERT_EQ(computed_plan.get_action_data_used_length(), expected_plan.get_action_data_used_length());
+		ASSERT_EQ(computed_plan.get_active_length(), expected_plan.get_active_length());
+		EXPECT_EQ(computed_plan.get_departure_time(), expected_plan.get_departure_time());
+		EXPECT_EQ(computed_plan.get_arrival_time(), expected_plan.get_arrival_time());
+
+		for(unsigned int i = 0; i < computed_plan.get_active_length(); ++i) {
+			const A& computed_action_data = computed_plan[i];
+			const A& expected_action_data = expected_plan[i];
+
+			EXPECT_EQ(computed_action_data.get_node(), expected_action_data.get_node());
+			EXPECT_EQ(computed_action_data.get_action_type(), expected_action_data.get_action_type());
+			EXPECT_EQ(computed_action_data.get_arrival_time(), expected_action_data.get_arrival_time());
+			EXPECT_EQ(computed_action_data.get_departure_time(), expected_action_data.get_departure_time());
+		}
+	}
+
+	class Unit_travel_time_provider : public Travel_time_provider<unsigned> {
+	public:
+		travel_time_type get_travel_time(const unsigned& from, const unsigned& to) const override {
+			return from == to ? 0 : 1;
+		}
+
+		std::tuple<const unsigned&, travel_time_type> get_vehicle_location_info(
+			const unsigned& last_action_location,
+			const unsigned& next_action_location,
+			time_type time_since_last_action_departure
+		) const override {
+			cached_location = time_since_last_action_departure == 0 ? last_action_location : next_action_location;
+			return {cached_location, 0};
+		}
+
+	private:
+		mutable unsigned cached_location{0};
+	};
+
+	Test_request<> make_test_request(
+		unsigned pickup_node,
+		time_type pickup_min_time,
+		time_type pickup_max_time,
+		unsigned drop_off_node,
+		time_type drop_off_min_time,
+		time_type drop_off_max_time
+	) {
+		return {
+			Test_action_data<>(Action_base<unsigned>(
+				pickup_node, pickup_min_time, pickup_max_time, Action_type::pickup)),
+			Test_action_data<>(Action_base<unsigned>(
+				drop_off_node, drop_off_min_time, drop_off_max_time, Action_type::dropoff))
+		};
+	}
+
+	TEST(IH_SVDARP_temporal_pruning_test, insertion_position_range_uses_temporal_overlap) {
+		using Solver = SVDARP<unsigned, Test_vehicle, Test_action_data<>, IH_SVDARP_test_plan<>>;
+
+		const std::vector<std::int64_t> earliest{10, 20, 30};
+		const std::vector<std::int64_t> latest{15, 25, 35};
+
+		auto range = Solver::compute_temporal_insertion_position_range(earliest, latest, 18, 28);
+		EXPECT_EQ(range.first, 1);
+		EXPECT_EQ(range.last, 2);
+		EXPECT_FALSE(range.empty());
+
+		range = Solver::compute_temporal_insertion_position_range(earliest, latest, 15, 20);
+		EXPECT_EQ(range.first, 0);
+		EXPECT_EQ(range.last, 2);
+		EXPECT_FALSE(range.empty());
+
+		range = Solver::compute_temporal_insertion_position_range(earliest, latest, 40, 50);
+		EXPECT_EQ(range.first, 3);
+		EXPECT_EQ(range.last, 3);
+		EXPECT_FALSE(range.empty());
+
+		range = Solver::compute_temporal_insertion_position_range(earliest, latest, 16, 18);
+		EXPECT_EQ(range.first, 1);
+		EXPECT_EQ(range.last, 1);
+		EXPECT_FALSE(range.empty());
+
+		range = Solver::compute_temporal_insertion_position_range(earliest, latest, 36, 9);
+		EXPECT_TRUE(range.empty());
+
+		range = Solver::compute_temporal_insertion_position_range({}, {}, 16, 18);
+		EXPECT_EQ(range.first, 0);
+		EXPECT_EQ(range.last, 0);
+		EXPECT_FALSE(range.empty());
+	}
+
+	TEST(IH_SVDARP_temporal_pruning_test, pruned_insertion_matches_exhaustive_in_long_plan) {
+		using Plan_builder = IH_vehicle_plan_builder<Test_vehicle, Test_action_data<>, IH_SVDARP_test_plan<>>;
+		using Solver = SVDARP<unsigned, Test_vehicle, Test_action_data<>, IH_SVDARP_test_plan<>>;
+
+		auto travel_time_provider = std::make_shared<Unit_travel_time_provider>();
+		auto config = std::make_shared<DARP_instance_configuration>(0, 0, false);
+		const DARP_context<unsigned> context(travel_time_provider, config);
+		Solver solver(context);
+		Test_vehicle vehicle(80);
+		Plan_builder plan(vehicle, 80);
+
+		for(unsigned i = 0; i < 40; ++i) {
+			const time_type action_time = i * 100;
+			Test_request<> request = make_test_request(
+				i * 2 + 1,
+				action_time,
+				action_time + 10,
+				i * 2 + 2,
+				action_time + 20,
+				action_time + 30
+			);
+			solver.insert_request_into_plan_optimally(
+				request.pickup_action_data,
+				request.drop_off_action_data,
+				plan,
+				std::numeric_limits<unsigned long>::max(),
+				IH_insertion_position_pruning::disabled
+			);
+		}
+
+		Plan_builder exhaustive_plan = plan;
+		Plan_builder pruned_plan = plan;
+		Test_request<> exhaustive_request = make_test_request(1001, 2050, 2060, 1002, 2070, 2080);
+		Test_request<> pruned_request = make_test_request(1001, 2050, 2060, 1002, 2070, 2080);
+
+		const auto exhaustive_increment = solver.insert_request_into_plan_optimally(
+			exhaustive_request.pickup_action_data,
+			exhaustive_request.drop_off_action_data,
+			exhaustive_plan,
+			std::numeric_limits<unsigned long>::max(),
+			IH_insertion_position_pruning::disabled
+		);
+		const auto pruned_increment = solver.insert_request_into_plan_optimally(
+			pruned_request.pickup_action_data,
+			pruned_request.drop_off_action_data,
+			pruned_plan,
+			std::numeric_limits<unsigned long>::max(),
+			IH_insertion_position_pruning::enabled,
+			0
+		);
+
+		EXPECT_EQ(pruned_increment, exhaustive_increment);
+		check_test_plan_builders_equal(pruned_plan, exhaustive_plan);
+	}
+
 
 	
 	TEST(IH_SVDARP_test, insert_into_empty_plan) {
