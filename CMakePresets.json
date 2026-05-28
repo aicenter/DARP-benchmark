@@ -2,8 +2,7 @@
   "version": 3,
   "configurePresets": [
     {
-      "name": "default",
-      "toolchainFile": "C:/vcpkg/scripts/buildsystems/vcpkg.cmake"
+      "name": "default"
     }
   ],
   "buildPresets": [
@@ -11,6 +10,11 @@
       "name": "debug",
       "configurePreset": "default",
       "configuration": "Debug"
+    },
+    {
+      "name": "release",
+      "configurePreset": "default",
+      "configuration": "Release"
     }
   ]
 }

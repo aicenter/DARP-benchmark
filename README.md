@@ -21,6 +21,7 @@ vcpkg install spdlog p-ranav-csv2 nanoflann magic-enum boost-multi-index boost-a
 ```
 
 
+
 # Running the benchmark
 
 The DARP benchmark program accepts the following command line arguments:
