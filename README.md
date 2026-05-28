@@ -39,7 +39,7 @@ Additionally, there are some parameters that are specific to the methods.
 So far, only one method is included: Insertion Heuristic (IH).
 
 - `--method ih`
-- no paremeters
+- `ih.temporal_pruning_min_plan_length` - minimum existing plan length for IH temporal insertion-position pruning in YAML config. Default: 32. Set to 0 to disable pruning.
 
 
 ## Usage Examples

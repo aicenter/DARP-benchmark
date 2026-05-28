@@ -103,9 +103,11 @@ private:
 
     unsigned int min_cost_increment{0};
 
-    std::optional<IH_vehicle_plan_builder<V, A, P>> best_plan{std::nullopt};
+	std::optional<IH_vehicle_plan_builder<V, A, P>> best_plan{std::nullopt};
 
 	const SVDARP<N, V, A, P> SVDARP_solver;
+
+	const plan_size_type temporal_pruning_min_plan_length;
 
     uint_fast32_t best_vehicle_index{std::numeric_limits<uint_fast32_t>::max()};
 

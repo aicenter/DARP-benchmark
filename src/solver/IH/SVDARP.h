@@ -8,12 +8,6 @@
 #include "../DARP_context.h"
 #include "IH_vehicle_plan_builder.h"
 
-enum class IH_insertion_position_pruning {
-	automatic,
-	enabled,
-	disabled
-};
-
 
 /**
  * Solver for the Single Vehicle Dial-a-Ride Problem (SVDARP) using the Insertion Heuristic (IH) method.
@@ -509,7 +503,6 @@ public:
         A& drop_off_action_data,
         IH_vehicle_plan_builder<V, A, P>& plan,
         unsigned long min_increment,
-		IH_insertion_position_pruning pruning = IH_insertion_position_pruning::automatic,
 		plan_size_type temporal_pruning_min_plan_length = 32
     ) const {
         plan.add_new_request_data(pickup_action_data, drop_off_action_data);
@@ -519,11 +512,8 @@ public:
 		Temporal_insertion_position_range drop_off_range{0, existing_action_count};
 
 		const bool temporal_pruning_enabled =
-			pruning == IH_insertion_position_pruning::enabled
-			|| (
-				pruning == IH_insertion_position_pruning::automatic
-				&& existing_action_count >= static_cast<index_in_plan>(temporal_pruning_min_plan_length)
-			);
+			temporal_pruning_min_plan_length > 0
+			&& existing_action_count >= static_cast<index_in_plan>(temporal_pruning_min_plan_length);
 
 		if(temporal_pruning_enabled && existing_action_count > 0) {
 			const Temporal_action_bounds action_bounds = compute_temporal_action_bounds(plan, existing_action_count);

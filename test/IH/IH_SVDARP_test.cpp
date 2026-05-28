@@ -265,7 +265,7 @@ std::pair<
 				request.drop_off_action_data,
 				plan,
 				std::numeric_limits<unsigned long>::max(),
-				IH_insertion_position_pruning::disabled
+				0
 			);
 		}
 
@@ -279,15 +279,14 @@ std::pair<
 			exhaustive_request.drop_off_action_data,
 			exhaustive_plan,
 			std::numeric_limits<unsigned long>::max(),
-			IH_insertion_position_pruning::disabled
+			0
 		);
 		const auto pruned_increment = solver.insert_request_into_plan_optimally(
 			pruned_request.pickup_action_data,
 			pruned_request.drop_off_action_data,
 			pruned_plan,
 			std::numeric_limits<unsigned long>::max(),
-			IH_insertion_position_pruning::enabled,
-			0
+			1
 		);
 
 		EXPECT_EQ(pruned_increment, exhaustive_increment);

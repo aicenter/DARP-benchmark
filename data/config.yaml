@@ -4,5 +4,8 @@
   method: "ih",
   tcount: 1,
   tmax: 0,
+  ih: {
+    temporal_pruning_min_plan_length: 32
+  },
   simple_csv_export: false
 }

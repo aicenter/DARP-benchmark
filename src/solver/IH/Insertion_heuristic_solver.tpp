@@ -25,6 +25,12 @@ Insertion_heuristic_solver<N, A, V, P>::Insertion_heuristic_solver(
 	DARP_benchmark_solver<N>(instance, solver_config),
 	minimize_used_vehicles(minimize_used_vehicles),
 	SVDARP_solver(DARP_context<N>(instance)),
+	temporal_pruning_min_plan_length(static_cast<plan_size_type>(
+		std::min<int>(
+			std::max(0, solver_config.ih.temporal_pruning_min_plan_length),
+			std::numeric_limits<plan_size_type>::max()
+		)
+	)),
 	nearest_vehicle_provider(nearest_vehicle_provider) {
 }
 
@@ -178,7 +184,12 @@ std::optional<P> Insertion_heuristic_solver<N, A, V, P>::insert_request_in_plan(
 	// fail fast
 	if (can_serve_request(vehicle, pickup_action_data, drop_off_action_data)) {
 		SVDARP_solver.insert_request_into_plan_optimally(
-			pickup_action_data, drop_off_action_data, plan_builder, std::numeric_limits<unsigned int>::max());
+			pickup_action_data,
+			drop_off_action_data,
+			plan_builder,
+			std::numeric_limits<unsigned int>::max(),
+			temporal_pruning_min_plan_length
+		);
 
 		if(plan_builder.get_length() > vehicle_plan.get_length()){
 			SVDARP_solver.finalize_plan(plan_builder);
@@ -293,7 +304,11 @@ void Insertion_heuristic_solver<N, A, V, P>::process_request_vehicle_combination
 	// fail fast
 	if (can_serve_request(vehicle, pickup_action_data, drop_off_action_data)) {
 		const unsigned new_min_cost_increment = SVDARP_solver.insert_request_into_plan_optimally(
-			pickup_action_data, drop_off_action_data, current_plan, min_cost_increment
+			pickup_action_data,
+			drop_off_action_data,
+			current_plan,
+			min_cost_increment,
+			temporal_pruning_min_plan_length
 		);
 		if (min_cost_increment > new_min_cost_increment) {
 			min_cost_increment = new_min_cost_increment;
