@@ -140,7 +140,7 @@ static Registrator registrator;
 Of course, any Structure can be used and you can register multiple solvers. The important part is calling the `register_solver` function of the `Default_solver_registry` singleton from a static object, so that it is called at the very beginning of the program, before the `main` function is called.
 
 
-## Plugging in custom configuration
+### Plugging in custom configuration
 Sometimes, configuration needs to be extended, e.g., if we need new parameters for our solver. There are several steps needed to do that:
 
 1. Create the file, e.g., in `data/my_config.yaml`
@@ -149,19 +149,15 @@ Sometimes, configuration needs to be extended, e.g., if we need new parameters f
     set(DARP_BENCHMARK_EXTERNAL_MAIN_CONFIG_FILE "${CMAKE_CURRENT_SOURCE_DIR}/data/my_config.yaml" CACHE FILEPATH "Path to external config file" FORCE)
     ```
     - this makes the config builder to use this file side by side the default config file from DARP-benchmark project.
-3. Register the config at runtime:
-    ```cpp
-    namespace DARP {
-        struct Registrator {
-            Registrator() {
-                Default_solver_registry::get().register_solver<YourSolver>("your_solver");
-        
-                Config_registry::get().register_config(std::make_unique<fc::Config_definition>("data/my_config.yaml"));
-            }
-        };
-        static Registrator registrator;
-    }   
-    ```
+
+
+This is it. Now the new config file will be:
+
+- automatically generated
+- automatically copied to the DARP-benchmark build dir in `_deps`
+- automatically registered
+
+Note that still you need to copy the file manually for custom targets outside the DARP-benchmark build dir, e.g., custom test executables. You can use the `copy_master_config` cmake helper for that.
 
 
 
