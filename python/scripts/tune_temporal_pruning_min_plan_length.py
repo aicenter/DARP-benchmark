@@ -24,7 +24,7 @@ def main() -> int:
     parser.add_argument(
         "initial_length_a",
         type=int,
-        help="First endpoint of the inclusive min-plan-length search interval. Use 0 to include disabled pruning.",
+        help="First endpoint of the inclusive min-plan-length search interval.",
     )
     parser.add_argument(
         "initial_length_b",
@@ -40,8 +40,8 @@ def main() -> int:
     parser.add_argument(
         "--tcount",
         type=int,
-        default=1,
-        help="Number of benchmark trials per length.",
+        default=5,
+        help="Number of benchmark trials per length. Must be greater than 1.",
     )
     parser.add_argument(
         "--tmax",
@@ -65,7 +65,7 @@ def main() -> int:
     print(
         "Best temporal_pruning_min_plan_length: "
         f"{best.length} "
-        f"(total_time={best.total_time}, cost={best.cost}, dropped_requests={best.dropped_requests})"
+        f"(average_total_time={best.average_total_time}, trials={best.performance_trials})"
     )
     print(f"Results written to: {tuner.results_file}")
     return 0

@@ -16,6 +16,7 @@ setup(
 		'tqdm',
 		'typing',
 		'pyyaml',
+		'scipy',
 		'h5py',
 		'gurobipy',
 		'pytest',

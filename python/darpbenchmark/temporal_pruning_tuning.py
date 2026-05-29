@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable
 
+from scipy.optimize import minimize_scalar
 import yaml
 
 logger = logging.getLogger(__name__)
@@ -19,22 +20,20 @@ class TemporalPruningRunResult:
     length: int
     status: str
     return_code: int | None
-    total_time: int | None
+    average_total_time: float | None
     performance_trials: int
     peak_memory_kib: int | None
     cost: int | None
     dropped_requests: int | None
+    solution_matches_baseline: bool | None
     experiment_config: Path
     output_dir: Path
+    solution_key: str | None = None
 
-    def sort_key(self) -> tuple[int, int, float]:
+    def sort_key(self) -> float:
         if self.status != "ok":
-            return math.inf, math.inf, math.inf
-        return (
-            self.dropped_requests if self.dropped_requests is not None else math.inf,
-            self.cost if self.cost is not None else math.inf,
-            self.total_time if self.total_time is not None else math.inf,
-        )
+            return math.inf
+        return self.average_total_time if self.average_total_time is not None else math.inf
 
 
 class TemporalPruningMinPlanLengthTuner:
@@ -45,7 +44,7 @@ class TemporalPruningMinPlanLengthTuner:
         initial_length_a: int,
         initial_length_b: int,
         executable_path: Path | str = "DARP-benchmark",
-        tcount: int = 1,
+        tcount: int = 5,
         tmax: int = 0,
     ):
         self.instance_config_file = instance_config_file.resolve()
@@ -61,11 +60,19 @@ class TemporalPruningMinPlanLengthTuner:
         self.tcount = tcount
         self.tmax = tmax
         self.results_file = self.working_dir / RESULTS_FILE
+        self.baseline_solution_key: str | None = None
 
     def tune(self) -> TemporalPruningRunResult:
         self.validate()
         self.working_dir.mkdir(parents=True, exist_ok=True)
         results: dict[int, TemporalPruningRunResult] = {}
+
+        baseline = self.evaluate(0, results)
+        if baseline.status != "ok" or baseline.solution_key is None:
+            raise RuntimeError(f"Baseline run with pruning disabled failed. See {self.results_file}")
+        self.baseline_solution_key = baseline.solution_key
+        baseline = self.evaluate(0, results, force_reload=True)
+        results[0] = baseline
 
         lower = min(self.initial_length_a, self.initial_length_b)
         upper = max(self.initial_length_a, self.initial_length_b)
@@ -73,33 +80,49 @@ class TemporalPruningMinPlanLengthTuner:
         self.evaluate(lower, results)
         self.evaluate(upper, results)
 
-        while upper - lower > 3:
-            left = lower + (upper - lower) // 3
-            right = upper - (upper - lower) // 3
+        if lower == upper:
+            self.evaluate(lower, results)
+        else:
+            optimization_result = minimize_scalar(
+                lambda value: self.objective(value, lower, upper, results),
+                bounds=(lower, upper),
+                method="bounded",
+                options={"xatol": 0.5},
+            )
+            rounded_minimum = self.to_length(optimization_result.x, lower, upper)
+            for length in range(max(lower, rounded_minimum - 2), min(upper, rounded_minimum + 2) + 1):
+                self.evaluate(length, results)
 
-            left_result = self.evaluate(left, results)
-            right_result = self.evaluate(right, results)
-
-            if left_result.sort_key() <= right_result.sort_key():
-                upper = right - 1
-            else:
-                lower = left + 1
-
-        for length in range(lower, upper + 1):
-            self.evaluate(length, results)
-
-        best = min(results.values(), key=lambda result: result.sort_key())
+        self.write_results(results.values())
+        candidate_results = [
+            result for result in results.values()
+            if lower <= result.length <= upper
+        ]
+        best = min(candidate_results, key=lambda result: result.sort_key())
         if best.status != "ok":
             raise RuntimeError(f"No successful pruning tuning runs. See {self.results_file}")
 
         logger.info(
-            "Best temporal_pruning_min_plan_length=%s, total_time=%s, cost=%s, dropped_requests=%s",
+            "Best temporal_pruning_min_plan_length=%s, average_total_time=%s over %s trials",
             best.length,
-            best.total_time,
-            best.cost,
-            best.dropped_requests,
+            best.average_total_time,
+            best.performance_trials,
         )
         return best
+
+    def objective(
+        self,
+        value: float,
+        lower: int,
+        upper: int,
+        results: dict[int, TemporalPruningRunResult],
+    ) -> float:
+        length = self.to_length(value, lower, upper)
+        return self.evaluate(length, results).sort_key()
+
+    @staticmethod
+    def to_length(value: float, lower: int, upper: int) -> int:
+        return min(upper, max(lower, round(value)))
 
     def validate(self) -> None:
         if not self.instance_config_file.is_file():
@@ -107,8 +130,8 @@ class TemporalPruningMinPlanLengthTuner:
         for length in (self.initial_length_a, self.initial_length_b):
             if length < 0:
                 raise ValueError("Initial lengths must be non-negative. Use 0 to disable pruning.")
-        if self.tcount <= 0:
-            raise ValueError("tcount must be positive")
+        if self.tcount <= 1:
+            raise ValueError("tcount must be greater than 1 so the tuner can compare average runtime")
         if self.tmax < 0:
             raise ValueError("tmax must be non-negative")
 
@@ -116,8 +139,9 @@ class TemporalPruningMinPlanLengthTuner:
         self,
         length: int,
         results: dict[int, TemporalPruningRunResult],
+        force_reload: bool = False,
     ) -> TemporalPruningRunResult:
-        if length in results:
+        if length in results and not force_reload:
             return results[length]
 
         length_dir = self.working_dir / f"length_{length}"
@@ -126,20 +150,31 @@ class TemporalPruningMinPlanLengthTuner:
         output_dir.mkdir(parents=True, exist_ok=True)
         self.write_experiment_config(config_file, output_dir, length)
 
-        solution_file = output_dir / f"{self.instance_config_file.name}-solution.json"
-        performance_file = output_dir / f"{self.instance_config_file.name}-performance.json"
+        solution_files = self.expected_result_files(output_dir, "solution")
+        performance_files = self.expected_result_files(output_dir, "performance")
 
-        if not solution_file.is_file() or not performance_file.is_file():
+        if not self.has_complete_results(solution_files, performance_files):
             logger.info("Running temporal pruning tuning length %s", length)
             return_code = self.run_experiment(config_file, length_dir)
         else:
             logger.info("Reusing existing temporal pruning tuning length %s", length)
             return_code = 0
 
-        result = self.read_result(length, return_code, config_file, output_dir, solution_file, performance_file)
+        result = self.read_result(length, return_code, config_file, output_dir, solution_files, performance_files)
         results[length] = result
         self.write_results(results.values())
         return result
+
+    def expected_result_files(self, output_dir: Path, result_type: str) -> list[Path]:
+        files = []
+        for trial_number in range(1, self.tcount + 1):
+            suffix = f"-{result_type}.json" if trial_number == 1 else f"-{result_type}-{trial_number}.json"
+            files.append(output_dir / f"{self.instance_config_file.name}{suffix}")
+        return files
+
+    @staticmethod
+    def has_complete_results(solution_files: list[Path], performance_files: list[Path]) -> bool:
+        return all(path.is_file() for path in solution_files) and all(path.is_file() for path in performance_files)
 
     def write_experiment_config(self, config_file: Path, output_dir: Path, length: int) -> None:
         config = {
@@ -189,59 +224,84 @@ class TemporalPruningMinPlanLengthTuner:
         return_code: int,
         config_file: Path,
         output_dir: Path,
-        solution_file: Path,
-        performance_file: Path,
+        solution_files: list[Path],
+        performance_files: list[Path],
     ) -> TemporalPruningRunResult:
         if return_code != 0:
-            return TemporalPruningRunResult(
-                length,
-                "failed",
-                return_code,
-                None,
-                0,
-                None,
-                None,
-                None,
-                config_file,
-                output_dir,
-            )
+            return self.make_invalid_result(length, "failed", return_code, config_file, output_dir)
 
-        if not solution_file.is_file() or not performance_file.is_file():
-            return TemporalPruningRunResult(
-                length,
-                "missing_result",
-                return_code,
-                None,
-                0,
-                None,
-                None,
-                None,
-                config_file,
-                output_dir,
-            )
+        if not self.has_complete_results(solution_files, performance_files):
+            return self.make_invalid_result(length, "missing_result", return_code, config_file, output_dir)
 
-        performance_files = sorted(output_dir.glob(f"{self.instance_config_file.name}-performance*.json"))
         performances = []
-        for current_performance_file in performance_files:
-            with open(current_performance_file, "rt", encoding="utf-8") as f:
+        for performance_file in performance_files:
+            with open(performance_file, "rt", encoding="utf-8") as f:
                 performances.append(json.load(f))
-        with open(solution_file, "rt", encoding="utf-8") as f:
-            solution = json.load(f)
+
+        solutions = []
+        for solution_file in solution_files:
+            with open(solution_file, "rt", encoding="utf-8") as f:
+                solutions.append(json.load(f))
 
         total_times = [performance["total_time"] for performance in performances if "total_time" in performance]
         peak_memory_values = [
             performance["peak_memory_KiB"] for performance in performances if "peak_memory_KiB" in performance
         ]
+        solution_keys = [self.solution_key(solution) for solution in solutions]
+        first_solution = solutions[0]
+        dropped_requests = len(first_solution.get("dropped_requests", []))
+        cost = first_solution.get("cost")
+        solution_matches_baseline = (
+            None if self.baseline_solution_key is None else all(key == self.baseline_solution_key for key in solution_keys)
+        )
+
+        status = "ok"
+        if len(total_times) != self.tcount:
+            status = "missing_performance_time"
+        elif any(key != solution_keys[0] for key in solution_keys):
+            status = "inconsistent_solution_trials"
+        elif dropped_requests != 0:
+            status = "dropped_requests"
+        elif solution_matches_baseline is False:
+            status = "solution_mismatch"
 
         return TemporalPruningRunResult(
             length=length,
-            status="ok",
+            status=status,
             return_code=return_code,
-            total_time=round(sum(total_times) / len(total_times)) if total_times else None,
+            average_total_time=sum(total_times) / len(total_times) if total_times else None,
             performance_trials=len(performances),
             peak_memory_kib=max(peak_memory_values) if peak_memory_values else None,
-            cost=solution.get("cost"),
-            dropped_requests=len(solution.get("dropped_requests", [])),
+            cost=cost,
+            dropped_requests=dropped_requests,
+            solution_matches_baseline=solution_matches_baseline,
+            experiment_config=config_file,
+            output_dir=output_dir,
+            solution_key=solution_keys[0],
+        )
+
+    @staticmethod
+    def solution_key(solution: dict) -> str:
+        return json.dumps(solution, sort_keys=True, separators=(",", ":"))
+
+    @staticmethod
+    def make_invalid_result(
+        length: int,
+        status: str,
+        return_code: int | None,
+        config_file: Path,
+        output_dir: Path,
+    ) -> TemporalPruningRunResult:
+        return TemporalPruningRunResult(
+            length=length,
+            status=status,
+            return_code=return_code,
+            average_total_time=None,
+            performance_trials=0,
+            peak_memory_kib=None,
+            cost=None,
+            dropped_requests=None,
+            solution_matches_baseline=None,
             experiment_config=config_file,
             output_dir=output_dir,
         )
@@ -254,11 +314,12 @@ class TemporalPruningMinPlanLengthTuner:
                 "length",
                 "status",
                 "return_code",
-                "total_time",
+                "average_total_time",
                 "performance_trials",
                 "peak_memory_KiB",
                 "cost",
                 "dropped_requests",
+                "solution_matches_baseline",
                 "experiment_config",
                 "output_dir",
             ])
@@ -267,11 +328,12 @@ class TemporalPruningMinPlanLengthTuner:
                     result.length,
                     result.status,
                     "" if result.return_code is None else result.return_code,
-                    "" if result.total_time is None else result.total_time,
+                    "" if result.average_total_time is None else result.average_total_time,
                     result.performance_trials,
                     "" if result.peak_memory_kib is None else result.peak_memory_kib,
                     "" if result.cost is None else result.cost,
                     "" if result.dropped_requests is None else result.dropped_requests,
+                    "" if result.solution_matches_baseline is None else result.solution_matches_baseline,
                     result.experiment_config,
                     result.output_dir,
                 ])
