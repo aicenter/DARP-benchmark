@@ -2,19 +2,28 @@
   "version": 3,
   "configurePresets": [
     {
-      "name": "default"
+      "name": "debug-config",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug"
+      }
+    },
+    {
+      "name": "release-config",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo"
+      }
     }
   ],
   "buildPresets": [
     {
       "name": "debug",
-      "configurePreset": "default",
+      "configurePreset": "debug-config",
       "configuration": "Debug"
     },
     {
       "name": "release",
-      "configurePreset": "default",
-      "configuration": "Release"
+      "configurePreset": "release-config",
+      "configuration": "RelWithDebInfo"
     }
   ]
 }

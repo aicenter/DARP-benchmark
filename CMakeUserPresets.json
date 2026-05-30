@@ -1,0 +1,27 @@
+{
+    "version": 4,
+    "configurePresets": [
+      {
+        "name": "debug-config-local",
+        "inherits": "debug-config",
+        "toolchainFile": "C:/vcpkg/scripts/buildsystems/vcpkg.cmake"
+      },
+      {
+        "name": "release-config-local",
+        "inherits": "release-config",
+        "toolchainFile": "C:/vcpkg/scripts/buildsystems/vcpkg.cmake"
+      }
+    ],
+    "buildPresets": [
+      {
+        "name": "debug-local",
+        "configurePreset": "debug-config-local",
+        "configuration": "Debug"
+      },
+      {
+          "name": "release-local",
+          "configurePreset": "release-config-local",
+          "configuration": "Release"
+      }
+    ]
+}
