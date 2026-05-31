@@ -207,8 +207,8 @@ std::pair<
 	TEST(IH_SVDARP_temporal_pruning_test, insertion_position_range_uses_temporal_overlap) {
 		using Solver = SVDARP<unsigned, Test_vehicle, Test_action_data<>, IH_SVDARP_test_plan<>>;
 
-		const std::vector<std::int64_t> earliest{10, 20, 30};
-		const std::vector<std::int64_t> latest{15, 25, 35};
+		const std::vector<time_type> earliest{10, 20, 30};
+		const std::vector<time_type> latest{15, 25, 35};
 
 		auto range = Solver::compute_temporal_insertion_position_range(earliest, latest, 18, 28);
 		EXPECT_EQ(range.first, 1);
@@ -271,6 +271,7 @@ std::pair<
 
 		Plan_builder exhaustive_plan = plan;
 		Plan_builder pruned_plan = plan;
+		solver.update_temporal_action_bounds(pruned_plan);
 		Test_request<> exhaustive_request = make_test_request(1001, 2050, 2060, 1002, 2070, 2080);
 		Test_request<> pruned_request = make_test_request(1001, 2050, 2060, 1002, 2070, 2080);
 
@@ -291,6 +292,81 @@ std::pair<
 
 		EXPECT_EQ(pruned_increment, exhaustive_increment);
 		check_test_plan_builders_equal(pruned_plan, exhaustive_plan);
+	}
+
+	TEST(IH_SVDARP_temporal_pruning_test, cached_bounds_track_committed_plan_length) {
+		using Plan_builder = IH_vehicle_plan_builder<Test_vehicle, Test_action_data<>, IH_SVDARP_test_plan<>>;
+		using Solver = SVDARP<unsigned, Test_vehicle, Test_action_data<>, IH_SVDARP_test_plan<>>;
+
+		auto travel_time_provider = std::make_shared<Unit_travel_time_provider>();
+		auto config = std::make_shared<DARP_instance_configuration>(0, 0, false);
+		const DARP_context<unsigned> context(travel_time_provider, config);
+		Solver solver(context);
+		Test_vehicle vehicle(10);
+		Plan_builder plan(vehicle, 8);
+
+		Test_request<> first_request = make_test_request(1, 0, 10, 2, 20, 30);
+		solver.insert_request_into_plan_optimally(
+			first_request.pickup_action_data,
+			first_request.drop_off_action_data,
+			plan,
+			std::numeric_limits<unsigned long>::max(),
+			0
+		);
+		EXPECT_FALSE(plan.has_valid_temporal_action_bounds());
+
+		solver.update_temporal_action_bounds(plan);
+		EXPECT_TRUE(plan.has_valid_temporal_action_bounds());
+		EXPECT_EQ(plan.get_earliest_service_starts().size(), 2);
+		EXPECT_EQ(plan.get_latest_service_starts().size(), 2);
+
+		Test_request<> second_request = make_test_request(3, 100, 110, 4, 120, 130);
+		solver.insert_request_into_plan_optimally(
+			second_request.pickup_action_data,
+			second_request.drop_off_action_data,
+			plan,
+			std::numeric_limits<unsigned long>::max(),
+			2
+		);
+		EXPECT_FALSE(plan.has_valid_temporal_action_bounds());
+
+		solver.update_temporal_action_bounds(plan);
+		EXPECT_TRUE(plan.has_valid_temporal_action_bounds());
+		EXPECT_EQ(plan.get_earliest_service_starts().size(), 4);
+		EXPECT_EQ(plan.get_latest_service_starts().size(), 4);
+	}
+
+	TEST(IH_SVDARP_temporal_pruning_test, threshold_zero_does_not_require_cached_bounds) {
+		using Plan_builder = IH_vehicle_plan_builder<Test_vehicle, Test_action_data<>, IH_SVDARP_test_plan<>>;
+		using Solver = SVDARP<unsigned, Test_vehicle, Test_action_data<>, IH_SVDARP_test_plan<>>;
+
+		auto travel_time_provider = std::make_shared<Unit_travel_time_provider>();
+		auto config = std::make_shared<DARP_instance_configuration>(0, 0, false);
+		const DARP_context<unsigned> context(travel_time_provider, config);
+		Solver solver(context);
+		Test_vehicle vehicle(10);
+		Plan_builder plan(vehicle, 8);
+
+		for(unsigned i = 0; i < 3; ++i) {
+			Test_request<> request = make_test_request(
+				i * 2 + 1,
+				i * 100,
+				i * 100 + 10,
+				i * 2 + 2,
+				i * 100 + 20,
+				i * 100 + 30
+			);
+			solver.insert_request_into_plan_optimally(
+				request.pickup_action_data,
+				request.drop_off_action_data,
+				plan,
+				std::numeric_limits<unsigned long>::max(),
+				0
+			);
+		}
+
+		EXPECT_EQ(plan.get_length(), 6);
+		EXPECT_FALSE(plan.has_valid_temporal_action_bounds());
 	}
 
 

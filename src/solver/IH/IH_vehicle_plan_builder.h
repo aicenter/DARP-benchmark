@@ -87,6 +87,38 @@ public:
 		return operating_start;
 	}
 
+	[[nodiscard]] const std::vector<time_type>& get_earliest_service_starts() const {
+		return earliest_service_starts;
+	}
+
+	[[nodiscard]] const std::vector<time_type>& get_latest_service_starts() const {
+		return latest_service_starts;
+	}
+
+	[[nodiscard]] bool has_valid_temporal_action_bounds() const {
+		return has_temporal_action_bounds_for_length(action_data_used_length);
+	}
+
+	[[nodiscard]] bool has_temporal_action_bounds_for_length(plan_size_type length) const {
+		return earliest_service_starts.size() == length
+			&& latest_service_starts.size() == length;
+	}
+
+	void set_temporal_action_bounds(
+		std::vector<time_type>&& earliest_service_starts_par,
+		std::vector<time_type>&& latest_service_starts_par
+	) {
+		assert(earliest_service_starts_par.size() == action_data_used_length);
+		assert(latest_service_starts_par.size() == action_data_used_length);
+		earliest_service_starts = std::move(earliest_service_starts_par);
+		latest_service_starts = std::move(latest_service_starts_par);
+	}
+
+	void clear_temporal_action_bounds() {
+		earliest_service_starts.clear();
+		latest_service_starts.clear();
+	}
+
 	void add_new_request_data(A& pickup_action_data, A& drop_off_action_data) {
 		assert(action_data_used_length <= this->action_data.size());
 		action_data_used_length += 2;
@@ -225,6 +257,10 @@ private:
 	unsigned int cost_before_drop_off{0};
 
 	time_type operating_start;
+
+	std::vector<time_type> earliest_service_starts;
+
+	std::vector<time_type> latest_service_starts;
 
 };
 

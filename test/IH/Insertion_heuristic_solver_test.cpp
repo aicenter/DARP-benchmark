@@ -197,6 +197,7 @@ TEST(Insertion_heuristic_solver_test, one_car_one_request) {
 		config
 	);
 	auto solver_config = fc::load<DARP_benchmark_config>();
+	solver_config.ih.temporal_pruning_min_plan_length = 1;
 	Insertion_heuristic_solver<Cordeau_node> solver(*instance, solver_config, fs::path{});
 	std::unique_ptr<Solution<Cordeau_node>> solution = solver.solve();
 
@@ -249,6 +250,7 @@ TEST(Insertion_heuristic_solver_test, one_car_multiple_requests) {
 		config
 	);
 	auto solver_config = fc::load<DARP_benchmark_config>();
+	solver_config.ih.temporal_pruning_min_plan_length = 1;
 	Insertion_heuristic_solver<Cordeau_node> solver(*instance, solver_config, fs::path{});
 	std::unique_ptr<Solution<Cordeau_node>> solution = solver.solve();
 
@@ -287,6 +289,7 @@ TEST(Insertion_heuristic_solver_test, insert_request_in_plan) {
 
 	// insert in plan (N=unsigned; provider is adapter over Distance_matrix_travel_time_provider)
 	auto solver_config = fc::load<DARP_benchmark_config>();
+	solver_config.ih.temporal_pruning_min_plan_length = 1;
 	Insertion_heuristic_solver<unsigned, IH_test_action_data, Test_vehicle, IH_test_plan> solver(
 		ih_instance,
 		solver_config,

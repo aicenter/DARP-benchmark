@@ -1,7 +1,9 @@
 #pragma once
 
 #include <algorithm>
+#include <cstddef>
 #include <cstdint>
+#include <utility>
 #include <vector>
 
 #include "IH_SVDARP_interfaces.h"
@@ -23,8 +25,8 @@
 template<typename N, IH_SVDARP_vehicle<N> V, IH_SVDARP_action<N> A, Vehicle_plan_builder_plan<V,A> P>
 class SVDARP {
 	struct Temporal_action_bounds {
-		std::vector<std::int64_t> earliest_service_starts;
-		std::vector<std::int64_t> latest_service_starts;
+		std::vector<time_type> earliest_service_starts;
+		std::vector<time_type> latest_service_starts;
 	};
 
 public:
@@ -38,8 +40,8 @@ public:
 	};
 
 	static Temporal_insertion_position_range compute_temporal_insertion_position_range(
-		const std::vector<std::int64_t>& earliest_service_starts,
-		const std::vector<std::int64_t>& latest_service_starts,
+		const std::vector<time_type>& earliest_service_starts,
+		const std::vector<time_type>& latest_service_starts,
 		time_type min_time,
 		time_type max_time
 	) {
@@ -60,6 +62,17 @@ public:
 	}
 
 	explicit SVDARP(const DARP_context<N>& context_par): context(context_par) {
+	}
+
+	void update_temporal_action_bounds(IH_vehicle_plan_builder<V, A, P>& plan) const {
+		Temporal_action_bounds action_bounds = compute_temporal_action_bounds(
+			plan,
+			static_cast<index_in_plan>(plan.get_action_data_used_length())
+		);
+		plan.set_temporal_action_bounds(
+			std::move(action_bounds.earliest_service_starts),
+			std::move(action_bounds.latest_service_starts)
+		);
 	}
 
 	bool adjust_times(
@@ -516,16 +529,18 @@ public:
 			&& existing_action_count >= static_cast<index_in_plan>(temporal_pruning_min_plan_length);
 
 		if(temporal_pruning_enabled && existing_action_count > 0) {
-			const Temporal_action_bounds action_bounds = compute_temporal_action_bounds(plan, existing_action_count);
+			assert(plan.has_temporal_action_bounds_for_length(existing_action_count));
+			assert(plan.get_earliest_service_starts().size() == static_cast<std::size_t>(existing_action_count));
+			assert(plan.get_latest_service_starts().size() == static_cast<std::size_t>(existing_action_count));
 			pickup_range = compute_temporal_insertion_position_range(
-				action_bounds.earliest_service_starts,
-				action_bounds.latest_service_starts,
+				plan.get_earliest_service_starts(),
+				plan.get_latest_service_starts(),
 				pickup_action_data.get_min_time(),
 				pickup_action_data.get_max_time()
 			);
 			drop_off_range = compute_temporal_insertion_position_range(
-				action_bounds.earliest_service_starts,
-				action_bounds.latest_service_starts,
+				plan.get_earliest_service_starts(),
+				plan.get_latest_service_starts(),
 				drop_off_action_data.get_min_time(),
 				drop_off_action_data.get_max_time()
 			);
@@ -677,9 +692,9 @@ private:
 
 		for(index_in_plan i = 0; i < existing_action_count; ++i) {
 			const A& current_action = plan[i];
-			std::int64_t earliest_arrival;
+			time_type earliest_arrival;
 			if(i == 0) {
-				earliest_arrival = static_cast<std::int64_t>(plan.get_operating_start())
+				earliest_arrival = plan.get_operating_start()
 					+ this->context.travel_time_provider()->get_travel_time(
 						plan.get_vehicle().get_init_position(),
 						current_action.get_node()
@@ -694,7 +709,7 @@ private:
 						current_action.get_node()
 					);
 			}
-			bounds.earliest_service_starts[i] = std::max<std::int64_t>(
+			bounds.earliest_service_starts[i] = std::max<time_type>(
 				current_action.get_min_time(),
 				earliest_arrival
 			);
@@ -708,15 +723,16 @@ private:
 			else {
 				const A& next_action = plan[i + 1];
 				const std::int64_t latest_before_next =
-					bounds.latest_service_starts[i + 1]
+					static_cast<std::int64_t>(bounds.latest_service_starts[i + 1])
 					- current_action.get_service_duration()
 					- this->context.travel_time_provider()->get_travel_time(
 						current_action.get_node(),
 						next_action.get_node()
 					);
-				bounds.latest_service_starts[i] = std::min<std::int64_t>(
+				assert(latest_before_next >= 0);
+				bounds.latest_service_starts[i] = std::min<time_type>(
 					current_action.get_max_time(),
-					latest_before_next
+					static_cast<time_type>(latest_before_next)
 				);
 			}
 
