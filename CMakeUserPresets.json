@@ -2,14 +2,21 @@
     "version": 4,
     "configurePresets": [
       {
+        "name": "config-local",
+        "toolchainFile": "C:/vcpkg/scripts/buildsystems/vcpkg.cmake",
+        "cacheVariables": {
+          "CMAKE_C_COMPILER": "cl.exe",
+          "CMAKE_CXX_COMPILER": "cl.exe"
+          
+        }
+      },
+      {
         "name": "debug-config-local",
-        "inherits": "debug-config",
-        "toolchainFile": "C:/vcpkg/scripts/buildsystems/vcpkg.cmake"
+        "inherits": ["debug-config", "config-local"]
       },
       {
         "name": "release-config-local",
-        "inherits": "release-config",
-        "toolchainFile": "C:/vcpkg/scripts/buildsystems/vcpkg.cmake"
+        "inherits": ["release-config", "config-local"]
       }
     ],
     "buildPresets": [

@@ -9,8 +9,10 @@
     },
     {
       "name": "release-config",
+      "generator": "Ninja",
       "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "RelWithDebInfo"
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
       }
     }
   ],
@@ -23,7 +25,7 @@
     {
       "name": "release",
       "configurePreset": "release-config",
-      "configuration": "RelWithDebInfo"
+      "configuration": "Release"
     }
   ]
 }
