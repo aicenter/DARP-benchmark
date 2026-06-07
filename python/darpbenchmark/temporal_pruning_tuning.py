@@ -2,6 +2,7 @@ import csv
 import json
 import logging
 import math
+import shutil
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
@@ -9,6 +10,20 @@ from typing import Iterable
 
 from scipy.optimize import minimize_scalar
 import yaml
+
+try:
+    from cppdev.benchmarking import (
+        BUILD_PARAMETERS_FILENAME,
+        BenchmarkError,
+        build_parameters_path_for_binary,
+        check_and_copy_build_parameters,
+        compare_build_parameters,
+    )
+except ImportError as error:
+    raise ImportError(
+        "The cppdev package is required for benchmark build-parameter validation. "
+        "Install C:\\Workspaces\\Fido\\cpp-dev-support\\src in the Python environment."
+    ) from error
 
 logger = logging.getLogger(__name__)
 
@@ -46,25 +61,25 @@ class TemporalPruningMinPlanLengthTuner:
         executable_path: Path | str = "DARP-benchmark",
         tcount: int = 5,
         tmax: int = 0,
+        previous_output_folder: Path | str | None = None,
     ):
         self.instance_config_file = instance_config_file.resolve()
         self.working_dir = working_dir.resolve()
         self.initial_length_a = initial_length_a
         self.initial_length_b = initial_length_b
-        executable_path_string = str(executable_path)
-        self.executable_path = (
-            executable_path_string
-            if executable_path_string in {"DARP-benchmark", "DARP-benchmark.exe"}
-            else Path(executable_path).resolve()
-        )
+        self.executable_path = self.resolve_executable_path(executable_path)
         self.tcount = tcount
         self.tmax = tmax
+        self.previous_output_folder = (
+            Path(previous_output_folder).resolve() if previous_output_folder is not None else None
+        )
         self.results_file = self.working_dir / RESULTS_FILE
         self.baseline_solution_key: str | None = None
 
     def tune(self) -> TemporalPruningRunResult:
         self.validate()
         self.working_dir.mkdir(parents=True, exist_ok=True)
+        self.check_build_parameters()
         results: dict[int, TemporalPruningRunResult] = {}
 
         baseline = self.evaluate(0, results)
@@ -124,9 +139,23 @@ class TemporalPruningMinPlanLengthTuner:
     def to_length(value: float, lower: int, upper: int) -> int:
         return min(upper, max(lower, round(value)))
 
+    @staticmethod
+    def resolve_executable_path(executable_path: Path | str) -> Path:
+        executable_path_string = str(executable_path)
+        if executable_path_string in {"DARP-benchmark", "DARP-benchmark.exe"}:
+            resolved_from_path = shutil.which(executable_path_string)
+            if resolved_from_path is not None:
+                return Path(resolved_from_path).resolve()
+        return Path(executable_path).resolve()
+
     def validate(self) -> None:
         if not self.instance_config_file.is_file():
             raise FileNotFoundError(f"Instance config not found: {self.instance_config_file}")
+        if not self.executable_path.is_file():
+            raise FileNotFoundError(
+                f"DARP-benchmark executable not found: {self.executable_path}. "
+                "Pass --executable with an explicit binary path."
+            )
         for length in (self.initial_length_a, self.initial_length_b):
             if length < 0:
                 raise ValueError("Initial lengths must be non-negative. Use 0 to disable pruning.")
@@ -134,6 +163,27 @@ class TemporalPruningMinPlanLengthTuner:
             raise ValueError("tcount must be greater than 1 so the tuner can compare average runtime")
         if self.tmax < 0:
             raise ValueError("tmax must be non-negative")
+        if self.previous_output_folder is not None and not self.previous_output_folder.is_dir():
+            raise FileNotFoundError(f"Previous output folder not found: {self.previous_output_folder}")
+
+    def check_build_parameters(self) -> None:
+        try:
+            current_build_parameters_path = build_parameters_path_for_binary(self.executable_path)
+            working_build_parameters_path = self.working_dir / BUILD_PARAMETERS_FILENAME
+
+            if working_build_parameters_path.exists():
+                compare_build_parameters(current_build_parameters_path, self.working_dir)
+                if self.previous_output_folder is not None:
+                    compare_build_parameters(current_build_parameters_path, self.previous_output_folder)
+                return
+
+            check_and_copy_build_parameters(
+                self.executable_path,
+                self.working_dir,
+                self.previous_output_folder,
+            )
+        except BenchmarkError as error:
+            raise RuntimeError(f"Build-parameter validation failed: {error}") from error
 
     def evaluate(
         self,

@@ -49,6 +49,15 @@ def main() -> int:
         default=0,
         help="Maximum number of OpenMP threads. 0 keeps benchmark default.",
     )
+    parser.add_argument(
+        "--previous-output-folder",
+        type=Path,
+        default=None,
+        help=(
+            "Previous tuning working directory containing build_parameters.yaml. "
+            "Current build parameters are compared against it before benchmarking."
+        ),
+    )
     args = parser.parse_args()
 
     logging.basicConfig(level=logging.INFO)
@@ -60,6 +69,7 @@ def main() -> int:
         args.executable,
         args.tcount,
         args.tmax,
+        args.previous_output_folder,
     )
     best = tuner.tune()
     print(
