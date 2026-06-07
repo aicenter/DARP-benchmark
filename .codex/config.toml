@@ -1,0 +1,7 @@
+sandbox_mode = "workspace-write"
+
+[sandbox_workspace_write]
+writable_roots = [
+    "c:/Workspaces/AIC/DARP-Benchmark",
+    "c:/Workspaces/Fido/cpp-dev-support",
+]

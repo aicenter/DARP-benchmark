@@ -550,15 +550,26 @@ public:
     	unsigned long old_cost = plan.get_cost();
     	IH_vehicle_plan_builder<V, A, P> best_plan = plan;
 
-	    for(
-			index_in_plan pickup_option_index = 0;
-			pickup_option_index < static_cast<index_in_plan>(plan.get_action_data_used_length() - 1);
-			pickup_option_index++
-		){
+		if(!pickup_range.empty()) {
+			for(index_in_plan pickup_option_index = 0; pickup_option_index < pickup_range.first; ++pickup_option_index) {
+				if(pickup_option_index < static_cast<index_in_plan>(plan.get_active_length() - 1)){
+					if(plan[pickup_option_index].get_action_type() == Action_type::pickup){
+						--free_capacity;
+					}
+					else{
+						++free_capacity;
+					}
+				}
+			}
+
+			for(
+				index_in_plan pickup_option_index = pickup_range.first;
+				pickup_option_index <= pickup_range.last;
+				pickup_option_index++
+			){
 
 	        // continue if the vehicle is full
-	        if(free_capacity > 0 && !pickup_range.empty()
-				&& pickup_option_index >= pickup_range.first && pickup_option_index <= pickup_range.last){
+	        if(free_capacity > 0){
 
                 // insert pickup
 	        	bool success = insert_into_plan(plan, pickup_option_index, true);
@@ -636,19 +647,20 @@ public:
 						}
 	        			plan.remove_lastly_added_action(true, true);
                     }
-	        	}
+                }
 	        }
 
 	        // change free capacity for next index
-            if(pickup_option_index < static_cast<index_in_plan>(plan.get_active_length() - 1)){
-	            if(plan[pickup_option_index].get_action_type() == Action_type::pickup){
-	                --free_capacity;
-	            }
-	            else{
-	                ++free_capacity;
-	            }
-            }
-	    }
+				if(pickup_option_index < static_cast<index_in_plan>(plan.get_active_length() - 1)){
+					if(plan[pickup_option_index].get_action_type() == Action_type::pickup){
+						--free_capacity;
+					}
+					else{
+						++free_capacity;
+					}
+				}
+			}
+		}
 
     	plan = best_plan;
     	return min_increment;
