@@ -526,7 +526,7 @@ public:
 
 		const bool temporal_pruning_enabled =
 			temporal_pruning_min_plan_length > 0
-			&& existing_action_count >= static_cast<index_in_plan>(temporal_pruning_min_plan_length);
+			&& static_cast<plan_size_type>(existing_action_count) >= temporal_pruning_min_plan_length;
 
 		if(temporal_pruning_enabled && existing_action_count > 0) {
 			assert(plan.has_temporal_action_bounds_for_length(existing_action_count));

@@ -369,6 +369,49 @@ std::pair<
 		EXPECT_FALSE(plan.has_valid_temporal_action_bounds());
 	}
 
+	TEST(IH_SVDARP_temporal_pruning_test, large_threshold_does_not_enable_pruning_by_narrowing) {
+		using Plan_builder = IH_vehicle_plan_builder<Test_vehicle, Test_action_data<>, IH_SVDARP_test_plan<>>;
+		using Solver = SVDARP<unsigned, Test_vehicle, Test_action_data<>, IH_SVDARP_test_plan<>>;
+
+		auto travel_time_provider = std::make_shared<Unit_travel_time_provider>();
+		auto config = std::make_shared<DARP_instance_configuration>(0, 0, false);
+		const DARP_context<unsigned> context(travel_time_provider, config);
+		Solver solver(context);
+		Test_vehicle vehicle(10);
+		Plan_builder plan(vehicle, 8);
+
+		for(unsigned i = 0; i < 3; ++i) {
+			Test_request<> request = make_test_request(
+				i * 2 + 1,
+				i * 100,
+				i * 100 + 10,
+				i * 2 + 2,
+				i * 100 + 20,
+				i * 100 + 30
+			);
+			solver.insert_request_into_plan_optimally(
+				request.pickup_action_data,
+				request.drop_off_action_data,
+				plan,
+				std::numeric_limits<unsigned long>::max(),
+				0
+			);
+		}
+
+		EXPECT_FALSE(plan.has_valid_temporal_action_bounds());
+		Test_request<> request = make_test_request(7, 300, 310, 8, 320, 330);
+		solver.insert_request_into_plan_optimally(
+			request.pickup_action_data,
+			request.drop_off_action_data,
+			plan,
+			std::numeric_limits<unsigned long>::max(),
+			std::numeric_limits<plan_size_type>::max()
+		);
+
+		EXPECT_EQ(plan.get_action_data_used_length(), 8);
+		EXPECT_FALSE(plan.has_valid_temporal_action_bounds());
+	}
+
 
 	
 	TEST(IH_SVDARP_test, insert_into_empty_plan) {

@@ -9,10 +9,28 @@
 #include <unordered_set>
 #include <algorithm>
 #include <queue>
+#include <stdexcept>
 #include "../../ActionData.h"
 #include "../../Adjustment_reason.h"
 #include "../../progress_bar.h"
 
+
+namespace insertion_heuristic_detail {
+	inline plan_size_type validate_temporal_pruning_min_plan_length(const int temporal_pruning_min_plan_length) {
+		if(temporal_pruning_min_plan_length < 0) {
+			throw std::out_of_range("ih.temporal_pruning_min_plan_length must be non-negative");
+		}
+
+		if(
+			static_cast<unsigned long long>(temporal_pruning_min_plan_length)
+			> static_cast<unsigned long long>(std::numeric_limits<plan_size_type>::max())
+		) {
+			throw std::out_of_range("ih.temporal_pruning_min_plan_length does not fit plan_size_type");
+		}
+
+		return static_cast<plan_size_type>(temporal_pruning_min_plan_length);
+	}
+}
 
 template<typename N, Vehicle_plan_builder_action A, IH_vehicle V, IH_vehicle_plan<V, A> P>
 Insertion_heuristic_solver<N, A, V, P>::Insertion_heuristic_solver(
@@ -25,12 +43,11 @@ Insertion_heuristic_solver<N, A, V, P>::Insertion_heuristic_solver(
 	DARP_benchmark_solver<N>(instance, solver_config),
 	minimize_used_vehicles(minimize_used_vehicles),
 	SVDARP_solver(DARP_context<N>(instance)),
-	temporal_pruning_min_plan_length(static_cast<plan_size_type>(
-		std::min<int>(
-			std::max(0, solver_config.ih.temporal_pruning_min_plan_length),
-			std::numeric_limits<plan_size_type>::max()
+	temporal_pruning_min_plan_length(
+		insertion_heuristic_detail::validate_temporal_pruning_min_plan_length(
+			solver_config.ih.temporal_pruning_min_plan_length
 		)
-	)),
+	),
 	nearest_vehicle_provider(nearest_vehicle_provider) {
 }
 

@@ -3,6 +3,7 @@
   "configurePresets": [
     {
       "name": "debug-config",
+      "generator": "Ninja",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug"
       }
