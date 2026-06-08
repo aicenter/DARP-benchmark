@@ -111,7 +111,6 @@ target_include_directories(DARP-benchmark
 		${RAPIDJSON_INCLUDE_DIRS}
 	PRIVATE
 		${TCLAP_INCLUDE_DIR}
-		include/
 )
 target_link_libraries(DARP-benchmark
 	PRIVATE

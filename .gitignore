@@ -1,6 +1,5 @@
-# manual build dir
-build
-build_fedora
+# manual build dirs
+/build*
 
 # Visual Studio
 **/.vs/*
@@ -17,9 +16,6 @@ cmake-build-*/
 
 # vscode
 .vscode/
-
-# cursor
-build-vscode
 
 # Python
 cache
