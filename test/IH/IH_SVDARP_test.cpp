@@ -169,6 +169,17 @@ std::pair<
 		}
 	}
 
+	template<class V, class A, class P>
+	bool has_cached_action_bounds_for_current_length(
+		const IH_vehicle_plan_builder<V, A, P>& plan
+	) {
+		const auto length = static_cast<std::size_t>(plan.get_action_data_used_length());
+		return plan.get_earliest_service_starts().size() == length
+			&& plan.get_latest_service_starts().size() == length
+			&& plan.get_free_capacities_before_positions().size() == length + 1
+			&& plan.get_first_capacity_blocking_pickups().size() == length + 1;
+	}
+
 	class Unit_travel_time_provider : public Travel_time_provider<unsigned> {
 	public:
 		travel_time_type get_travel_time(const unsigned& from, const unsigned& to) const override {
@@ -271,7 +282,7 @@ std::pair<
 
 		Plan_builder exhaustive_plan = plan;
 		Plan_builder pruned_plan = plan;
-		solver.update_temporal_action_bounds(pruned_plan);
+		pruned_plan.update_temporal_action_bounds(*travel_time_provider);
 		Test_request<> exhaustive_request = make_test_request(1001, 2050, 2060, 1002, 2070, 2080);
 		Test_request<> pruned_request = make_test_request(1001, 2050, 2060, 1002, 2070, 2080);
 
@@ -313,10 +324,10 @@ std::pair<
 			std::numeric_limits<unsigned long>::max(),
 			0
 		);
-		EXPECT_FALSE(plan.has_valid_temporal_action_bounds());
+		EXPECT_FALSE(has_cached_action_bounds_for_current_length(plan));
 
-		solver.update_temporal_action_bounds(plan);
-		EXPECT_TRUE(plan.has_valid_temporal_action_bounds());
+		plan.update_temporal_action_bounds(*travel_time_provider);
+		EXPECT_TRUE(has_cached_action_bounds_for_current_length(plan));
 		EXPECT_EQ(plan.get_earliest_service_starts().size(), 2);
 		EXPECT_EQ(plan.get_latest_service_starts().size(), 2);
 
@@ -328,10 +339,10 @@ std::pair<
 			std::numeric_limits<unsigned long>::max(),
 			2
 		);
-		EXPECT_FALSE(plan.has_valid_temporal_action_bounds());
+		EXPECT_FALSE(has_cached_action_bounds_for_current_length(plan));
 
-		solver.update_temporal_action_bounds(plan);
-		EXPECT_TRUE(plan.has_valid_temporal_action_bounds());
+		plan.update_temporal_action_bounds(*travel_time_provider);
+		EXPECT_TRUE(has_cached_action_bounds_for_current_length(plan));
 		EXPECT_EQ(plan.get_earliest_service_starts().size(), 4);
 		EXPECT_EQ(plan.get_latest_service_starts().size(), 4);
 	}
@@ -366,7 +377,7 @@ std::pair<
 		}
 
 		EXPECT_EQ(plan.get_length(), 6);
-		EXPECT_FALSE(plan.has_valid_temporal_action_bounds());
+		EXPECT_FALSE(has_cached_action_bounds_for_current_length(plan));
 	}
 
 	TEST(IH_SVDARP_temporal_pruning_test, large_threshold_does_not_enable_pruning_by_narrowing) {
@@ -398,7 +409,7 @@ std::pair<
 			);
 		}
 
-		EXPECT_FALSE(plan.has_valid_temporal_action_bounds());
+		EXPECT_FALSE(has_cached_action_bounds_for_current_length(plan));
 		Test_request<> request = make_test_request(7, 300, 310, 8, 320, 330);
 		solver.insert_request_into_plan_optimally(
 			request.pickup_action_data,
@@ -409,7 +420,7 @@ std::pair<
 		);
 
 		EXPECT_EQ(plan.get_action_data_used_length(), 8);
-		EXPECT_FALSE(plan.has_valid_temporal_action_bounds());
+		EXPECT_FALSE(has_cached_action_bounds_for_current_length(plan));
 	}
 
 

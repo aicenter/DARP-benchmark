@@ -1,5 +1,8 @@
 #pragma once
 
+#include <algorithm>
+#include <cstdint>
+
 #include "../Vehicle_plan_builder.h"
 #include "../../Request.h"
 
@@ -95,28 +98,29 @@ public:
 		return latest_service_starts;
 	}
 
-	[[nodiscard]] bool has_valid_temporal_action_bounds() const {
-		return has_temporal_action_bounds_for_length(action_data_used_length);
+	[[nodiscard]] const std::vector<unsigned short>& get_free_capacities_before_positions() const {
+		return free_capacities_before_positions;
 	}
 
-	[[nodiscard]] bool has_temporal_action_bounds_for_length(plan_size_type length) const {
-		return earliest_service_starts.size() == length
-			&& latest_service_starts.size() == length;
+	[[nodiscard]] const std::vector<index_in_plan>& get_first_capacity_blocking_pickups() const {
+		return first_capacity_blocking_pickups;
 	}
 
-	void set_temporal_action_bounds(
-		std::vector<time_type>&& earliest_service_starts_par,
-		std::vector<time_type>&& latest_service_starts_par
-	) {
-		assert(earliest_service_starts_par.size() == action_data_used_length);
-		assert(latest_service_starts_par.size() == action_data_used_length);
-		earliest_service_starts = std::move(earliest_service_starts_par);
-		latest_service_starts = std::move(latest_service_starts_par);
+	void assert_valid_cached_action_bounds_for_length([[maybe_unused]] plan_size_type length) const {
+		assert(earliest_service_starts.size() == length);
+		assert(latest_service_starts.size() == length);
+		assert(free_capacities_before_positions.size() == length + 1);
+		assert(first_capacity_blocking_pickups.size() == length + 1);
 	}
+
+	template<class Travel_time_provider>
+	void update_temporal_action_bounds(const Travel_time_provider& travel_time_provider);
 
 	void clear_temporal_action_bounds() {
 		earliest_service_starts.clear();
 		latest_service_starts.clear();
+		free_capacities_before_positions.clear();
+		first_capacity_blocking_pickups.clear();
 	}
 
 	void add_new_request_data(A& pickup_action_data, A& drop_off_action_data) {
@@ -261,6 +265,10 @@ private:
 	std::vector<time_type> earliest_service_starts;
 
 	std::vector<time_type> latest_service_starts;
+
+	std::vector<unsigned short> free_capacities_before_positions;
+
+	std::vector<index_in_plan> first_capacity_blocking_pickups;
 
 };
 

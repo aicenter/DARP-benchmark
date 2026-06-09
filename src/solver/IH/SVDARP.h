@@ -24,11 +24,6 @@
  */
 template<typename N, IH_SVDARP_vehicle<N> V, IH_SVDARP_action<N> A, Vehicle_plan_builder_plan<V,A> P>
 class SVDARP {
-	struct Temporal_action_bounds {
-		std::vector<time_type> earliest_service_starts;
-		std::vector<time_type> latest_service_starts;
-	};
-
 public:
 	struct Temporal_insertion_position_range {
 		index_in_plan first{0};
@@ -62,17 +57,6 @@ public:
 	}
 
 	explicit SVDARP(const DARP_context<N>& context_par): context(context_par) {
-	}
-
-	void update_temporal_action_bounds(IH_vehicle_plan_builder<V, A, P>& plan) const {
-		Temporal_action_bounds action_bounds = compute_temporal_action_bounds(
-			plan,
-			static_cast<index_in_plan>(plan.get_action_data_used_length())
-		);
-		plan.set_temporal_action_bounds(
-			std::move(action_bounds.earliest_service_starts),
-			std::move(action_bounds.latest_service_starts)
-		);
 	}
 
 	bool adjust_times(
@@ -527,11 +511,10 @@ public:
 		const bool temporal_pruning_enabled =
 			temporal_pruning_min_plan_length > 0
 			&& static_cast<plan_size_type>(existing_action_count) >= temporal_pruning_min_plan_length;
+		const bool cached_action_bounds_enabled = temporal_pruning_enabled && existing_action_count > 0;
 
-		if(temporal_pruning_enabled && existing_action_count > 0) {
-			assert(plan.has_temporal_action_bounds_for_length(existing_action_count));
-			assert(plan.get_earliest_service_starts().size() == static_cast<std::size_t>(existing_action_count));
-			assert(plan.get_latest_service_starts().size() == static_cast<std::size_t>(existing_action_count));
+		if(cached_action_bounds_enabled) {
+			plan.assert_valid_cached_action_bounds_for_length(existing_action_count);
 			pickup_range = compute_temporal_insertion_position_range(
 				plan.get_earliest_service_starts(),
 				plan.get_latest_service_starts(),
@@ -546,18 +529,21 @@ public:
 			);
 		}
 
-	    unsigned short free_capacity = plan.get_vehicle().get_capacity();
     	unsigned long old_cost = plan.get_cost();
     	IH_vehicle_plan_builder<V, A, P> best_plan = plan;
 
+	    unsigned short free_capacity = plan.get_vehicle().get_capacity();
+
 		if(!pickup_range.empty()) {
-			for(index_in_plan pickup_option_index = 0; pickup_option_index < pickup_range.first; ++pickup_option_index) {
-				if(pickup_option_index < static_cast<index_in_plan>(plan.get_active_length() - 1)){
-					if(plan[pickup_option_index].get_action_type() == Action_type::pickup){
-						--free_capacity;
-					}
-					else{
-						++free_capacity;
+			if(!cached_action_bounds_enabled) {
+				for(index_in_plan pickup_option_index = 0; pickup_option_index < pickup_range.first; ++pickup_option_index) {
+					if(pickup_option_index < static_cast<index_in_plan>(plan.get_active_length() - 1)){
+						if(plan[pickup_option_index].get_action_type() == Action_type::pickup){
+							--free_capacity;
+						}
+						else{
+							++free_capacity;
+						}
 					}
 				}
 			}
@@ -569,7 +555,11 @@ public:
 			){
 
 	        // continue if the vehicle is full
-	        if(free_capacity > 0){
+	        if(
+				cached_action_bounds_enabled
+					? plan.get_free_capacities_before_positions()[pickup_option_index] > 0
+					: free_capacity > 0
+			){
 
                 // insert pickup
 	        	bool success = insert_into_plan(plan, pickup_option_index, true);
@@ -582,35 +572,52 @@ public:
 	        			plan.remove_lastly_added_action(true, true);
 	        		}
                     else {
-                        unsigned free_capacity_drop_off = free_capacity - 1; // now we count the succesfull pickup
+						unsigned free_capacity_drop_off = 0;
+						if(!cached_action_bounds_enabled) {
+							free_capacity_drop_off = free_capacity - 1; // now we count the successful pickup
+						}
 
 						if(!drop_off_range.empty()) {
 							const auto first_drop_off_option_index = std::max<index_in_plan>(
 								pickup_option_index + 1,
 								drop_off_range.first + 1
 							);
-							const auto last_drop_off_option_index = std::min<index_in_plan>(
+							index_in_plan last_drop_off_option_index = std::min<index_in_plan>(
 								static_cast<index_in_plan>(plan.get_action_data_used_length() - 1),
 								drop_off_range.last + 1
 							);
 							bool capacity_allows_later_drop_off = first_drop_off_option_index <= last_drop_off_option_index;
 
-							for(
-								index_in_plan drop_off_option_index = pickup_option_index + 1;
-								capacity_allows_later_drop_off && drop_off_option_index < first_drop_off_option_index;
-								drop_off_option_index++
-							) {
-								if(drop_off_option_index < static_cast<index_in_plan>(plan.get_active_length() - 1)){
-									if(plan[drop_off_option_index].get_action_type() == Action_type::pickup){
-										if(free_capacity_drop_off == 0) {
-											capacity_allows_later_drop_off = false;
+							if(cached_action_bounds_enabled) {
+								const index_in_plan first_capacity_blocking_pickup =
+									plan.get_first_capacity_blocking_pickups()[pickup_option_index];
+								const index_in_plan last_capacity_feasible_drop_off_option_index =
+									first_capacity_blocking_pickup == existing_action_count
+										? static_cast<index_in_plan>(plan.get_action_data_used_length() - 1)
+										: static_cast<index_in_plan>(first_capacity_blocking_pickup + 1);
+								last_drop_off_option_index = std::min<index_in_plan>(
+									last_drop_off_option_index,
+									last_capacity_feasible_drop_off_option_index
+								);
+							}
+							else {
+								for(
+									index_in_plan drop_off_option_index = pickup_option_index + 1;
+									capacity_allows_later_drop_off && drop_off_option_index < first_drop_off_option_index;
+									drop_off_option_index++
+								) {
+									if(drop_off_option_index < static_cast<index_in_plan>(plan.get_active_length() - 1)){
+										if(plan[drop_off_option_index].get_action_type() == Action_type::pickup){
+											if(free_capacity_drop_off == 0) {
+												capacity_allows_later_drop_off = false;
+											}
+											else {
+												--free_capacity_drop_off;
+											}
 										}
-										else {
-											--free_capacity_drop_off;
+										else{
+											++free_capacity_drop_off;
 										}
-									}
-									else{
-										++free_capacity_drop_off;
 									}
 								}
 							}
@@ -631,8 +638,9 @@ public:
 									plan.remove_lastly_added_action(false, true);
 								}
 
-								// check the capacity and change free capacity for next index
-								if(drop_off_option_index < static_cast<index_in_plan>(plan.get_active_length() - 1)){
+								if(!cached_action_bounds_enabled
+									&& drop_off_option_index < static_cast<index_in_plan>(plan.get_active_length() - 1)
+								){
 									if(plan[drop_off_option_index].get_action_type() == Action_type::pickup){
 										if(free_capacity_drop_off == 0) {
 											break;
@@ -651,7 +659,9 @@ public:
 	        }
 
 	        // change free capacity for next index
-				if(pickup_option_index < static_cast<index_in_plan>(plan.get_active_length() - 1)){
+				if(!cached_action_bounds_enabled
+					&& pickup_option_index < static_cast<index_in_plan>(plan.get_active_length() - 1)
+				){
 					if(plan[pickup_option_index].get_action_type() == Action_type::pickup){
 						--free_capacity;
 					}
@@ -694,67 +704,6 @@ public:
 	}
 
 private:
-	Temporal_action_bounds compute_temporal_action_bounds(
-		const IH_vehicle_plan_builder<V, A, P>& plan,
-		index_in_plan existing_action_count
-	) const {
-		Temporal_action_bounds bounds;
-		bounds.earliest_service_starts.resize(existing_action_count);
-		bounds.latest_service_starts.resize(existing_action_count);
-
-		for(index_in_plan i = 0; i < existing_action_count; ++i) {
-			const A& current_action = plan[i];
-			time_type earliest_arrival;
-			if(i == 0) {
-				earliest_arrival = plan.get_operating_start()
-					+ this->context.travel_time_provider()->get_travel_time(
-						plan.get_vehicle().get_init_position(),
-						current_action.get_node()
-					);
-			}
-			else {
-				const A& previous_action = plan[i - 1];
-				earliest_arrival = bounds.earliest_service_starts[i - 1]
-					+ previous_action.get_service_duration()
-					+ this->context.travel_time_provider()->get_travel_time(
-						previous_action.get_node(),
-						current_action.get_node()
-					);
-			}
-			bounds.earliest_service_starts[i] = std::max<time_type>(
-				current_action.get_min_time(),
-				earliest_arrival
-			);
-		}
-
-		for(index_in_plan i = existing_action_count - 1; i >= 0; --i) {
-			const A& current_action = plan[i];
-			if(i == existing_action_count - 1) {
-				bounds.latest_service_starts[i] = current_action.get_max_time();
-			}
-			else {
-				const A& next_action = plan[i + 1];
-				const std::int64_t latest_before_next =
-					static_cast<std::int64_t>(bounds.latest_service_starts[i + 1])
-					- current_action.get_service_duration()
-					- this->context.travel_time_provider()->get_travel_time(
-						current_action.get_node(),
-						next_action.get_node()
-					);
-				assert(latest_before_next >= 0);
-				bounds.latest_service_starts[i] = std::min<time_type>(
-					current_action.get_max_time(),
-					static_cast<time_type>(latest_before_next)
-				);
-			}
-
-			if(i == 0) {
-				break;
-			}
-		}
-		return bounds;
-	}
-
 	const DARP_context<N> context;
 };
 

@@ -153,7 +153,7 @@ std::optional<Solution<N>> Insertion_heuristic_solver<N, A, V, P>::insert_reques
 		vehicle_plan_builders.reserve(solution.get_plans().size());
 		vehicle_plan_builders.emplace_back(plan);
 		if(temporal_pruning_min_plan_length > 0) {
-			SVDARP_solver.update_temporal_action_bounds(vehicle_plan_builders.back());
+			vehicle_plan_builders.back().update_temporal_action_bounds(*this->travel_time_provider());
 		}
 		used_vehicles.insert(plan.get_vehicle().get_index());
 
@@ -201,7 +201,7 @@ std::optional<P> Insertion_heuristic_solver<N, A, V, P>::insert_request_in_plan(
 
 	IH_vehicle_plan_builder<V, A, P> plan_builder(vehicle_plan);
 	if(temporal_pruning_min_plan_length > 0) {
-		SVDARP_solver.update_temporal_action_bounds(plan_builder);
+		plan_builder.update_temporal_action_bounds(*this->travel_time_provider());
 	}
 
 	// fail fast
@@ -269,7 +269,7 @@ void Insertion_heuristic_solver<N, A, V, P>::set_best_plan() {
 	this->solution_cost += min_cost_increment;
 	vehicle_plan_builders[best_vehicle_index] = best_plan.value();
 	if(temporal_pruning_min_plan_length > 0) {
-		SVDARP_solver.update_temporal_action_bounds(vehicle_plan_builders[best_vehicle_index]);
+		vehicle_plan_builders[best_vehicle_index].update_temporal_action_bounds(*this->travel_time_provider());
 	}
 	else {
 		vehicle_plan_builders[best_vehicle_index].clear_temporal_action_bounds();
