@@ -278,6 +278,59 @@ TEST(Insertion_heuristic_solver_test, one_car_multiple_requests) {
 		instance->get_requests()[1].get_index());
 }
 
+TEST(Insertion_heuristic_solver_test, parallel_vehicle_trials_match_serial_solution_cost) {
+	std::shared_ptr<Travel_time_provider<Cordeau_node>> travel_time_provider
+		= std::make_shared<Euclidean_travel_time_provider<Cordeau_node>>((unsigned short) 60);
+
+	auto vehicles = std::make_unique<std::vector<Vehicle<Cordeau_node>>>();
+	auto requests = std::make_unique<std::vector<Request<Cordeau_node>>>();
+
+	std::shared_ptr<Cordeau_node> vehicle_0_position{new Cordeau_node{0, 0}};
+	std::shared_ptr<Cordeau_node> vehicle_1_position{new Cordeau_node{100, 0}};
+	std::shared_ptr<Cordeau_node> vehicle_2_position{new Cordeau_node{200, 0}};
+	vehicles->emplace_back(0, vehicle_0_position, 2);
+	vehicles->emplace_back(1, vehicle_1_position, 2);
+	vehicles->emplace_back(2, vehicle_2_position, 2);
+
+	std::shared_ptr<Cordeau_node> pickup_0{new Cordeau_node{101, 0}};
+	std::shared_ptr<Cordeau_node> dropoff_0{new Cordeau_node{102, 0}};
+	requests->emplace_back(
+		2, 3, 0, pickup_0, 0, 1000, dropoff_0, 0,
+		1200, (unsigned short) 180, (unsigned short) 0, (unsigned short) 0
+	);
+
+	std::shared_ptr<Cordeau_node> pickup_1{new Cordeau_node{202, 0}};
+	std::shared_ptr<Cordeau_node> dropoff_1{new Cordeau_node{203, 0}};
+	requests->emplace_back(
+		4, 5, 1, pickup_1, 0, 1000, dropoff_1, 0,
+		1200, (unsigned short) 180, (unsigned short) 0, (unsigned short) 0
+	);
+
+	auto config = std::make_shared<DARP_instance_configuration>(0, 0, false);
+	auto instance = std::make_shared<DARP_instance<Cordeau_node>>(
+		std::move(requests),
+		std::move(vehicles),
+		travel_time_provider,
+		config
+	);
+
+	auto serial_solver_config = fc::load<DARP_benchmark_config>();
+	serial_solver_config.tmax = 1;
+	serial_solver_config.ih.temporal_pruning_min_plan_length = 1;
+	Insertion_heuristic_solver<Cordeau_node> serial_solver(*instance, serial_solver_config, fs::path{});
+	std::unique_ptr<Solution<Cordeau_node>> serial_solution = serial_solver.solve();
+
+	auto parallel_solver_config = fc::load<DARP_benchmark_config>();
+	parallel_solver_config.tmax = 2;
+	parallel_solver_config.ih.temporal_pruning_min_plan_length = 1;
+	Insertion_heuristic_solver<Cordeau_node> parallel_solver(*instance, parallel_solver_config, fs::path{});
+	std::unique_ptr<Solution<Cordeau_node>> parallel_solution = parallel_solver.solve();
+
+	ASSERT_EQ(parallel_solution->get_cost(), serial_solution->get_cost());
+	ASSERT_EQ(parallel_solution->get_dropped_request_count(), serial_solution->get_dropped_request_count());
+	ASSERT_EQ(parallel_solution->get_plans().size(), serial_solution->get_plans().size());
+}
+
 /**
  * Test the insertion of a request in a plan: a method used by the HALNS solver. It is base on a failing
  * plan-request combination detected when solving a real instance.

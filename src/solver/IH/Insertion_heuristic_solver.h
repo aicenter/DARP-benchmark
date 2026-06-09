@@ -109,6 +109,8 @@ private:
 
 	const plan_size_type temporal_pruning_min_plan_length;
 
+	const unsigned int max_parallel_vehicle_trials;
+
     uint_fast32_t best_vehicle_index{std::numeric_limits<uint_fast32_t>::max()};
 
     uint_fast32_t current_vehicle_plan_index{0};
@@ -126,10 +128,22 @@ private:
 
     void process_request(const Request<N>& request);
 
-    void process_request_vehicle_combination(
+	struct Vehicle_insertion_candidate {
+		uint_fast32_t vehicle_plan_index;
+		unsigned int cost_increment;
+	};
+
+	std::optional<Vehicle_insertion_candidate> evaluate_request_vehicle_combination(
+		uint_fast32_t vehicle_plan_index,
         A& pickup_action_data,
-		A& drop_off_action_data
+		A& drop_off_action_data,
+		unsigned int min_increment,
+		std::optional<IH_vehicle_plan_builder<V, A, P>>& evaluated_plan
 	);
+
+	void process_existing_vehicle_plans_serial(A& pickup_action_data, A& drop_off_action_data);
+
+	void process_existing_vehicle_plans_parallel(A& pickup_action_data, A& drop_off_action_data);
 
     bool can_serve_request(
         const V& vehicle,
