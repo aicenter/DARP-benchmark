@@ -341,10 +341,22 @@ std::pair<
 		);
 		EXPECT_FALSE(has_cached_action_bounds_for_current_length(plan));
 
+		Plan_builder full_rebuild_plan = plan;
+		full_rebuild_plan.clear_temporal_action_bounds();
+		full_rebuild_plan.update_temporal_action_bounds(*travel_time_provider);
+
 		plan.update_temporal_action_bounds(*travel_time_provider);
 		EXPECT_TRUE(has_cached_action_bounds_for_current_length(plan));
 		EXPECT_EQ(plan.get_earliest_service_starts().size(), 4);
 		EXPECT_EQ(plan.get_latest_service_starts().size(), 4);
+		EXPECT_EQ(
+			plan.get_free_capacities_before_positions(),
+			full_rebuild_plan.get_free_capacities_before_positions()
+		);
+		EXPECT_EQ(
+			plan.get_first_capacity_blocking_pickups(),
+			full_rebuild_plan.get_first_capacity_blocking_pickups()
+		);
 	}
 
 	TEST(IH_SVDARP_temporal_pruning_test, threshold_zero_does_not_require_cached_bounds) {

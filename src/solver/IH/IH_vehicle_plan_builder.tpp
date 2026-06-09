@@ -15,10 +15,14 @@ void IH_vehicle_plan_builder<V, A, P>::update_temporal_action_bounds(
 	const Travel_time_provider& travel_time_provider
 ) {
 	const auto existing_action_count = static_cast<index_in_plan>(action_data_used_length);
+	const auto previous_capacity_bounds_size = free_capacities_before_positions.size();
+	const bool update_capacity_bounds_incrementally =
+		action_data_used_length >= 2
+		&& previous_capacity_bounds_size == action_data_used_length - 1
+		&& first_capacity_blocking_pickups.size() == previous_capacity_bounds_size;
+
 	earliest_service_starts.resize(existing_action_count);
 	latest_service_starts.resize(existing_action_count);
-	free_capacities_before_positions.resize(existing_action_count + 1);
-	first_capacity_blocking_pickups.resize(existing_action_count + 1);
 
 	for(index_in_plan i = 0; i < existing_action_count; ++i) {
 		const A& current_action = (*this)[i];
@@ -71,19 +75,50 @@ void IH_vehicle_plan_builder<V, A, P>::update_temporal_action_bounds(
 		}
 	}
 
-	unsigned short free_capacity = this->get_vehicle().get_capacity();
-	for(index_in_plan i = 0; i < existing_action_count; ++i) {
-		free_capacities_before_positions[i] = free_capacity;
-		if((*this)[i].get_action_type() == Action_type::pickup) {
-			assert(free_capacity > 0);
-			--free_capacity;
+	if(update_capacity_bounds_incrementally) {
+		const auto previous_free_capacities_before_positions = std::move(free_capacities_before_positions);
+
+		const A& new_pickup = this->action_data[action_data_used_length - 2];
+		const A& new_drop_off = this->action_data[action_data_used_length - 1];
+		assert(new_pickup.get_action_type() == Action_type::pickup);
+		assert(new_drop_off.get_action_type() == Action_type::dropoff);
+
+		const index_in_plan pickup_position = new_pickup.get_position_in_plan();
+		const index_in_plan drop_off_position = new_drop_off.get_position_in_plan();
+		assert(pickup_position >= 0);
+		assert(drop_off_position > pickup_position);
+		assert(drop_off_position < existing_action_count);
+
+		free_capacities_before_positions.resize(existing_action_count + 1);
+		for(index_in_plan i = 0; i <= pickup_position; ++i) {
+			free_capacities_before_positions[i] = previous_free_capacities_before_positions[i];
 		}
-		else {
-			++free_capacity;
+		for(index_in_plan i = pickup_position + 1; i <= drop_off_position; ++i) {
+			assert(previous_free_capacities_before_positions[i - 1] > 0);
+			free_capacities_before_positions[i] = previous_free_capacities_before_positions[i - 1] - 1;
+		}
+		for(index_in_plan i = drop_off_position + 1; i <= existing_action_count; ++i) {
+			free_capacities_before_positions[i] = previous_free_capacities_before_positions[i - 2];
 		}
 	}
-	free_capacities_before_positions[existing_action_count] = free_capacity;
+	else {
+		free_capacities_before_positions.resize(existing_action_count + 1);
 
+		unsigned short free_capacity = this->get_vehicle().get_capacity();
+		for(index_in_plan i = 0; i < existing_action_count; ++i) {
+			free_capacities_before_positions[i] = free_capacity;
+			if((*this)[i].get_action_type() == Action_type::pickup) {
+				assert(free_capacity > 0);
+				--free_capacity;
+			}
+			else {
+				++free_capacity;
+			}
+		}
+		free_capacities_before_positions[existing_action_count] = free_capacity;
+	}
+
+	first_capacity_blocking_pickups.resize(existing_action_count + 1);
 	index_in_plan first_capacity_blocking_pickup = existing_action_count;
 	first_capacity_blocking_pickups[existing_action_count] = first_capacity_blocking_pickup;
 	for(index_in_plan i = existing_action_count - 1; i >= 0; --i) {
