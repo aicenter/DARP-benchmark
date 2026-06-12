@@ -16,7 +16,11 @@
       },
       {
         "name": "release-config-local",
-        "inherits": ["release-config", "config-local"]
+        "inherits": [ "release-config", "config-local" ]
+      },
+      {
+        "name": "release-debug-config-local",
+        "inherits": [ "release-debug-config", "config-local" ]
       }
     ],
     "buildPresets": [
@@ -26,9 +30,14 @@
         "configuration": "Debug"
       },
       {
-          "name": "release-local",
-          "configurePreset": "release-config-local",
-          "configuration": "Release"
+        "name": "release-local",
+        "configurePreset": "release-config-local",
+        "configuration": "Release"
+      },
+      {
+        "name": "release-debug-local",
+        "configurePreset": "release-debug-config-local",
+        "configuration": "Release"
       }
     ]
 }

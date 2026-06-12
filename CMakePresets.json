@@ -15,6 +15,14 @@
         "CMAKE_BUILD_TYPE": "Release",
         "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
       }
+    },
+    {
+      "name": "release-debug-config",
+      "generator": "Ninja",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
+      }
     }
   ],
   "buildPresets": [
@@ -27,6 +35,11 @@
       "name": "release",
       "configurePreset": "release-config",
       "configuration": "Release"
+    },
+    {
+      "name": "release-debug",
+      "configurePreset": "release-debug-config",
+      "configuration": "RelWithDebInfo"
     }
   ]
 }
