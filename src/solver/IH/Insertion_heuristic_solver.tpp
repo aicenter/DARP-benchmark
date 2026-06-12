@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <queue>
 #include <stdexcept>
+#include <thread>
 #include "../../ActionData.h"
 #include "../../Adjustment_reason.h"
 #include "../../progress_bar.h"
@@ -48,6 +49,7 @@ Insertion_heuristic_solver<N, A, V, P>::Insertion_heuristic_solver(
 			solver_config.ih.temporal_pruning_min_plan_length
 		)
 	),
+	max_parallel_vehicle_trials(solver_config.tmax > 1 ? static_cast<unsigned int>(solver_config.tmax) : 1u),
 	nearest_vehicle_provider(nearest_vehicle_provider) {
 }
 
@@ -256,6 +258,8 @@ void Insertion_heuristic_solver<N, A, V, P>::reset() {
 	vehicle_plan_builders.clear();
 	vehicle_plan_builders.reserve(this->darp_instance->get_vehicles().size());
 	dropped_requests.clear();
+	best_plan.reset();
+	best_vehicle_index = std::numeric_limits<uint_fast32_t>::max();
 
 	if (minimize_used_vehicles) {
 		unused_vehicles.clear();
@@ -280,15 +284,17 @@ template<typename N, Vehicle_plan_builder_action A, IH_vehicle V, IH_vehicle_pla
 void Insertion_heuristic_solver<N, A, V, P>::process_request(const Request<N>& request) {
 	min_cost_increment = std::numeric_limits<unsigned int>::max();
 	best_plan.reset();
+	best_vehicle_index = std::numeric_limits<uint_fast32_t>::max();
 
-	ActionData<N> pickup_action_data(request.get_pickup());
-	ActionData<N> drop_off_action_data(request.get_dropoff());
+	A pickup_action_data(request.get_pickup());
+	A drop_off_action_data(request.get_dropoff());
 
 	// try to add request into all plans
-	for (current_vehicle_plan_index = 0; current_vehicle_plan_index < vehicle_plan_builders.size();
-		 current_vehicle_plan_index++
-		) {
-		process_request_vehicle_combination(pickup_action_data, drop_off_action_data);
+	if(max_parallel_vehicle_trials > 1 && vehicle_plan_builders.size() > 1) {
+		process_existing_vehicle_plans_parallel(pickup_action_data, drop_off_action_data);
+	}
+	else {
+		process_existing_vehicle_plans_serial(pickup_action_data, drop_off_action_data);
 	}
 
 	if (best_plan) {
@@ -310,7 +316,16 @@ void Insertion_heuristic_solver<N, A, V, P>::process_request(const Request<N>& r
 			nearest_vehicle.get_operation_start());
 		unused_vehicles.erase(unused_vehicles.begin() + nearest_vehicle_index);
 
-		process_request_vehicle_combination(pickup_action_data, drop_off_action_data);
+		if(auto insertion = evaluate_request_vehicle_combination(
+			static_cast<uint_fast32_t>(vehicle_plan_builders.size() - 1),
+			pickup_action_data,
+			drop_off_action_data,
+			min_cost_increment,
+			best_plan
+		)) {
+			min_cost_increment = insertion->cost_increment;
+			best_vehicle_index = insertion->vehicle_plan_index;
+		}
 
 		if (best_plan) {
 			set_best_plan();
@@ -322,27 +337,126 @@ void Insertion_heuristic_solver<N, A, V, P>::process_request(const Request<N>& r
 }
 
 template<typename N, Vehicle_plan_builder_action A, IH_vehicle V, IH_vehicle_plan<V, A> P>
-void Insertion_heuristic_solver<N, A, V, P>::process_request_vehicle_combination(
+std::optional<typename Insertion_heuristic_solver<N, A, V, P>::Vehicle_insertion_candidate>
+Insertion_heuristic_solver<N, A, V, P>::evaluate_request_vehicle_combination(
+	uint_fast32_t vehicle_plan_index,
 	A& pickup_action_data,
-	A& drop_off_action_data
+	A& drop_off_action_data,
+	unsigned int min_increment,
+	std::optional<IH_vehicle_plan_builder<V, A, P>>& evaluated_plan
 ) {
-	IH_vehicle_plan_builder<V, A, P> current_plan = vehicle_plan_builders[current_vehicle_plan_index];
+	evaluated_plan = vehicle_plan_builders[vehicle_plan_index];
 
-	const auto& vehicle = current_plan.get_vehicle();
+	const auto& vehicle = evaluated_plan->get_vehicle();
 
 	// fail fast
 	if (can_serve_request(vehicle, pickup_action_data, drop_off_action_data)) {
 		const unsigned new_min_cost_increment = SVDARP_solver.insert_request_into_plan_optimally(
 			pickup_action_data,
 			drop_off_action_data,
-			current_plan,
-			min_cost_increment,
+			*evaluated_plan,
+			min_increment,
 			temporal_pruning_min_plan_length
 		);
-		if (min_cost_increment > new_min_cost_increment) {
-			min_cost_increment = new_min_cost_increment;
-			best_plan = current_plan;
-			best_vehicle_index = current_vehicle_plan_index;
+		if (min_increment > new_min_cost_increment) {
+			return Vehicle_insertion_candidate{
+				vehicle_plan_index,
+				new_min_cost_increment
+			};
+		}
+	}
+
+	return std::nullopt;
+}
+
+template<typename N, Vehicle_plan_builder_action A, IH_vehicle V, IH_vehicle_plan<V, A> P>
+void Insertion_heuristic_solver<N, A, V, P>::process_existing_vehicle_plans_serial(
+	A& pickup_action_data,
+	A& drop_off_action_data
+) {
+	std::optional<IH_vehicle_plan_builder<V, A, P>> evaluated_plan;
+
+	for (current_vehicle_plan_index = 0; current_vehicle_plan_index < vehicle_plan_builders.size();
+		 current_vehicle_plan_index++
+		) {
+		if(auto insertion = evaluate_request_vehicle_combination(
+			current_vehicle_plan_index,
+			pickup_action_data,
+			drop_off_action_data,
+			min_cost_increment,
+			evaluated_plan
+		)) {
+			if(insertion->cost_increment < min_cost_increment) {
+				min_cost_increment = insertion->cost_increment;
+				best_plan = std::move(evaluated_plan);
+				best_vehicle_index = insertion->vehicle_plan_index;
+			}
+		}
+	}
+}
+
+template<typename N, Vehicle_plan_builder_action A, IH_vehicle V, IH_vehicle_plan<V, A> P>
+void Insertion_heuristic_solver<N, A, V, P>::process_existing_vehicle_plans_parallel(
+	A& pickup_action_data,
+	A& drop_off_action_data
+) {
+	const auto plan_count = static_cast<uint_fast32_t>(vehicle_plan_builders.size());
+	const auto worker_count = std::min<uint_fast32_t>(
+		plan_count,
+		static_cast<uint_fast32_t>(max_parallel_vehicle_trials)
+	);
+	const auto block_size = (plan_count + worker_count - 1) / worker_count;
+
+	std::vector<std::optional<Vehicle_insertion_candidate>> worker_best(worker_count);
+	std::vector<std::optional<IH_vehicle_plan_builder<V, A, P>>> worker_best_plans(worker_count);
+
+	{
+		std::vector<std::jthread> workers;
+		workers.reserve(worker_count);
+		for(uint_fast32_t worker_index = 0; worker_index < worker_count; ++worker_index) {
+			workers.emplace_back([&, worker_index]() {
+				const uint_fast32_t first_plan_index = worker_index * block_size;
+				const uint_fast32_t last_plan_index = std::min<uint_fast32_t>(
+					plan_count,
+					first_plan_index + block_size
+				);
+
+				unsigned int local_min_cost_increment = std::numeric_limits<unsigned int>::max();
+				std::optional<Vehicle_insertion_candidate> local_best;
+				std::optional<IH_vehicle_plan_builder<V, A, P>> evaluated_plan;
+				std::optional<IH_vehicle_plan_builder<V, A, P>> local_best_plan;
+
+				for(uint_fast32_t vehicle_plan_index = first_plan_index;
+					vehicle_plan_index < last_plan_index;
+					++vehicle_plan_index
+				) {
+					if(auto insertion = evaluate_request_vehicle_combination(
+						vehicle_plan_index,
+						pickup_action_data,
+						drop_off_action_data,
+						local_min_cost_increment,
+						evaluated_plan
+					)) {
+						if(insertion->cost_increment < local_min_cost_increment) {
+							local_min_cost_increment = insertion->cost_increment;
+							local_best = std::move(insertion);
+							local_best_plan = std::move(evaluated_plan);
+						}
+					}
+				}
+
+				worker_best[worker_index] = std::move(local_best);
+				worker_best_plans[worker_index] = std::move(local_best_plan);
+			});
+		}
+	}
+
+	for(uint_fast32_t worker_index = 0; worker_index < worker_count; ++worker_index) {
+		auto& insertion = worker_best[worker_index];
+		if(insertion && insertion->cost_increment < min_cost_increment) {
+			min_cost_increment = insertion->cost_increment;
+			best_plan = std::move(worker_best_plans[worker_index]);
+			best_vehicle_index = insertion->vehicle_plan_index;
 		}
 	}
 }
