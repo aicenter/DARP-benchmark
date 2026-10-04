@@ -107,21 +107,16 @@ public:
     DARP_vehicle_plan(const V& vehicle, unsigned short size);
 
 	/**
-	 * @brief Deserialize plan JSON using an explicit vehicle resolver. Plan-local vehicle JSON only identifies or
-	 * validates a vehicle; it never creates backing storage.
+	 * @brief Deserialize plan JSON (vehicle_plan.schema.json in the Ridesharing_DARP_instances repository).
+	 * Plan-local vehicle JSON only identifies or validates a vehicle; it never creates backing storage: a normal
+	 * vehicle is looked up by index in \p vehicles, a virtual vehicle is validated against \p virtual_vehicle.
+	 * Virtual vehicle plans are supported only if the vehicle type V can hold a virtual vehicle (Vehicle_base).
 	 */
 	[[nodiscard]] static P JSON_deserialize(
 		const rapidjson::Value& plan_data,
 		const DARP_instance<N>& darp_instance,
 		const std::vector<Vehicle<N>>& vehicles,
 		const Virtual_vehicle* virtual_vehicle = nullptr);
-
-	/** @brief Deserialize plan JSON using an explicit concrete fleet and expected virtual vehicle. */
-	[[nodiscard]] static P JSON_deserialize(
-		const rapidjson::Value& plan_data,
-		const DARP_instance<N>& darp_instance,
-		const std::vector<Vehicle<N>>& vehicles,
-		const Virtual_vehicle& expected_when_virtual);
 
 	DARP_vehicle_plan(const DARP_vehicle_plan& other) = default;
 	DARP_vehicle_plan(DARP_vehicle_plan&& other) noexcept = default;
@@ -307,19 +302,14 @@ public:
 };
 
 /**
- * Plan JSON body parser (actions, cost, times) after the vehicle row is resolved to pointers.
- * Used by solution-style plan-array loaders and by \c DARP_vehicle_plan::JSON_deserialize.
+ * Deserializes a JSON array of action data objects (same shape as plan \c "actions"). Actions are resolved from
+ * the instance requests by \c request_index and \c type.
+ * Used by \c DARP_vehicle_plan::JSON_deserialize and by loaders of standalone action data lists.
  */
-namespace darp_vehicle_plan_json_detail {
-
-template<typename N, class P, class V>
-[[nodiscard]] P deserialize_plan_json_given_resolved_vehicle_pointers(
-	const rapidjson::Value& plan_data,
-	const DARP_instance<N>& darp_instance,
-	const Vehicle_base* vehicle_base_ptr,
-	const Vehicle<N>* vehicle_n_ptr);
-
-}
+template <typename N>
+[[nodiscard]] std::vector<ActionData<N>> deserialize_action_data_list(
+	const rapidjson::Value& actions_array,
+	const DARP_instance<N>& darp_instance);
 
 /**
  * Deserializes a JSON array of plan objects (same shape as solution \c "plans").

@@ -1,5 +1,6 @@
 
 #include <algorithm>
+#include <concepts>
 #include <fstream>
 #include <cstring>
 #include <memory>
@@ -13,26 +14,17 @@
 // Created by Fido on 2020-04-02.
 //
 
-namespace darp_vehicle_plan_json_detail {
-
-template <typename N, class P, class V>
-[[nodiscard]] P deserialize_plan_json_given_resolved_vehicle_pointers(
-	const rapidjson::Value& plan_data,
-	const DARP_instance<N>& darp_instance,
-	const Vehicle_base* vehicle_base_ptr,
-	const Vehicle<N>* vehicle_n_ptr
+template <typename N>
+std::vector<ActionData<N>> deserialize_action_data_list(
+	const rapidjson::Value& actions_array,
+	const DARP_instance<N>& darp_instance
 ) {
-	if (vehicle_base_ptr == nullptr) {
-		throw std::runtime_error("JSON_deserialize plan: null vehicle");
+	if (!actions_array.IsArray()) {
+		throw std::runtime_error("deserialize_action_data_list: expected a JSON array");
 	}
-	if constexpr (!std::is_same_v<P, VehiclePlan<N, Vehicle_base>>) {
-		if (vehicle_n_ptr == nullptr) {
-			throw std::runtime_error("JSON_deserialize plan: vehicle type mismatch for plan P");
-		}
-	}
-
-	const auto& json_actions = plan_data["actions"].GetArray();
+	const auto& json_actions = actions_array.GetArray();
 	std::vector<ActionData<N>> actions;
+	actions.reserve(json_actions.Size());
 	std::unordered_map<unsigned, index_in_plan> pickups;
 	for (index_in_plan i = 0; i < static_cast<index_in_plan>(json_actions.Size()); ++i) {
 		const auto& json_action_data = json_actions[i];
@@ -41,19 +33,19 @@ template <typename N, class P, class V>
 		const Action_type action_type = action_type_from_string(type_str);
 		if (action_type == Action_type::depot) {
 			if (std::strcmp(type_str, "depot") == 0) {
-				throw std::runtime_error("JSON_deserialize plan: depot rows in actions are not supported");
+				throw std::runtime_error("deserialize_action_data_list: depot rows in actions are not supported");
 			}
 			throw std::runtime_error(
-				std::string("JSON_deserialize plan: unsupported action type: ") + type_str
+				std::string("deserialize_action_data_list: unsupported action type: ") + type_str
 			);
 		}
 
 		if (!json_action.HasMember("request_index")) {
-			throw std::runtime_error("JSON_deserialize plan: pickup and drop_off actions require request_index");
+			throw std::runtime_error("deserialize_action_data_list: pickup and drop_off actions require request_index");
 		}
 		const unsigned request_index = json_action["request_index"].GetUint();
 		if (request_index >= static_cast<unsigned>(darp_instance.get_requests().size())) {
-			throw std::runtime_error("JSON_deserialize plan: request_index does not match any request in the instance");
+			throw std::runtime_error("deserialize_action_data_list: request_index does not match any request in the instance");
 		}
 		const Request<N>& request = darp_instance.get_requests()[request_index];
 
@@ -74,18 +66,8 @@ template <typename N, class P, class V>
 		}
 		actions.emplace_back(json_action_data, i, other_index, *action_ptr);
 	}
-
-	const unsigned int cost = plan_data["cost"].GetUint();
-	const unsigned int departure_time = plan_data["departure_time"].GetUint();
-	const unsigned int arrival_time = plan_data["arrival_time"].GetUint();
-	if constexpr (std::is_same_v<P, VehiclePlan<N, Vehicle_base>>) {
-		return P(static_cast<const V&>(*vehicle_base_ptr), cost, std::move(actions), departure_time, arrival_time);
-	} else {
-		return P(static_cast<const V&>(*vehicle_n_ptr), cost, std::move(actions), departure_time, arrival_time);
-	}
+	return actions;
 }
-
-} // namespace darp_vehicle_plan_json_detail
 
 inline bool vehicle_plan_json_references_virtual_vehicle(const rapidjson::Value& vehicle_json) {
 	if (vehicle_json.HasMember("actions")) {
@@ -188,36 +170,28 @@ P DARP_vehicle_plan<N, P, V>::JSON_deserialize(
 	const Virtual_vehicle* virtual_vehicle
 ) {
 	const auto& veh_json = plan_data["vehicle"];
-	const bool is_virtual = vehicle_plan_json_references_virtual_vehicle(veh_json);
-	if (is_virtual && !std::is_same_v<P, VehiclePlan<N, Vehicle_base>>) {
-		throw std::runtime_error(
-			"Solution contains virtual vehicles; use run_functional_test<N, VehiclePlan<N, Vehicle_base>> for fleet sizing"
-		);
-	}
-	const Vehicle_base* vehicle_base_ptr = nullptr;
-	const Vehicle<N>* vehicle_n_ptr = nullptr;
-	if (is_virtual) {
-		if (virtual_vehicle == nullptr) {
-			throw std::runtime_error("DARP_vehicle_plan::JSON_deserialize: plan references virtual vehicle but no top-level virtual_vehicle was loaded");
+	const V* vehicle = nullptr;
+	if (vehicle_plan_json_references_virtual_vehicle(veh_json)) {
+		if constexpr (std::derived_from<Virtual_vehicle, V>) {
+			if (virtual_vehicle == nullptr) {
+				throw std::runtime_error("DARP_vehicle_plan::JSON_deserialize: plan references virtual vehicle but no virtual_vehicle was provided");
+			}
+			validate_virtual_vehicle_plan_reference(veh_json, *virtual_vehicle);
+			vehicle = virtual_vehicle;
+		} else {
+			throw std::runtime_error(
+				"DARP_vehicle_plan::JSON_deserialize: plan references virtual vehicle; use a plan type with Vehicle_base as the vehicle type"
+			);
 		}
-		validate_virtual_vehicle_plan_reference(veh_json, *virtual_vehicle);
-		vehicle_base_ptr = virtual_vehicle;
 	} else {
-		vehicle_n_ptr = &validate_normal_vehicle_plan_reference<N>(veh_json, vehicles);
-		vehicle_base_ptr = vehicle_n_ptr;
+		vehicle = &validate_normal_vehicle_plan_reference<N>(veh_json, vehicles);
 	}
-	return darp_vehicle_plan_json_detail::deserialize_plan_json_given_resolved_vehicle_pointers<N, P, V>(
-		plan_data, darp_instance, vehicle_base_ptr, vehicle_n_ptr);
-}
 
-template <typename N, class P, class V>
-P DARP_vehicle_plan<N, P, V>::JSON_deserialize(
-	const rapidjson::Value& plan_data,
-	const DARP_instance<N>& darp_instance,
-	const std::vector<Vehicle<N>>& vehicles,
-	const Virtual_vehicle& expected_when_virtual
-) {
-	return JSON_deserialize(plan_data, darp_instance, vehicles, &expected_when_virtual);
+	std::vector<ActionData<N>> actions = deserialize_action_data_list<N>(plan_data["actions"], darp_instance);
+	const unsigned int cost = plan_data["cost"].GetUint();
+	const unsigned int departure_time = plan_data["departure_time"].GetUint();
+	const unsigned int arrival_time = plan_data["arrival_time"].GetUint();
+	return P(*vehicle, cost, std::move(actions), departure_time, arrival_time);
 }
 
 template <typename N, class P, class V>
