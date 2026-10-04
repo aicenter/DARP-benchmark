@@ -393,13 +393,12 @@ void check_plans_equal(
 ) {
 	ASSERT_EQ(computed_plan.is_feasible(), expected_plan.is_feasible());
 
-	if (computed_plan.is_feasible()) {
-		check_plan_basics_equal(computed_plan, expected_plan);
-		EXPECT_EQ(computed_plan.get_cost(), expected_plan.get_cost());
-		ASSERT_EQ(computed_plan.get_length(), expected_plan.get_length());
-		for (unsigned short i = 0; i < computed_plan.get_length(); i++) {
-			action_data_comparator(computed_plan[i], expected_plan[i]);
-		}
+	// the plans are compared completely even if infeasible: not all solvers mark their plans as feasible
+	check_plan_basics_equal(computed_plan, expected_plan);
+	EXPECT_EQ(computed_plan.get_cost(), expected_plan.get_cost());
+	ASSERT_EQ(computed_plan.get_length(), expected_plan.get_length());
+	for (unsigned short i = 0; i < computed_plan.get_length(); i++) {
+		action_data_comparator(computed_plan[i], expected_plan[i]);
 	}
 }
 
