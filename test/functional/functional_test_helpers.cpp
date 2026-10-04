@@ -27,10 +27,13 @@
 namespace fs = std::filesystem;
 
 fs::path run_benchmark(std::vector<std::string>& arguments) {
-	std::string command = "DARP-benchmark";
+	// the benchmark executable is located next to the test executable
+	std::string command = "\"" + (get_running_executable_path() / "DARP-benchmark").string() + "\"";
 
-	// output path
-	auto out_path = fs::temp_directory_path() / "DARP_benchmark_functional_test_output";
+	// output path - unique for each test, so that the tests can run in parallel
+	const auto* test_info = ::testing::UnitTest::GetInstance()->current_test_info();
+	auto out_path = fs::temp_directory_path() / "DARP_benchmark_functional_test_output"
+		/ (std::string(test_info->test_suite_name()) + "." + test_info->name());
 
 	// delete output directory if it exists
 	if (fs::exists(out_path)) {

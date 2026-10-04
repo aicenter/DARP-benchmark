@@ -34,13 +34,21 @@ The following libraries are required:
 - boost-algorithm
 - indicators
 - yaml-cpp
-- HDF5
+- HDF5 (including the C++ and the high-level API)
+- RapidJSON
 - future-config
 
 All these can be installed via `vcpkg` with the following command:
 ```bash
-vcpkg install spdlog p-ranav-csv2 nanoflann magic-enum boost-multi-index boost-algorithm indicators yaml-cpp HDF5[cpp] future-config
+vcpkg install spdlog p-ranav-csv2 nanoflann magic-enum boost-multi-index boost-algorithm indicators yaml-cpp "hdf5[cpp,hl]" rapidjson future-config
 ```
+
+## Development version of future-config
+The project can require a version of future-config that is not released in the `vcpkg` registry yet. In that case, `find_package` rejects the registry version, and the library has to be installed from a local clone of the [Future-Config repository](https://github.com/F-I-D-O/Future-Config), using the port that is part of that repository as an overlay port:
+```bash
+vcpkg install future-config --overlay-ports=<Future-Config repository>/cpp/port
+```
+The overlay port builds the library from the local repository, not from GitHub. If the registry version is already installed, remove it first with `vcpkg remove future-config`.
 
 
 
