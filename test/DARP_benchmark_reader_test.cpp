@@ -211,6 +211,71 @@ TEST(DARP_benchmark_reader_test, request_loading_csv) {
 	assert_requests_equal(actual_requests[2], expected_req_2);
 }
 
+TEST(DARP_benchmark_reader_test, max_delay_absolute) {
+	YAML::Node config = YAML::Load("max_delay:\n  mode: absolute\n  seconds: 1000\n");
+	const auto max_delay = internal::load_max_delay(config);
+	EXPECT_EQ(max_delay.get(60), 1000u);
+}
+
+TEST(DARP_benchmark_reader_test, max_delay_relative) {
+	YAML::Node config = YAML::Load("max_delay:\n  mode: relative\n  relative: 0.5\n");
+	const auto max_delay = internal::load_max_delay(config);
+	EXPECT_EQ(max_delay.get(60), 30u);
+	// rounded to the nearest second
+	EXPECT_EQ(max_delay.get(61), 31u);
+}
+
+TEST(DARP_benchmark_reader_test, max_delay_invalid_mode) {
+	YAML::Node config = YAML::Load("max_delay:\n  mode: unknown\n  seconds: 1000\n");
+	EXPECT_THROW(internal::load_max_delay(config), std::runtime_error);
+}
+
+TEST(DARP_benchmark_reader_test, max_delay_takes_precedence_over_max_prolongation) {
+	YAML::Node config = YAML::Load("max_prolongation: 600\nmax_delay:\n  mode: absolute\n  seconds: 1000\n");
+	EXPECT_EQ(internal::load_max_delay(config).get(60), 1000u);
+}
+
+TEST(DARP_benchmark_reader_test, max_delay_deprecated_aliases) {
+	// max_travel_time_delay without mode, as used by the grid instances
+	YAML::Node alias_config = YAML::Load("max_travel_time_delay:\n  seconds: 300\n");
+	EXPECT_EQ(internal::load_max_delay(alias_config).get(60), 300u);
+
+	YAML::Node prolongation_config = YAML::Load("max_prolongation: 600\n");
+	EXPECT_EQ(internal::load_max_delay(prolongation_config).get(60), 600u);
+}
+
+TEST(DARP_benchmark_reader_test, max_delay_not_provided) {
+	YAML::Node config = YAML::Load("{}");
+	EXPECT_EQ(internal::load_max_delay(config).get(60), 0u);
+}
+
+TEST(DARP_benchmark_reader_test, request_loading_csv_max_delay) {
+	const std::string request_filepath = get_test_resource_path("requests.csv").generic_string();
+	const std::string yaml_string = std::format(R"(
+	{{
+		max_delay: {{
+			mode: absolute,
+			seconds: 1000
+		}},
+		demand: {{
+			filepath: "{}"
+		}}
+	}})", request_filepath);
+	YAML::Node config = YAML::Load(yaml_string);
+
+	std::shared_ptr<Travel_time_provider<Amodsim_node>> travel_cost_provider
+		= std::make_shared<Zero_travel_time_provider>();
+
+	const auto instance_dir = get_test_resource_path("requests.csv").parent_path();
+	auto requests_ptr = DARP_benchmark_reader::load_requests(config, travel_cost_provider, instance_dir);
+	const auto& actual_requests = *requests_ptr;
+
+	ASSERT_EQ(actual_requests.size(), 3);
+	const unsigned expected_time_0 = 64813;
+	EXPECT_EQ(actual_requests[0].get_pickup().get_max_time(), expected_time_0 + 1000);
+	EXPECT_EQ(actual_requests[0].get_dropoff().get_max_time(), expected_time_0 + 1000);
+}
+
 // DI test unchanged from before
 TEST(DARP_benchmark_reader_test, request_loading_di) {
 	std::string request_filepath = get_test_resource_path("trips.di").generic_string();

@@ -22,6 +22,7 @@
  * SOFTWARE. */
 #pragma once
 
+#include <optional>
 #include <yaml-cpp/yaml.h>
 #include "Reader.h"
 #include "DARP_benchmark_node.h"
@@ -38,6 +39,23 @@ namespace internal{
 std::shared_ptr<DARP_instance_configuration> load_instance_configuration(const YAML::Node& config);
 
 void load_vehicles_csv(std::vector<Vehicle<Amodsim_node>>& vehicles, const std::string& file_path, unsigned instance_start_time);
+
+/**
+ * Maximum delay of the requests: the `max_delay` key of the instance configuration, or one of its deprecated
+ * aliases `max_travel_time_delay` and `max_prolongation`.
+ */
+struct Max_delay {
+	/** Delay in seconds, used in the absolute mode. */
+	unsigned seconds = 0;
+	/** Delay as a proportion of the minimal travel time, set in the relative mode. */
+	std::optional<double> relative;
+
+	/** Maximum delay in seconds of a request with the given minimal travel time. */
+	[[nodiscard]] unsigned get(unsigned min_travel_time) const;
+};
+
+/** The maximum delay is 0 if the configuration provides none of the keys. */
+Max_delay load_max_delay(const YAML::Node& config);
 }
 
 class DARP_benchmark_reader : public Reader<Amodsim_node> {
@@ -55,14 +73,14 @@ private:
 	// Loader for .di format
 	static std::unique_ptr<std::vector<Request<Amodsim_node>>> load_requests_di(
 		const std::string& request_filepath_str,
-		unsigned short max_prolongation,
+		const internal::Max_delay& max_delay,
 		const std::shared_ptr<Travel_time_provider<Amodsim_node>>& travel_cost_provider
 	);
 
 	// Loader for .csv format using csv2
 	static std::unique_ptr<std::vector<Request<Amodsim_node>>> load_requests_csv(
 		const std::string& request_filepath_str,
-		unsigned short max_prolongation,
+		const internal::Max_delay& max_delay,
 		const std::shared_ptr<Travel_time_provider<Amodsim_node>>& travel_cost_provider
 	);
 

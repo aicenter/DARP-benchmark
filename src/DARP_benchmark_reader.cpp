@@ -22,6 +22,7 @@
  * SOFTWARE. */
 #include <spdlog/spdlog.h>
 #include <algorithm>
+#include <cmath>
 #include <fstream>
 #include <sstream>
 #include <string>
@@ -239,24 +240,21 @@ std::unique_ptr<std::vector<Request<Amodsim_node>>> DARP_benchmark_reader::load_
     const fs::path request_raw(config["demand"]["filepath"].as<std::string>());
     const fs::path request_resolved = resolve_against_instance_dir(instance_directory, request_raw);
     const auto request_filepath = check_path(request_resolved.string());
-	// Grid instances use max_travel_time_delay.seconds; others use max_prolongation (same as Python load_instance)
-	const auto max_prolongation = (config["max_travel_time_delay"] && config["max_travel_time_delay"]["seconds"])
-		? config["max_travel_time_delay"]["seconds"].as<unsigned short>()
-		: config["max_prolongation"].as<unsigned short>();
+	const auto max_delay = internal::load_max_delay(config);
 
     if (request_filepath.extension() == ".csv") {
         spdlog::info("Detected .csv format, using CSV loader for requests.");
-        return load_requests_csv(request_filepath.string(), max_prolongation, travel_cost_provider);
+        return load_requests_csv(request_filepath.string(), max_delay, travel_cost_provider);
     } else { // Assuming .di or other format for the original loader
         spdlog::info("Detected non-csv format, using DI loader for requests.");
-        return load_requests_di(request_filepath.string(), max_prolongation, travel_cost_provider);
+        return load_requests_di(request_filepath.string(), max_delay, travel_cost_provider);
     }
 }
 
 // Original loader for .di format (Renamed)
 std::unique_ptr<std::vector<Request<Amodsim_node>>> DARP_benchmark_reader::load_requests_di(
     const std::string& request_filepath_str,
-    unsigned short max_prolongation,
+    const internal::Max_delay& max_delay,
     const std::shared_ptr<Travel_time_provider<Amodsim_node>>& travel_cost_provider
 ) {
     spdlog::info("Loading requests from DI file: {}", request_filepath_str);
@@ -275,9 +273,10 @@ std::unique_ptr<std::vector<Request<Amodsim_node>>> DARP_benchmark_reader::load_
         std::shared_ptr<Amodsim_node> pickup_node {new Amodsim_node(from)};
         std::shared_ptr<Amodsim_node> drop_off_node {new Amodsim_node(to)};
 		auto min_travel_time = static_cast<unsigned short>(travel_cost_provider->get_travel_time(*pickup_node, *drop_off_node));
+		const unsigned request_max_delay = max_delay.get(min_travel_time);
         requests->emplace_back(id, action_id, action_id + 1,
-                pickup_node, time, time + max_prolongation,
-                drop_off_node, time + min_travel_time, time + min_travel_time + max_prolongation, min_travel_time);
+                pickup_node, time, time + request_max_delay,
+                drop_off_node, time + min_travel_time, time + min_travel_time + request_max_delay, min_travel_time);
         action_id += 2;
     }
     return requests;
@@ -287,7 +286,7 @@ namespace {
 template<char Delim>
 std::unique_ptr<std::vector<Request<Amodsim_node>>> load_requests_csv_impl(
 	const std::string& request_filepath_str,
-	unsigned short max_prolongation,
+	const internal::Max_delay& max_delay,
 	const std::shared_ptr<Travel_time_provider<Amodsim_node>>& travel_cost_provider
 ) {
 	using CsvReader = csv2::Reader<csv2::delimiter<Delim>, csv2::quote_character<'"'>, csv2::first_row_is_header<true>,
@@ -342,9 +341,10 @@ std::unique_ptr<std::vector<Request<Amodsim_node>>> load_requests_csv_impl(
 		std::shared_ptr<Amodsim_node> pickup_node{new Amodsim_node(from)};
 		std::shared_ptr<Amodsim_node> drop_off_node{new Amodsim_node(to)};
 		auto min_travel_time = static_cast<unsigned short>(travel_cost_provider->get_travel_time(*pickup_node, *drop_off_node));
+		const unsigned request_max_delay = max_delay.get(min_travel_time);
 		requests->emplace_back(request_id_counter++, action_id, action_id + 1,
-			pickup_node, time, time + max_prolongation,
-			drop_off_node, time + min_travel_time, time + min_travel_time + max_prolongation, min_travel_time);
+			pickup_node, time, time + request_max_delay,
+			drop_off_node, time + min_travel_time, time + min_travel_time + request_max_delay, min_travel_time);
 		action_id += 2;
 	}
 	return requests;
@@ -354,7 +354,7 @@ std::unique_ptr<std::vector<Request<Amodsim_node>>> load_requests_csv_impl(
 // Loader for .csv format: supports header "time" (seconds) or "time_ms" (milliseconds), "origin", "dest" or "destination"
 std::unique_ptr<std::vector<Request<Amodsim_node>>> DARP_benchmark_reader::load_requests_csv(
 	const std::string& request_filepath_str,
-	unsigned short max_prolongation,
+	const internal::Max_delay& max_delay,
 	const std::shared_ptr<Travel_time_provider<Amodsim_node>>& travel_cost_provider
 ) {
 	spdlog::info("Loading requests from CSV file: {}", request_filepath_str);
@@ -368,13 +368,41 @@ std::unique_ptr<std::vector<Request<Amodsim_node>>> DARP_benchmark_reader::load_
 	}
 	const char delimiter = detect_tab_or_comma_delimiter(header_line);
 	if (delimiter == '\t') {
-		return load_requests_csv_impl<'\t'>(request_filepath_str, max_prolongation, travel_cost_provider);
+		return load_requests_csv_impl<'\t'>(request_filepath_str, max_delay, travel_cost_provider);
 	} else {
-		return load_requests_csv_impl<','>(request_filepath_str, max_prolongation, travel_cost_provider);
+		return load_requests_csv_impl<','>(request_filepath_str, max_delay, travel_cost_provider);
 	}
 }
 
 namespace internal {
+
+unsigned Max_delay::get(unsigned min_travel_time) const {
+	if (relative) {
+		return static_cast<unsigned>(std::lround(*relative * min_travel_time));
+	}
+	return seconds;
+}
+
+Max_delay load_max_delay(const YAML::Node& config) {
+	// max_travel_time_delay is a deprecated alias of max_delay
+	const YAML::Node max_delay_node = config["max_delay"] ? config["max_delay"] : config["max_travel_time_delay"];
+	if (max_delay_node) {
+		// configurations written before the relative mode existed have only the seconds
+		const std::string mode = max_delay_node["mode"] ? max_delay_node["mode"].as<std::string>() : "absolute";
+		if (mode == "absolute") {
+			return Max_delay{max_delay_node["seconds"].as<unsigned>(), std::nullopt};
+		}
+		if (mode == "relative") {
+			return Max_delay{0, max_delay_node["relative"].as<double>()};
+		}
+		throw std::runtime_error(
+			"Invalid 'max_delay.mode' in instance config: expected 'absolute' or 'relative', got: " + mode);
+	}
+	if (config["max_prolongation"]) {
+		return Max_delay{config["max_prolongation"].as<unsigned>(), std::nullopt};
+	}
+	return Max_delay{};
+}
 
 static problem_type parse_problem(const YAML::Node& config) {
 	if (!config["problem"]) {
