@@ -463,6 +463,11 @@ std::unique_ptr<travel_time_type[]> two_D_array_to_flat_array(travel_time_type m
 
 std::unique_ptr<travel_time_type[]> load_dm_from_json(const rapidjson::Document& doc);
 
+/**
+ * @brief Returns the absolute path of a test resource. The resource is searched in the test resource directories of
+ * the downstream projects (CMake variable DARP_BENCHMARK_EXTRA_TEST_RESOURCE_DIRS) first, then in those of this project.
+ * @param relative_path path relative to a test resource directory
+ */
 fs::path get_test_resource_path(const fs::path& relative_path);
 
 [[nodiscard]] DARP_instance<Amodsim_node> load_test_instance_amodsim(const std::string& instance_id);

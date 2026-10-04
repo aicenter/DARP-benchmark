@@ -23,6 +23,7 @@
 #include "common.h"
 #include "../src/inout.h"
 #include "src/DARP_benchmark_reader.h"
+#include <test_resource_dirs.h>
 
 std::unique_ptr<travel_time_type[]> load_dm_from_json(const rapidjson::Document& doc) {
 	const auto& dm_array = doc["dm"].GetArray();
@@ -39,8 +40,13 @@ std::unique_ptr<travel_time_type[]> load_dm_from_json(const rapidjson::Document&
 }
 
 fs::path get_test_resource_path(const fs::path& relative_path) {
-	// Test runner copies contents of data/ to executable dir, so test_resources is next to exe
-	return get_running_executable_path() / "test_resources" / relative_path;
+	for (const fs::path& dir : test_resource_dirs) {
+		fs::path path = dir / relative_path;
+		if (fs::exists(path)) {
+			return path;
+		}
+	}
+	throw std::runtime_error("Test resource not found in any test resource directory: " + relative_path.string());
 }
 
 /**

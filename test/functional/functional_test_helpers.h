@@ -57,7 +57,7 @@ DARP_instance<N> load_instance(const fs::path& instance_path) {
  * @tparam P Plan type (default VehiclePlan<N>; use VehiclePlan<N, Vehicle_base> for fleet sizing with virtual vehicles)
  * @param instance_path Path to the instance config file
  * @param solver_args Additional solver arguments (e.g., "--method", "ih")
- * @param expected_solution_path Path to the expected solution JSON file (relative to instance directory)
+ * @param expected_solution_path Path to the expected solution JSON file (absolute, or relative to the instance directory)
  */
 template<typename N, class P = VehiclePlan<N>>
 void run_functional_test(

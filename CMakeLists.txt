@@ -30,6 +30,7 @@ set(CMAKE_CXX_STANDARD 23)
 
 set(DARP_BENCHMARK_SOLVER_PLUGIN_DIRS "" CACHE STRING "Semicolon-separated extra solver dirs")
 set(DARP_BENCHMARK_EXTERNAL_MAIN_CONFIG_FILE "" CACHE FILEPATH "Path to external main config file for downstream projects")
+set(DARP_BENCHMARK_EXTRA_TEST_RESOURCE_DIRS "" CACHE STRING "Semicolon-separated extra test resource dirs of downstream projects")
 
 include(CTest)
 
@@ -163,6 +164,15 @@ target_include_directories(DARP_benchmark_test_lib
 		${CMAKE_CURRENT_SOURCE_DIR}
 		include/
 )
+
+# Test resources are read directly from the source tree. The directories are passed to the tests in a generated header.
+set(DARP_BENCHMARK_TEST_RESOURCE_DIR_LITERALS "")
+# downstream directories go first, so that downstream projects can override the resources of this project
+foreach(dir IN LISTS DARP_BENCHMARK_EXTRA_TEST_RESOURCE_DIRS ITEMS "${CMAKE_CURRENT_SOURCE_DIR}/data/test_resources")
+	string(APPEND DARP_BENCHMARK_TEST_RESOURCE_DIR_LITERALS "\tR\"path(${dir})path\",\n")
+endforeach()
+configure_file(test/test_resource_dirs.h.in "${CMAKE_CURRENT_BINARY_DIR}/generated/test_resource_dirs.h" @ONLY)
+target_include_directories(DARP_benchmark_test_lib PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/generated")
 target_link_libraries(DARP_benchmark_test_lib
 	PUBLIC
 		DARP_benchmark_lib
@@ -207,9 +217,6 @@ include(GoogleTest)
 gtest_discover_tests(test_run)
 
 add_dependencies(test_run DARP-benchmark)
-
-# Copy the data to build dir
-add_custom_command(TARGET test_run POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_SOURCE_DIR}/data/ $<TARGET_FILE_DIR:test_run>)
 
 foreach(dir IN LISTS DARP_BENCHMARK_SOLVER_PLUGIN_DIRS)
   add_subdirectory(${dir})
