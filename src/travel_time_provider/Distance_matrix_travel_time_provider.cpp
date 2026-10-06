@@ -74,6 +74,11 @@ std::tuple<unsigned, travel_time_type> Distance_matrix_travel_time_provider::get
 	const unsigned& next_action_location,
 	time_type time_since_last_action_departure
 ) const {
+	// A vehicle on its way from last_action_location to next_action_location cannot have been travelling longer than
+	// the travel time between the two locations. Otherwise, no node on the path can be found.
+	assert(time_since_last_action_departure <= get_travel_time(last_action_location, next_action_location)
+		&& "the time since the last action departure exceeds the travel time to the next action location");
+
 	auto lowest_tt_to_i = std::numeric_limits<travel_time_type>::max();
 	unsigned lowest_tt_to_i_index = 0;
 
