@@ -121,7 +121,7 @@ The solution cost is the weighted sum of the cost components of its plans, with 
 
 The other weights of the instance format (`distance_weight`, `ride_time_weight`, `earliness_weight`, `plan_duration_weight`, `fixed_plan_cost`) are accepted only when zero, and `accounting` only as `per_traveller`; any other value makes the instance loading fail. Unknown keys in the `cost` section are an error.
 
-The weighted cost is a floating-point number; the plan and solution `cost` fields of the solution file are numbers, `cost_minutes` stays an integer. The VGA and rolling horizon VGA solvers optimize the weighted cost; the other methods optimize the travel time and only their reported cost is weighted (the benchmark logs a warning in that case).
+The weighted cost is a floating-point number; the plan and solution `cost` fields of the solution file are numbers, `cost_minutes` stays an integer. The VGA, rolling horizon VGA, VGA chaining and fleet-sizing chaining solvers optimize the weighted cost; the other methods optimize the travel time and only their reported cost is weighted (the benchmark logs a warning in that case).
 
 ### Demand Instance File
 Each line has the following structure:
@@ -197,16 +197,19 @@ Note that as of now, the experiment configuration file is not used by the DARP b
 | Parameter | Descripton | Exec. parameter |
 |-----------|------------|--------------------|
 | batch length | Batch length in seconds | `-b`, `--batchl` |
-| time to start | A time estimate from the current position of a vehicle to the first action.* | `--tts` | 
-| max time between plans | max time between any two plans considered for chaining | `--mtbp` |
+| time to start | Travel time estimate [s] from the (unknown) position of a vehicle to the first action of a batch plan. It is the time to start of the virtual vehicle the batch plans are computed for, so every batch plan pays it as its first leg. | `--tts` | 
+| max time between plans | max time between any two plans considered for chaining, 0 = unlimited | `--mtbp` |
 | chaining max gap | Max gap for VGA Chaining ILP solver | `--cmg` |
-| chaining solver max batch | Max number of plans to be chaind in one level of the hierarchical chaining | `--cbs` |
-| max chaining cost | Maximum cost of the chainining connection. Currently implemented onlz for vehicles. | `--mcc` |
+| chaining solver max batch | Max number of plans to be chained in one level of the hierarchical chaining, 0 = flat chaining | `--cbs` |
+| max chaining cost | Maximum travel time [s] of a vehicle to the first plan of its route; longer vehicle assignments are not offered to the chaining. 0 = unlimited. | `--mcc` |
+| max delay | Maximum delay [s] of a delayed plan variant; `-1` = 65535 | `--max_delay` |
+| skip VGA plan export | If false, the batch plans are exported to `vga_plans.json` in the output directory and reused by the next run on the same directory | `--skip-vga-plan-export` |
 
+### Chaining objective
+The chaining connects the batch plans (VGA chaining) or the single-request plans (fleet-sizing chaining) into vehicle routes by solving a min-cost flow problem with an ILP. Its objective is the weighted cost of the final solution up to the constant cost of the plans being chained:
 
+- the vehicle capital cost for every used vehicle,
+- the weighted travel time (`travel_time_weight`) of the leg from a vehicle to the first plan of its route and of the connection legs between consecutive plans,
+- the weighted delay (`passenger_delay_weight`) a delayed plan variant adds over its base plan.
 
-### *Time to start parameter explained
-It is used in the VGA method, as the method cannot know the possitions of vehicles at the beginning of each batch (with exception of the first batch).This cost estimation is used in two components:
-
-- SVDARP solver, there it adds a fixed cost to each plan. In conclusion, longer plans are prefered later in the vehicle-group assignment
-- chaining: here, the tts is used as the cost of the shortuct edge, while the shortut edge represents using an extra vehicle
+The cost of every joined plan is then evaluated by the benchmark (see [Cost model](#cost-model)).

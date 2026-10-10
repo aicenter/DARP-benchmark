@@ -102,7 +102,8 @@ void DARP_benchmark<N>::process_instance(
 	std::string method_lower_case = method;
 	std::transform(method.begin(), method.end(), method_lower_case.begin(), ::tolower);
 	if(!darp_instance.get_darp_instance_configuration()->get_cost_weights().is_default()
-		&& method_lower_case != "vga" && method_lower_case != "rolling_horizon_vga") {
+		&& method_lower_case != "vga" && method_lower_case != "rolling_horizon_vga"
+		&& method_lower_case != "vga_chaining" && method_lower_case != "fleet_sizing_chaining") {
 		spdlog::warn("The instance defines non-default cost weights, but the {} method optimizes its own objective; "
 			"only the reported cost of its solution is weighted", method);
 	}
