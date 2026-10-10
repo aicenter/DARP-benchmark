@@ -72,6 +72,8 @@ So far, only one method is included: Insertion Heuristic (IH).
 - `ih.temporal_pruning_min_plan_length` - minimum existing plan length for IH temporal insertion-position pruning in YAML config. Default: 32. Set to 0 to disable pruning.
 
 
+The objective of the benchmark is the weighted solution cost configured by the `cost` section of the instance `config.yaml` (travel time by default); see the section "Cost model" in [doc/SPECIFICATION.md](doc/SPECIFICATION.md).
+
 ## Usage Examples
 
 ```bash

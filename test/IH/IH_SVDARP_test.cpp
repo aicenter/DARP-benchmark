@@ -141,7 +141,7 @@ std::pair<
 	
 	template<class N>
 	void check_plan_builders_equal(const IH_vehicle_plan_builder<Vehicle<N>, ActionData<N>, VehiclePlan<N>>& computed_plan, const IH_vehicle_plan_builder<Vehicle<N>, ActionData<N>, VehiclePlan<N>>& expected_plan) {
-		EXPECT_EQ(computed_plan.get_cost(), expected_plan.get_cost());
+		EXPECT_DOUBLE_EQ(computed_plan.get_cost(), expected_plan.get_cost());
 
 		ASSERT_EQ(computed_plan.get_action_data_used_length(), expected_plan.get_action_data_used_length());
 		ASSERT_EQ(computed_plan.get_active_length(), expected_plan.get_active_length());
@@ -174,7 +174,7 @@ std::pair<
 		const IH_vehicle_plan_builder<V, A, P>& computed_plan,
 		const IH_vehicle_plan_builder<V, A, P>& expected_plan
 	) {
-		EXPECT_EQ(computed_plan.get_cost(), expected_plan.get_cost());
+		EXPECT_DOUBLE_EQ(computed_plan.get_cost(), expected_plan.get_cost());
 		ASSERT_EQ(computed_plan.get_action_data_used_length(), expected_plan.get_action_data_used_length());
 		ASSERT_EQ(computed_plan.get_active_length(), expected_plan.get_active_length());
 		EXPECT_EQ(computed_plan.get_departure_time(), expected_plan.get_departure_time());

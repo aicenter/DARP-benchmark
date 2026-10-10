@@ -31,6 +31,7 @@
 #include <boost/iterator/iterator_adaptor.hpp>
 
 #include "DARP_instance.h"
+#include "cost/Cost_evaluator.h"
 #include "plan/VehiclePlan.h"
 
 /**
@@ -174,7 +175,7 @@ public:
 
 
 	Solution_interface(
-		const unsigned long cost,
+		const cost_type cost,
 		std::vector<const Request<N>*>&& dropped_requests,
 		bool feasible
 	);
@@ -206,7 +207,7 @@ public:
 	[[nodiscard]] virtual std::string export_simple_csv() const;
 
 protected:
-	unsigned long cost;
+	cost_type cost;
     std::vector<const Request<N>*> dropped_requests;
 	bool feasible{true};
 
@@ -242,7 +243,7 @@ public:
 	 */
     Solution(
         std::vector<P>&& vehicle_plans, 
-        unsigned long cost, 
+        cost_type cost, 
         std::vector<const Request<N>*>&& dropped_requests
     );
 
@@ -273,7 +274,7 @@ public:
 	 */
     Solution(
         std::vector<P>&& vehicle_plans,
-        unsigned long cost,
+        cost_type cost,
         std::vector<const Request<N>*>&& dropped_requests,
         bool is_feasible
     );
@@ -284,14 +285,14 @@ public:
 	 */
 	Solution(
 		std::vector<P>&& vehicle_plans,
-		unsigned long cost,
+		cost_type cost,
 		std::vector<const Request<N>*>&& dropped_requests,
 		std::optional<Virtual_vehicle>&& virtual_vehicle_backing_par
 	);
 
 	Solution(
 		std::vector<P>&& vehicle_plans,
-		unsigned long cost,
+		cost_type cost,
 		std::vector<const Request<N>*>&& dropped_requests,
 		std::optional<Virtual_vehicle>&& virtual_vehicle_backing_par,
 		std::optional<std::vector<Vehicle<N>>>&& fleet_sizing_vehicle_backing_par
@@ -309,7 +310,13 @@ public:
 
     [[nodiscard]] const std::vector<P>& get_plans() const;
 
-    [[nodiscard]] unsigned int get_cost() const;
+	/**
+	 * @brief Sets the cost of every plan and the solution cost to the solver-independent evaluation of the plans
+	 * with the cost weights of the instance (see Cost_evaluator).
+	 */
+	void evaluate_costs(const DARP_instance<N>& instance);
+
+    [[nodiscard]] cost_type get_cost() const;
 
 	[[nodiscard]] unsigned long get_total_passenger_delay() const override;
 

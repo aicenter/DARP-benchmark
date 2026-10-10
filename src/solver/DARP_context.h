@@ -24,6 +24,7 @@
 
 #include "../travel_time_provider/Travel_time_provider.h"
 #include "../DARP_instance.h"
+#include "../cost/Cost_evaluator.h"
 
 /**
  * @brief Travel time provider + DARP configuration shared by solvers and helpers.
@@ -36,7 +37,8 @@ public:
 		std::shared_ptr<T> travel_time_provider_par,
 		std::shared_ptr<DARP_instance_configuration> darp_instance_configuration_par
 	):	travel_time_provider_(std::move(travel_time_provider_par)),
-		darp_instance_configuration_(std::move(darp_instance_configuration_par))
+		darp_instance_configuration_(std::move(darp_instance_configuration_par)),
+		cost_evaluator_(Cost_evaluator::from_configuration(*darp_instance_configuration_))
 	{}
 
 	[[nodiscard]] const std::shared_ptr<T>& travel_time_provider() const {
@@ -59,9 +61,15 @@ public:
 		return darp_instance_configuration_->is_return_to_depot();
 	}
 
+	/** Evaluator of the weighted plan cost configured by the instance. */
+	[[nodiscard]] const Cost_evaluator& cost_evaluator() const {
+		return cost_evaluator_;
+	}
+
 private:
 	std::shared_ptr<T> travel_time_provider_;
 	std::shared_ptr<DARP_instance_configuration> darp_instance_configuration_;
+	Cost_evaluator cost_evaluator_;
 };
 
 template<class N>

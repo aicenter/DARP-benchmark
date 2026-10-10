@@ -29,7 +29,7 @@ Solution<N> Random_solver<N>::compute(const R &requests, const V &vehicles) {
         this->process_request(request, vehicles);
     }
 
-    unsigned long cost = 0;
+    cost_type cost = 0;
     for (auto plan : this->vehicle_plans)
         cost += plan.get_cost();
 
@@ -139,7 +139,7 @@ bool Random_solver<N>::compute_optimal_plan(const Vehicle<N> &vehicle, const Req
                                                                                 vehicle, request);
 
                 if (potential_plan.has_value()) {
-                    unsigned int cost_increment = potential_plan->get_cost() - current_plan.get_cost();
+                    cost_type cost_increment = potential_plan->get_cost() - current_plan.get_cost();
                     try_update_best_plan(potential_plan.value(), cost_increment);
                     //std::cout << "Found plan, increment " << cost_increment << "\n";
                 }
@@ -362,7 +362,7 @@ bool Random_solver<N>::adjust_times(std::vector<ActionData<N>>& new_plan_tasks) 
 }
 
 template <typename N>
-bool Random_solver<N>::try_update_best_plan(VehiclePlan<N> &potential_plan, unsigned int cost_increment) {
+bool Random_solver<N>::try_update_best_plan(VehiclePlan<N> &potential_plan, cost_type cost_increment) {
     if(cost_increment < min_cost_increment || !this->best_plan.has_value()){
         min_cost_increment = cost_increment;
         best_plan = potential_plan;

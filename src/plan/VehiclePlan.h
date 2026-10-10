@@ -35,6 +35,7 @@
 
 #include "Benchmark_vehicle_plan.h"
 #include "../Vehicle.h"
+#include "../cost/Cost_evaluator.h"
 #include "../ActionData.h"
 #include "../Plan_checker.h"
 #include "../solver/Vehicle_plan_builder.h"
@@ -93,7 +94,7 @@ public:
     */
     DARP_vehicle_plan(
         const V& vehicle, 
-        unsigned int cost, 
+        cost_type cost, 
         std::vector<ActionData<N>> actions, 
         unsigned int departure_time,
         unsigned int arrival_time);
@@ -149,7 +150,7 @@ public:
         this->feasible = feasible_par;
     }
 
-    void set_cost(unsigned int new_cost);
+    void set_cost(cost_type new_cost);
 
     //using Benchmark_vehicle_plan<N>::get_actions;
 
@@ -251,7 +252,7 @@ public:
 
 	void append_simple_csv_rows(int plan_index, std::ostringstream& csv) const override;
 
-	[[nodiscard]] unsigned int get_cost() const override;
+	[[nodiscard]] cost_type get_cost() const override;
 
 	[[nodiscard]] unsigned long get_driving_time() const override;
 

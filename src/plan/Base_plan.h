@@ -45,7 +45,7 @@ public:
 	explicit Base_plan(
 		const std::vector<A>& actions,
 		const V& vehicle,
-		unsigned cost,
+		cost_type cost,
 		unsigned departure_time,
 		unsigned arrival_time
 	)
@@ -62,7 +62,7 @@ public:
 
 	[[nodiscard]] const std::vector<A>& get_actions() const;
 
-	[[nodiscard]] unsigned int get_cost() const;
+	[[nodiscard]] cost_type get_cost() const;
 
 	[[nodiscard]] const V& get_vehicle() const;
 
@@ -86,7 +86,7 @@ protected:
 
 	std::reference_wrapper<const V> vehicle;
 
-	unsigned cost{0};
+	cost_type cost{0};
 
 	unsigned departure_time{0};
 

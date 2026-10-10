@@ -221,7 +221,7 @@ TEST(Insertion_heuristic_solver_test, one_car_one_request) {
 	std::unique_ptr<Solution<Cordeau_node>> solution = solver.solve();
 
 	VehiclePlan<Cordeau_node> plan = solution->get_plans()[0];
-	ASSERT_EQ(solution->get_cost(), 120u);
+	ASSERT_DOUBLE_EQ(solution->get_cost(), 120.0);
 
 	ASSERT_EQ(plan[0].get_action().get_action_type(), Action_type::pickup);
 	ASSERT_EQ(plan[1].get_action().get_action_type(), Action_type::dropoff);
@@ -275,7 +275,7 @@ TEST(Insertion_heuristic_solver_test, one_car_multiple_requests) {
 
 	VehiclePlan<Cordeau_node> plan = solution->get_plans()[0];
 
-	ASSERT_EQ(solution->get_cost(), 399u);
+	ASSERT_DOUBLE_EQ(solution->get_cost(), 399.0);
 	ASSERT_EQ(plan[0].get_action().get_action_type(), Action_type::pickup);
 	ASSERT_EQ(plan[1].get_action().get_action_type(), Action_type::pickup);
 	ASSERT_EQ(plan[2].get_action().get_action_type(), Action_type::dropoff);
@@ -345,7 +345,7 @@ TEST(Insertion_heuristic_solver_test, parallel_vehicle_trials_match_serial_solut
 	Insertion_heuristic_solver<Cordeau_node> parallel_solver(*instance, parallel_solver_config, fs::path{});
 	std::unique_ptr<Solution<Cordeau_node>> parallel_solution = parallel_solver.solve();
 
-	ASSERT_EQ(parallel_solution->get_cost(), serial_solution->get_cost());
+	ASSERT_DOUBLE_EQ(parallel_solution->get_cost(), serial_solution->get_cost());
 	ASSERT_EQ(parallel_solution->get_dropped_request_count(), serial_solution->get_dropped_request_count());
 	ASSERT_EQ(parallel_solution->get_plans().size(), serial_solution->get_plans().size());
 }

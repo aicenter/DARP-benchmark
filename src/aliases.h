@@ -30,6 +30,11 @@ using time_type = uint_least32_t;
 */
 using travel_time_type = uint_least16_t;
 
+/**
+ * @brief Type of plan and solution costs: a weighted sum of integer quantities (see Cost_weights).
+ */
+using cost_type = double;
+
 using delay_type = uint_least16_t;
 
 using request_index_type = uint_fast32_t;

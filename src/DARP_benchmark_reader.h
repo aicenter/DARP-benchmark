@@ -38,6 +38,14 @@ struct grid_vertex_index_trait<Amodsim_node> {
 namespace internal{
 std::shared_ptr<DARP_instance_configuration> load_instance_configuration(const YAML::Node& config);
 
+/**
+ * Loads the `cost` section of the instance configuration with the legacy fallbacks (`demand.relative_delay_cost`
+ * for the passenger delay weight, `vehicles.capital_cost` for the vehicle capital cost).
+ * @throws std::runtime_error on an unknown key, on `accounting` other than `per_traveller`, and on a non-zero weight
+ * of a component that the benchmark does not evaluate.
+ */
+Cost_weights load_cost_weights(const YAML::Node& config);
+
 void load_vehicles_csv(std::vector<Vehicle<Amodsim_node>>& vehicles, const std::string& file_path, unsigned instance_start_time);
 
 /**

@@ -181,6 +181,7 @@ target_link_libraries(DARP_benchmark_test_lib
 
 add_executable(test_run
 	test/Cordeau_benchmark_test.cpp
+	test/Cost_evaluator_test.cpp
 	test/DARP_benchmark_reader_test.cpp
 	test/Distance_matrix_travel_time_provider_test.cpp
 	test/Euclidean_traveltime_provider_test.cpp

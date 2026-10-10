@@ -275,12 +275,12 @@ private:
 	/*
 	 * Cost of the plan before the pickup action was added.
 	 */
-	unsigned long cost_before_pickup{0};
+	cost_type cost_before_pickup{0};
 
 	/*
 	 * Cost of the plan before the drop off action was added.
 	 */
-	unsigned int cost_before_drop_off{0};
+	cost_type cost_before_drop_off{0};
 
 	time_type operating_start;
 

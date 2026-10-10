@@ -84,9 +84,9 @@ concept Vehicle_plan_builder_plan =
 		{plan.get_vehicle()} -> std::same_as<const V&>;
 		{plan.get_departure_time()} -> std::same_as<time_type>;
 		{plan.get_arrival_time()} -> std::same_as<time_type>;
-		{plan.get_cost()} -> std::same_as<unsigned>;
+		{plan.get_cost()} -> std::same_as<cost_type>;
 	}
-    && requires(const V& vehicle, unsigned cost, const std::vector<A>& actions, time_type departure_time, time_type arrival_time) {
+    && requires(const V& vehicle, cost_type cost, const std::vector<A>& actions, time_type departure_time, time_type arrival_time) {
         {P(vehicle, cost, actions, departure_time, arrival_time)} -> std::same_as<P>;
     }
 	&& requires(const P plan, index_in_plan index) {
@@ -132,11 +132,11 @@ public:
 	    return action_data;
     }
 
-    [[nodiscard]] unsigned get_cost() const {
+    [[nodiscard]] cost_type get_cost() const {
 	    return cost;
     }
 
-    void set_cost(unsigned cost_par) {
+    void set_cost(cost_type cost_par) {
 	    this->cost = cost_par;
     }
 
@@ -380,7 +380,7 @@ protected:
 private:
 	static inline int id_counter = 0;
 
-	unsigned int cost{0};
+	cost_type cost{0};
 };
 
 template<class V, class VH, class A, class P>

@@ -54,7 +54,7 @@ IH_SVDARP_test_plan<A, V>::IH_SVDARP_test_plan(
 	DARP_benchmark_plan_template<A, V>(
 		parse_actions_from_json(json_data),
 		vehicle,
-		json_data["cost"].GetUint(),
+		json_data["cost"].GetDouble(),
 		json_data["departure_time"].GetUint(),
 		json_data["arrival_time"].GetUint()
 	) {}

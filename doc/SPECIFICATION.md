@@ -98,13 +98,30 @@ The structure is following:
 - `map`: the objecct for the map configuration
     - `SRID`: The SRID of the map projection. Example: `4326`
     - `SRID_plane`: The SRID of the map planar projection. Example: `32618`
-- `max_prolongation`: The maximum extra time a request spend over the direct transportation from origin to destination, in seconds. It includes the waiting times. Example: `300`
+- `cost`: weights of the generalized cost model, see [Cost model](#cost-model) below
+- `demand.relative_delay_cost`: legacy default of `cost.passenger_delay_weight`
+- `max_delay`: the maximum extra time a request spends over the direct transportation from origin to destination, in seconds, including the waiting times. Either `mode: absolute` with `seconds`, or `mode: relative` with `relative` (a proportion of the minimal travel time). `max_prolongation` (plain seconds) and `max_travel_time_delay` are deprecated aliases. Example: `300`
+- `problem`: `DARP` (default) or `fleet-sizing` (vehicles are not loaded, the solver creates them)
+- `vehicles.capital_cost`: legacy default of `cost.vehicle_capital_cost`
 - `save_shp`: if `true` then the shapefile will be saved for map, demand, and vehicles
 - `vehicles`: configuration object for vehicles
     - `start_time`: Each vehicle will be available since this datetime. Example: `'2022-03-11 17:45:00'`
     - `vehicle_capacity`: The capacity of the vehicle. Example: `4`
     `vehicle_to_request_ratio`: The ration between vehicles and requests. Example: `0.5` (meaning 1 vehicle per 2 requests).
 
+
+### Cost model
+The solution cost is the weighted sum of the cost components of its plans, with the weights taken from the `cost` section of the instance configuration (the format is defined by the [DARP instances project](https://github.com/aicenter/Ridesharing_DARP_instances), section "Generalized cost model"). The benchmark evaluates the cost of every plan of the final solution itself (`Cost_evaluator`, `src/cost/Cost_evaluator.h`), so the reported cost does not depend on the solver. The components evaluated by the benchmark are:
+
+| Key | Quantity | Default | Legacy default |
+|-----|----------|---------|----------------|
+| `travel_time_weight` | vehicle travel time [s]: the legs between the vehicle start, the actions and, when the instance requires the return to the depot, the depot; a leg counts the longer of the matrix travel time and the scheduled time between the departure and the arrival | 1.0 | |
+| `passenger_delay_weight` | passenger delay [s]: drop-off arrival minus the arrival of the direct ride started at the desired pickup time, summed over drop-offs | 0.0 | `demand.relative_delay_cost` |
+| `vehicle_capital_cost` | constant charged to every non-empty plan | 0.0 | `vehicles.capital_cost` |
+
+The other weights of the instance format (`distance_weight`, `ride_time_weight`, `earliness_weight`, `plan_duration_weight`, `fixed_plan_cost`) are accepted only when zero, and `accounting` only as `per_traveller`; any other value makes the instance loading fail. Unknown keys in the `cost` section are an error.
+
+The weighted cost is a floating-point number; the plan and solution `cost` fields of the solution file are numbers, `cost_minutes` stays an integer. The VGA and rolling horizon VGA solvers optimize the weighted cost; the other methods optimize the travel time and only their reported cost is weighted (the benchmark logs a warning in that case).
 
 ### Demand Instance File
 Each line has the following structure:

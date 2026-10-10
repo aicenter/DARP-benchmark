@@ -16,7 +16,12 @@ std::unique_ptr<Solution<N, P>> DARP_benchmark_solver<N, P>::solve() requires(Be
 #pragma warning(push)
 #pragma warning(disable: 4702)
 #endif
-	return solve_impl();
+	std::unique_ptr<Solution<N, P>> solution = solve_impl();
+	// the reported cost is the solver-independent evaluation of the final plans
+	if(solution && solution->is_feasible()) {
+		solution->evaluate_costs(*darp_instance);
+	}
+	return solution;
 #if defined(_MSC_VER)
 #pragma warning(pop)
 #endif
@@ -48,7 +53,7 @@ std::optional<VehiclePlan<N>> DARP_benchmark_solver<N, P>::compute_optimal_plan(
 	const Request<N>& request
 ) {
 	std::optional<VehiclePlan<N>> best_plan{};
-	unsigned int min_cost_increment = std::numeric_limits<unsigned int>::max();
+	cost_type min_cost_increment = std::numeric_limits<cost_type>::max();
 
 	const auto& vehicle = current_plan.get_vehicle();
 	unsigned short free_capacity = vehicle.get_capacity();
@@ -66,7 +71,7 @@ std::optional<VehiclePlan<N>> DARP_benchmark_solver<N, P>::compute_optimal_plan(
 					drop_off_option_index, request
 				);
 				if (potential_plan) {
-					const unsigned int cost_increment = potential_plan->get_cost() - current_plan.get_cost();
+					const cost_type cost_increment = potential_plan->get_cost() - current_plan.get_cost();
 					if (cost_increment < min_cost_increment) {
 						min_cost_increment = cost_increment;
 						best_plan = potential_plan;

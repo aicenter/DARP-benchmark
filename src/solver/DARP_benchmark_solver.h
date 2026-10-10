@@ -127,7 +127,7 @@ protected:
 
 	unsigned short max_delay_time{0};
 
-	unsigned long solution_cost{0};
+	cost_type solution_cost{0};
 
 	[[nodiscard]] unsigned long get_max_route_duration() const {
 		return context.get_max_route_duration();

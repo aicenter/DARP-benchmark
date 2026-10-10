@@ -99,6 +99,13 @@ void DARP_benchmark<N>::process_instance(
 	std::filesystem::current_path(out_dir);
 
 	auto solver = Default_solver_registry::get().create_solver(method, darp_instance, solver_arguments, out_dir);
+	std::string method_lower_case = method;
+	std::transform(method.begin(), method.end(), method_lower_case.begin(), ::tolower);
+	if(!darp_instance.get_darp_instance_configuration()->get_cost_weights().is_default()
+		&& method_lower_case != "vga" && method_lower_case != "rolling_horizon_vga") {
+		spdlog::warn("The instance defines non-default cost weights, but the {} method optimizes its own objective; "
+			"only the reported cost of its solution is weighted", method);
+	}
 	spdlog::info("Running {} solver", method);
 	auto result = benchmark(
 		&DARP_benchmark_solver_interface<N>::solve_and_get_final_result,

@@ -32,9 +32,9 @@ rapidjson::StringBuffer  Solution_interface<N>::JSON_serialize(unsigned short re
 	writer.Bool(feasible);
 	if(feasible){
 		writer.Key("cost");
-		writer.Uint64(cost);
+		writer.Double(cost);
 		writer.Key("cost_minutes");
-		writer.Uint64(static_cast<unsigned long>(std::round(static_cast<double>(cost) / resolution)));
+		writer.Uint64(static_cast<unsigned long>(std::llround(cost / resolution)));
 		this->JSON_serialize_extra_fields(writer);
 		writer.Key("total_passenger_delay");
 		writer.Uint64(this->get_total_passenger_delay());
@@ -90,7 +90,7 @@ void Solution_interface<N>::JSON_serialize_extra_fields(
 
 template <typename N>
 Solution_interface<N>::Solution_interface(
-	const unsigned long cost,
+	const cost_type cost,
 	std::vector<const Request<N>*>&& dropped_requests,
 	bool feasible
 ):
@@ -111,7 +111,7 @@ unsigned int Solution_interface<N>::get_dropped_request_count() const {
 template<typename N, Benchmark_plan P>
 Solution<N,P>::Solution(
     std::vector<P>&& vehicle_plans, 
-    unsigned long cost, 
+    cost_type cost, 
     std::vector<const Request<N>*>&& dropped_requests
 ):
 	Solution_interface<N>(cost, std::move(dropped_requests), true),
@@ -123,7 +123,7 @@ Solution<N,P>::Solution(
 template<typename N, Benchmark_plan P>
 Solution<N,P>::Solution(
     std::vector<P>&& vehicle_plans,
-    unsigned long cost,
+    cost_type cost,
     std::vector<const Request<N>*>&& dropped_requests,
     bool is_feasible
 ):
@@ -136,7 +136,7 @@ Solution<N,P>::Solution(
 template<typename N, Benchmark_plan P>
 Solution<N,P>::Solution(
 	std::vector<P>&& vehicle_plans,
-	unsigned long cost,
+	cost_type cost,
 	std::vector<const Request<N>*>&& dropped_requests,
 	std::optional<Virtual_vehicle>&& virtual_vehicle_backing_par,
 	std::optional<std::vector<Vehicle<N>>>&& fleet_sizing_vehicle_backing_par
@@ -186,7 +186,7 @@ Solution<N,P>::Solution(
 template<typename N, Benchmark_plan P>
 Solution<N,P>::Solution(
 	std::vector<P>&& vehicle_plans,
-	unsigned long cost,
+	cost_type cost,
 	std::vector<const Request<N>*>&& dropped_requests,
 	std::optional<Virtual_vehicle>&& virtual_vehicle_backing_par
 ):
@@ -275,11 +275,10 @@ Solution<N,P>::Solution(
 {
 
     std::unordered_set<const Request<N>*> served_requests;
-	
-	
-    for(const P& plan : vehicle_plans) {
-        this->cost += plan.get_cost();
 
+	evaluate_costs(instance);
+
+    for(const P& plan : plans) {
         for (const ActionData<N>& action_data : plan) {
     		if(action_data.get_action_type() != Action_type::depot){
 	            const Request<N>& request = dynamic_cast<const Service_action<N>&>(action_data.get_action()).get_request();
@@ -337,8 +336,8 @@ Solution<N,P>::Solution(
 	}
 
 	std::unordered_set<const Request<N>*> served_requests;
+	evaluate_costs(instance);
 	for(const P& plan : plans) {
-		this->cost += plan.get_cost();
 		for (const ActionData<N>& action_data : plan) {
 			if(action_data.get_action_type() != Action_type::depot){
 				const Request<N>& request = dynamic_cast<const Service_action<N>&>(action_data.get_action()).get_request();
@@ -375,7 +374,18 @@ const std::vector<P>& Solution<N,P>::get_plans() const {
 }
 
 template<typename N, Benchmark_plan P>
-unsigned int Solution<N,P>::get_cost() const {
+void Solution<N,P>::evaluate_costs(const DARP_instance<N>& instance) {
+	const DARP_instance_configuration& configuration = *instance.get_darp_instance_configuration();
+	const Cost_evaluator evaluator = Cost_evaluator::from_configuration(configuration);
+	this->cost = 0;
+	for(P& plan: plans) {
+		plan.set_cost(evaluator.template evaluate<N>(plan, *instance.get_travelcost_provider(), configuration).total);
+		this->cost += plan.get_cost();
+	}
+}
+
+template<typename N, Benchmark_plan P>
+cost_type Solution<N,P>::get_cost() const {
     return this->cost;
 }
 
@@ -487,7 +497,7 @@ bool Solution<N, P>::check() {
 
 
 	std::unordered_set<request_index_type> served_requests;
-    unsigned cost_sum = 0;
+    cost_type cost_sum = 0;
 	for(const auto& plan: plans) {
         // check for request in multiple plans
 		for(const auto& action: plan) {
@@ -502,7 +512,7 @@ bool Solution<N, P>::check() {
 	}
 
     // check that the solution cost matches the sum of the plan costs
-    assert(cost_sum == this->cost);
+    assert(costs_equal(cost_sum, this->cost));
 
 	return true;
 }
@@ -569,7 +579,7 @@ Solution<N, P> deserialize_json(std::filesystem::path path, const DARP_instance<
 	}
 	return Solution<N, P>{
 		std::move(plans),
-		d["cost"].GetUint(),
+		d["cost"].GetDouble(),
 		std::move(dropped_requests),
 		std::move(shared_virtual_vehicle),
 		std::move(fleet_sizing_backing)

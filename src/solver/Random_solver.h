@@ -35,7 +35,7 @@ public:
     typename DARP_benchmark_solver<N>::solution_impl_ret_val solve_impl() override;
 
 private:
-    unsigned int min_cost_increment{0};
+    cost_type min_cost_increment{0};
     std::optional<VehiclePlan<N>> best_plan{};
     std::mt19937 rand_g{};
 
@@ -60,7 +60,7 @@ private:
                                                                      const Request<N> &request);
     VehiclePlan<N>& find_plan_by_vehicle(const Vehicle<N> &v1);
     size_t find_plan_index(const VehiclePlan<N> &vp);
-    bool try_update_best_plan(VehiclePlan<N> &potential_plan, unsigned int cost_increment);
+    bool try_update_best_plan(VehiclePlan<N> &potential_plan, cost_type cost_increment);
     bool adjust_times(std::vector<ActionData<N>> &new_plan_tasks);
 
     std::vector<const Request<N>*> dropped_requests{};

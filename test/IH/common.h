@@ -72,7 +72,7 @@ public:
 	 * @param vehicle vehicle
 	 * @param actions actions
 	 */
-	IH_SVDARP_test_plan(const V& vehicle, const std::vector<A>& actions, unsigned cost)
+	IH_SVDARP_test_plan(const V& vehicle, const std::vector<A>& actions, cost_type cost)
 		: DARP_benchmark_plan_template<A, V>(actions, vehicle, cost) {}
 
 	/**
@@ -85,7 +85,7 @@ public:
 	 */
 	IH_SVDARP_test_plan(
 		const V& vehicle,
-		unsigned cost,
+		cost_type cost,
 		const std::vector<A>& vehicle_plan_actions,
 		time_type departure_time,
 		time_type arrival_time
@@ -98,7 +98,7 @@ public:
 
 	void test_check_equal(const IH_SVDARP_test_plan<A, V>& other) const {
 		check_plan_basics_equal(*this, other);
-		EXPECT_EQ(this->get_cost(), other.get_cost());
+		EXPECT_DOUBLE_EQ(this->get_cost(), other.get_cost());
 		ASSERT_EQ(this->get_length(), other.get_length());
 		for (unsigned short i = 0; i < this->get_length(); i++) {
 			this->operator[](i).test_check_equal(other[i]);

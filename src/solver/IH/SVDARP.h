@@ -517,11 +517,11 @@ public:
 	 * than \p min_increment, the plan is not modified.
 	 * @return the minimum increment. If no improving plan was found, than the return value equals \p min_increment.
 	*/
-	unsigned int insert_request_into_plan_optimally(
+	cost_type insert_request_into_plan_optimally(
         A& pickup_action_data,
         A& drop_off_action_data,
         IH_vehicle_plan_builder<V, A, P>& plan,
-        unsigned long min_increment,
+        cost_type min_increment,
 		plan_size_type temporal_pruning_min_plan_length = 32
     ) const {
         plan.add_new_request_data(pickup_action_data, drop_off_action_data);
@@ -551,7 +551,7 @@ public:
 			);
 		}
 
-    	unsigned long old_cost = plan.get_cost();
+    	cost_type old_cost = plan.get_cost();
     	IH_vehicle_plan_builder<V, A, P> best_plan = plan;
 
 	    unsigned short free_capacity = plan.get_vehicle().get_capacity();
@@ -588,7 +588,7 @@ public:
                 
 	        	if(success) {
 
-		            unsigned long cost_increment = plan.get_cost() - old_cost;
+		            cost_type cost_increment = plan.get_cost() - old_cost;
                     
 	        		if(cost_increment > min_increment) {
 	        			plan.remove_lastly_added_action(true, true);

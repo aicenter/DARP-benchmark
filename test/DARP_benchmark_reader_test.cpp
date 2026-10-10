@@ -249,6 +249,69 @@ TEST(DARP_benchmark_reader_test, max_delay_not_provided) {
 	EXPECT_EQ(internal::load_max_delay(config).get(60), 0u);
 }
 
+TEST(DARP_benchmark_reader_test, cost_weights_defaults) {
+	YAML::Node config = YAML::Load("{}");
+	const Cost_weights weights = internal::load_cost_weights(config);
+	EXPECT_DOUBLE_EQ(weights.travel_time_weight, 1.0);
+	EXPECT_DOUBLE_EQ(weights.passenger_delay_weight, 0.0);
+	EXPECT_DOUBLE_EQ(weights.vehicle_capital_cost, 0.0);
+	EXPECT_TRUE(weights.is_default());
+}
+
+TEST(DARP_benchmark_reader_test, cost_weights_legacy_fallbacks) {
+	YAML::Node config = YAML::Load("vehicles:\n  capital_cost: 400\ndemand:\n  relative_delay_cost: 0.5\n");
+	const auto configuration = internal::load_instance_configuration(config);
+	EXPECT_DOUBLE_EQ(configuration->get_cost_weights().vehicle_capital_cost, 400.0);
+	EXPECT_DOUBLE_EQ(configuration->get_cost_weights().passenger_delay_weight, 0.5);
+	EXPECT_DOUBLE_EQ(configuration->get_cost_weights().travel_time_weight, 1.0);
+	EXPECT_FALSE(configuration->get_cost_weights().is_default());
+	// legacy accessors used by the chaining solvers
+	EXPECT_EQ(configuration->get_vehicle_capital_cost(), 400);
+	EXPECT_DOUBLE_EQ(configuration->get_relative_delay_cost(), 0.5);
+}
+
+TEST(DARP_benchmark_reader_test, cost_weights_null_legacy_fields_ignored) {
+	YAML::Node config = YAML::Load("vehicles:\n  capital_cost: null\ndemand:\n  relative_delay_cost: ~\n");
+	const Cost_weights weights = internal::load_cost_weights(config);
+	EXPECT_TRUE(weights.is_default());
+}
+
+TEST(DARP_benchmark_reader_test, cost_section_overrides_legacy_fields) {
+	YAML::Node config = YAML::Load(
+		"vehicles:\n  capital_cost: 400\ndemand:\n  relative_delay_cost: 0.5\n"
+		"cost:\n  travel_time_weight: 2\n  passenger_delay_weight: 0.25\n  vehicle_capital_cost: 12.5\n  accounting: per_traveller\n");
+	const Cost_weights weights = internal::load_cost_weights(config);
+	EXPECT_DOUBLE_EQ(weights.travel_time_weight, 2.0);
+	EXPECT_DOUBLE_EQ(weights.passenger_delay_weight, 0.25);
+	EXPECT_DOUBLE_EQ(weights.vehicle_capital_cost, 12.5);
+}
+
+TEST(DARP_benchmark_reader_test, cost_section_zero_unsupported_weights_accepted) {
+	YAML::Node config = YAML::Load(
+		"cost:\n  distance_weight: 0\n  ride_time_weight: 0.0\n  earliness_weight: 0\n  plan_duration_weight: 0\n  fixed_plan_cost: 0\n");
+	EXPECT_TRUE(internal::load_cost_weights(config).is_default());
+}
+
+TEST(DARP_benchmark_reader_test, cost_section_nonzero_unsupported_weight_throws) {
+	YAML::Node config = YAML::Load("cost:\n  ride_time_weight: 0.5\n");
+	EXPECT_THROW(internal::load_cost_weights(config), std::runtime_error);
+}
+
+TEST(DARP_benchmark_reader_test, cost_section_unknown_key_throws) {
+	YAML::Node config = YAML::Load("cost:\n  waiting_weight: 1\n");
+	EXPECT_THROW(internal::load_cost_weights(config), std::runtime_error);
+}
+
+TEST(DARP_benchmark_reader_test, cost_section_not_a_map_throws) {
+	YAML::Node config = YAML::Load("cost: 5\n");
+	EXPECT_THROW(internal::load_cost_weights(config), std::runtime_error);
+}
+
+TEST(DARP_benchmark_reader_test, cost_accounting_per_request_throws) {
+	YAML::Node config = YAML::Load("cost:\n  accounting: per_request\n");
+	EXPECT_THROW(internal::load_cost_weights(config), std::runtime_error);
+}
+
 TEST(DARP_benchmark_reader_test, request_loading_csv_max_delay) {
 	const std::string request_filepath = get_test_resource_path("requests.csv").generic_string();
 	const std::string yaml_string = std::format(R"(

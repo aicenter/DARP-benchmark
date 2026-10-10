@@ -57,6 +57,24 @@ enum class problem_type : std::uint8_t {
 	fleet_sizing
 };
 
+/**
+ * Weights of the generalized cost model (the `cost` section of the instance config). Only the components that the
+ * benchmark evaluates are present; the loader rejects any other weight that is non-zero. The defaults reproduce the
+ * legacy cost: total travel time + `demand.relative_delay_cost` * drop-off delay + `vehicles.capital_cost` per plan.
+ */
+struct Cost_weights {
+	/** Weight of a second of vehicle travel time. */
+	double travel_time_weight{1.0};
+	/** Weight of a second of passenger drop-off delay (drop-off arrival minus the ideal direct-ride arrival). */
+	double passenger_delay_weight{0.0};
+	/** Constant charged to every non-empty plan. */
+	double vehicle_capital_cost{0.0};
+
+	[[nodiscard]] bool is_default() const {
+		return travel_time_weight == 1.0 && passenger_delay_weight == 0.0 && vehicle_capital_cost == 0.0;
+	}
+};
+
 class DARP_instance_configuration {
 public:
 	explicit DARP_instance_configuration(
@@ -65,8 +83,7 @@ public:
 		bool return_to_depot = false,
 		bool virtual_vehicles = false, 
 		unsigned start_time = 0,
-		unsigned short vehicle_capital_cost = 0,
-		double relative_delay_cost = 0.0,
+		Cost_weights cost_weights = {},
 		problem_type problem = problem_type::darp
 	):
 		max_route_duration(max_route_duration),
@@ -74,8 +91,7 @@ public:
 		return_to_depot(return_to_depot),
 		virtual_vehicles(virtual_vehicles),
 		start_time(start_time),
-		vehicle_capital_cost(vehicle_capital_cost),
-		relative_delay_cost(relative_delay_cost),
+		cost_weights(cost_weights),
 		problem(problem) {
 	}
 
@@ -84,7 +100,10 @@ public:
 	[[nodiscard]] bool is_return_to_depot() const;
 	[[nodiscard]] bool use_virtual_vehicles() const;
 	[[nodiscard]] unsigned get_start_time() const;
+	[[nodiscard]] const Cost_weights& get_cost_weights() const;
+	/** Legacy accessor of `cost_weights.vehicle_capital_cost` truncated to an integer; prefer get_cost_weights(). */
 	[[nodiscard]] unsigned short get_vehicle_capital_cost() const;
+	/** Legacy accessor of `cost_weights.passenger_delay_weight`; prefer get_cost_weights(). */
 	[[nodiscard]] double get_relative_delay_cost() const;
 	[[nodiscard]] problem_type get_problem() const;
 
@@ -93,7 +112,10 @@ public:
 	void set_return_to_depot(bool value);
 	void set_virtual_vehicles(bool value);
 	void set_start_time(unsigned value);
+	void set_cost_weights(Cost_weights value);
+	/** Legacy setter of `cost_weights.vehicle_capital_cost`; prefer set_cost_weights(). */
 	void set_vehicle_capital_cost(unsigned short value);
+	/** Legacy setter of `cost_weights.passenger_delay_weight`; prefer set_cost_weights(). */
 	void set_relative_delay_cost(double value);
 	void set_problem(problem_type value);
 
@@ -112,8 +134,7 @@ private:
 	bool return_to_depot{true};
 	bool virtual_vehicles{false};
     unsigned start_time{0};
-	unsigned short vehicle_capital_cost{0};
-	double relative_delay_cost{0.0};
+	Cost_weights cost_weights{};
 	problem_type problem{problem_type::darp};
 };
 

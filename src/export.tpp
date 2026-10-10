@@ -45,7 +45,7 @@ void export_plan_and_request(
 	writer.Key("arrival_time");
 	writer.Uint(plan.get_arrival_time());
 	writer.Key("cost");
-	writer.Uint(plan.get_cost());
+	writer.Double(plan.get_cost());
 	writer.Key("actions");
 	writer.StartArray();
 	for(const auto& action_data: plan) {

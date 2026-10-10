@@ -30,6 +30,9 @@
 #include <yaml-cpp/yaml.h>
 #include <filesystem>
 #include <stdexcept>
+#include <map>
+#include <set>
+#include <fmt/format.h>
 #if defined(_MSC_VER)
 	#define NOMINMAX
 #endif
@@ -432,10 +435,68 @@ static unsigned parse_start_time_seconds(const YAML::Node& node) {
 	return t.tm_sec + t.tm_min * 60 + t.tm_hour * 3600;
 }
 
+Cost_weights load_cost_weights(const YAML::Node& config) {
+	Cost_weights weights;
+
+	// legacy fields, used as the defaults of the corresponding weights
+	if(config["vehicles"] && config["vehicles"]["capital_cost"] && !config["vehicles"]["capital_cost"].IsNull()) {
+		weights.vehicle_capital_cost = config["vehicles"]["capital_cost"].as<double>();
+	}
+	if(config["demand"] && config["demand"]["relative_delay_cost"] && !config["demand"]["relative_delay_cost"].IsNull()) {
+		weights.passenger_delay_weight = config["demand"]["relative_delay_cost"].as<double>();
+	}
+
+	const YAML::Node cost = config["cost"];
+	if(!cost) {
+		return weights;
+	}
+	if(!cost.IsMap()) {
+		throw std::runtime_error("Invalid 'cost' section in instance config: expected a map of cost weights");
+	}
+
+	// weights of the components evaluated by the benchmark
+	static const std::map<std::string, double Cost_weights::*> supported{
+		{"travel_time_weight", &Cost_weights::travel_time_weight},
+		{"passenger_delay_weight", &Cost_weights::passenger_delay_weight},
+		{"vehicle_capital_cost", &Cost_weights::vehicle_capital_cost},
+	};
+	// weights of the instance format that the benchmark does not evaluate: accepted only when zero
+	static const std::set<std::string> unsupported{
+		"distance_weight", "ride_time_weight", "earliness_weight", "plan_duration_weight", "fixed_plan_cost"
+	};
+	static const std::string supported_list = "travel_time_weight, passenger_delay_weight, vehicle_capital_cost";
+
+	for(const auto& entry: cost) {
+		const auto key = entry.first.as<std::string>();
+		if(const auto it = supported.find(key); it != supported.end()) {
+			weights.*(it->second) = entry.second.as<double>();
+		}
+		else if(unsupported.contains(key)) {
+			if(entry.second.as<double>() != 0.0) {
+				throw std::runtime_error(fmt::format(
+					"Unsupported cost component in instance config: '{}' is {} but the benchmark evaluates only {}",
+					key, entry.second.as<std::string>(), supported_list));
+			}
+		}
+		else if(key == "accounting") {
+			if(const auto accounting = entry.second.as<std::string>(); accounting != "per_traveller") {
+				throw std::runtime_error(fmt::format(
+					"Unsupported 'cost.accounting' in instance config: '{}', the benchmark supports only 'per_traveller'",
+					accounting));
+			}
+		}
+		else {
+			throw std::runtime_error(fmt::format(
+				"Unknown key in the 'cost' section of instance config: '{}', supported keys: {}, accounting",
+				key, supported_list));
+		}
+	}
+
+	return weights;
+}
+
 std::shared_ptr<DARP_instance_configuration> load_instance_configuration(const YAML::Node& config) {
 	unsigned start_time_seconds = 0;
-	unsigned short vehicle_capital_cost = 0;
-	double relative_delay_cost = 0.0;
 
 	// vehicle start time: check both keys, try integer and datetime for whichever is present
 	if (config["vehicles"]) {
@@ -447,15 +508,7 @@ std::shared_ptr<DARP_instance_configuration> load_instance_configuration(const Y
 		}
 	}
 
-	// vehicle capital cost parsing (optional)
-	if(config["vehicles"] && config["vehicles"]["capital_cost"]) {
-		vehicle_capital_cost = config["vehicles"]["capital_cost"].as<unsigned short>();
-	}
-
-	// relative delay cost parsing (optional)
-	if(config["demand"] && config["demand"]["relative_delay_cost"]) {
-		relative_delay_cost = config["demand"]["relative_delay_cost"].as<double>();
-	}
+	const Cost_weights cost_weights = load_cost_weights(config);
 
 	const problem_type problem = parse_problem(config);
 	const bool virtual_vehicles = (problem == problem_type::fleet_sizing);
@@ -466,8 +519,7 @@ std::shared_ptr<DARP_instance_configuration> load_instance_configuration(const Y
 			false,
 			virtual_vehicles,
 			start_time_seconds,
-			vehicle_capital_cost,
-			relative_delay_cost,
+			cost_weights,
 			problem
 	);
 }

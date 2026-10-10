@@ -234,7 +234,7 @@ std::optional<P> Insertion_heuristic_solver<N, A, V, P>::insert_request_in_plan(
 //    vehicle_plan_builders.emplace_back(vehicle_plan);
 //
 //	// per vehicle resetting
-//	min_cost_increment = std::numeric_limits<unsigned int>::max();
+//	min_cost_increment = std::numeric_limits<cost_type>::max();
 //    best_plan.reset();
 //
 
@@ -282,7 +282,7 @@ void Insertion_heuristic_solver<N, A, V, P>::set_best_plan() {
 
 template<typename N, Vehicle_plan_builder_action A, IH_vehicle V, IH_vehicle_plan<V, A> P>
 void Insertion_heuristic_solver<N, A, V, P>::process_request(const Request<N>& request) {
-	min_cost_increment = std::numeric_limits<unsigned int>::max();
+	min_cost_increment = std::numeric_limits<cost_type>::max();
 	best_plan.reset();
 	best_vehicle_index = std::numeric_limits<uint_fast32_t>::max();
 
@@ -342,7 +342,7 @@ Insertion_heuristic_solver<N, A, V, P>::evaluate_request_vehicle_combination(
 	uint_fast32_t vehicle_plan_index,
 	A& pickup_action_data,
 	A& drop_off_action_data,
-	unsigned int min_increment,
+	cost_type min_increment,
 	std::optional<IH_vehicle_plan_builder<V, A, P>>& evaluated_plan
 ) {
 	evaluated_plan = vehicle_plan_builders[vehicle_plan_index];
@@ -351,7 +351,7 @@ Insertion_heuristic_solver<N, A, V, P>::evaluate_request_vehicle_combination(
 
 	// fail fast
 	if (can_serve_request(vehicle, pickup_action_data, drop_off_action_data)) {
-		const unsigned new_min_cost_increment = SVDARP_solver.insert_request_into_plan_optimally(
+		const cost_type new_min_cost_increment = SVDARP_solver.insert_request_into_plan_optimally(
 			pickup_action_data,
 			drop_off_action_data,
 			*evaluated_plan,
@@ -421,7 +421,7 @@ void Insertion_heuristic_solver<N, A, V, P>::process_existing_vehicle_plans_para
 					first_plan_index + block_size
 				);
 
-				unsigned int local_min_cost_increment = std::numeric_limits<unsigned int>::max();
+				cost_type local_min_cost_increment = std::numeric_limits<cost_type>::max();
 				std::optional<Vehicle_insertion_candidate> local_best;
 				std::optional<IH_vehicle_plan_builder<V, A, P>> evaluated_plan;
 				std::optional<IH_vehicle_plan_builder<V, A, P>> local_best_plan;

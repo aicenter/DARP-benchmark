@@ -78,7 +78,7 @@ public:
 
 	[[nodiscard]] virtual unsigned short get_vehicle_capacity() const = 0;
 	[[nodiscard]] virtual plan_size_type get_length() const = 0;
-	virtual void set_cost(unsigned cost) = 0;
+	virtual void set_cost(cost_type cost) = 0;
 	virtual void set_feasible(bool feasible) = 0;
 	virtual void set_arrival_time(unsigned long arrival_time) = 0;
 	virtual void set_departure_time(unsigned long departure_time) = 0;

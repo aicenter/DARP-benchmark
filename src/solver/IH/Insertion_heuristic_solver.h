@@ -120,7 +120,7 @@ private:
 
     std::vector<IH_vehicle_plan_builder<V, A, P>> vehicle_plan_builders;
 
-    unsigned int min_cost_increment{0};
+    cost_type min_cost_increment{0};
 
 	std::optional<IH_vehicle_plan_builder<V, A, P>> best_plan{std::nullopt};
 
@@ -149,14 +149,14 @@ private:
 
 	struct Vehicle_insertion_candidate {
 		uint_fast32_t vehicle_plan_index;
-		unsigned int cost_increment;
+		cost_type cost_increment;
 	};
 
 	std::optional<Vehicle_insertion_candidate> evaluate_request_vehicle_combination(
 		uint_fast32_t vehicle_plan_index,
         A& pickup_action_data,
 		A& drop_off_action_data,
-		unsigned int min_increment,
+		cost_type min_increment,
 		std::optional<IH_vehicle_plan_builder<V, A, P>>& evaluated_plan
 	);
 

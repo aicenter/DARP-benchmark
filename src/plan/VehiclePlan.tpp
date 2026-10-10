@@ -136,7 +136,7 @@ std::vector<Vehicle<N>> deserialize_vehicle_list_from_json_array(
 template <typename N, class P, class V>
 DARP_vehicle_plan<N,P,V>::DARP_vehicle_plan(
     const V& vehicle, 
-    unsigned int cost, 
+    cost_type cost, 
     std::vector<ActionData<N>> actions,
     unsigned int departure_time,
     unsigned int arrival_time
@@ -188,7 +188,7 @@ P DARP_vehicle_plan<N, P, V>::JSON_deserialize(
 	}
 
 	std::vector<ActionData<N>> actions = deserialize_action_data_list<N>(plan_data["actions"], darp_instance);
-	const unsigned int cost = plan_data["cost"].GetUint();
+	const cost_type cost = plan_data["cost"].GetDouble();
 	const unsigned int departure_time = plan_data["departure_time"].GetUint();
 	const unsigned int arrival_time = plan_data["arrival_time"].GetUint();
 	return P(*vehicle, cost, std::move(actions), departure_time, arrival_time);
@@ -237,7 +237,7 @@ void DARP_vehicle_plan<N,P,V>::set_arrival_time(unsigned long new_arrival_time) 
 }
 
 template <typename N, class P, class V>
-void DARP_vehicle_plan<N,P,V>::set_cost(unsigned int new_cost) {
+void DARP_vehicle_plan<N,P,V>::set_cost(cost_type new_cost) {
     this->cost = new_cost;
 }
 
@@ -416,7 +416,7 @@ void DARP_vehicle_plan<N,P,V>::remove_last_action(const bool was_last) {
         const unsigned int travel_time = get_last_action().get_arrival_time() - new_last_action.get_departure_time();
 
         // cost adjustment
-        unsigned int new_plan_cost = this->get_cost() - travel_time;
+        cost_type new_plan_cost = this->get_cost() - travel_time;
 
         if (get_last_action().get_action().get_action_type() == Action_type::dropoff) {
             // pickup / drop off dereferencing
@@ -463,7 +463,7 @@ unsigned DARP_vehicle_plan<N,P,V>::get_ride_time(const ActionData<N>& action_dat
 }
 
 template <typename N, class P, class V>
-unsigned int DARP_vehicle_plan<N, P, V>::get_cost() const {
+cost_type DARP_vehicle_plan<N, P, V>::get_cost() const {
 	return Base_plan<ActionData<N>, V>::get_cost();
 }
 
@@ -561,7 +561,6 @@ bool DARP_vehicle_plan<N, P, V>::full_check(
 	}
 
 	unsigned time = this->departure_time;
-	unsigned plan_cost_computed = 0;
 
 	// Track current location for travel time calculations (nullptr for virtual vehicles on first action)
 	const N* current_location = nullptr;
@@ -581,7 +580,6 @@ bool DARP_vehicle_plan<N, P, V>::full_check(
 			travel_time = travel_time_provider.get_travel_time(*current_location, action.get_node());
 		}
 		time += travel_time;
-		plan_cost_computed += travel_time;
 
 		if(!skip_time_check && time != action.get_arrival_time()) {
 			throw std::runtime_error("Arrival time does not match travel time");
@@ -609,8 +607,14 @@ bool DARP_vehicle_plan<N, P, V>::full_check(
 		current_location = &action.get_node();
 	}
 
-	if(!skip_cost_check && plan_cost_computed != this->get_cost()) {
-		throw std::runtime_error("plan cost does not match the computed plan cost");
+	if(!skip_cost_check) {
+		const Cost_evaluator evaluator = Cost_evaluator::from_configuration(instance_configuration);
+		const Cost_breakdown computed = evaluator.template evaluate<N>(*this, travel_time_provider, instance_configuration);
+		if(!costs_equal(computed.total, this->get_cost())) {
+			throw std::runtime_error(fmt::format(
+				"plan cost does not match the computed plan cost: stored {}, computed {} = {}",
+				this->get_cost(), computed.total, computed.describe(evaluator.get_weights())));
+		}
 	}
 
 	return true;
@@ -668,7 +672,7 @@ template<typename N, class P, class V>
 void DARP_vehicle_plan<N, P, V>::JSON_serialize(rapidjson::PrettyWriter<rapidjson::StringBuffer>& writer) const {
 	writer.StartObject();
     writer.Key("cost");
-    writer.Uint(this->cost);
+    writer.Double(this->cost);
     writer.Key("vehicle");
     this->vehicle.get().JSON_serialize(writer);
     writer.Key("departure_time");

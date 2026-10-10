@@ -11,7 +11,7 @@ const std::vector<A>& Base_plan<A, V>::get_actions() const {
 }
 
 template<class A, class V>
-unsigned int Base_plan<A, V>::get_cost() const {
+cost_type Base_plan<A, V>::get_cost() const {
 	return cost;
 }
 

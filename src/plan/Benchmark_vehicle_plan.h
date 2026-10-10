@@ -41,7 +41,7 @@ public:
 
 	virtual void append_simple_csv_rows(int plan_index, std::ostringstream& csv) const = 0;
 
-	[[nodiscard]] virtual unsigned int get_cost() const = 0;
+	[[nodiscard]] virtual cost_type get_cost() const = 0;
 
 	[[nodiscard]] virtual unsigned long get_driving_time() const = 0;
 

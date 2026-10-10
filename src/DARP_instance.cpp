@@ -47,12 +47,16 @@ unsigned DARP_instance_configuration::get_start_time() const {
 	return start_time;
 }
 
+const Cost_weights& DARP_instance_configuration::get_cost_weights() const {
+	return cost_weights;
+}
+
 unsigned short DARP_instance_configuration::get_vehicle_capital_cost() const {
-	return vehicle_capital_cost;
+	return static_cast<unsigned short>(cost_weights.vehicle_capital_cost);
 }
 
 double DARP_instance_configuration::get_relative_delay_cost() const {
-	return relative_delay_cost;
+	return cost_weights.passenger_delay_weight;
 }
 
 problem_type DARP_instance_configuration::get_problem() const {
@@ -79,12 +83,16 @@ void DARP_instance_configuration::set_start_time(unsigned value) {
 	start_time = value;
 }
 
+void DARP_instance_configuration::set_cost_weights(Cost_weights value) {
+	cost_weights = value;
+}
+
 void DARP_instance_configuration::set_vehicle_capital_cost(unsigned short value) {
-	vehicle_capital_cost = value;
+	cost_weights.vehicle_capital_cost = value;
 }
 
 void DARP_instance_configuration::set_relative_delay_cost(double value) {
-	relative_delay_cost = value;
+	cost_weights.passenger_delay_weight = value;
 }
 
 void DARP_instance_configuration::set_problem(problem_type value) {
