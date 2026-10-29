@@ -58,6 +58,12 @@ public:
 	[[nodiscard]] travel_time_type get_travel_time_from_vehicle(const Vehicle_base& vehicle, const L& target) const;
 
 	/**
+	 * @brief The origin of the first leg of a vehicle: the initial position of a regular vehicle, or the virtual node
+	 * (see virtual_node()) for a virtual vehicle, which has no position.
+	 */
+	[[nodiscard]] const L& get_origin_node(const Vehicle_base& vehicle) const;
+
+	/**
 	 * Method that provides location info when the vehicle is on the way from last_action_location to next_action_location.
 	 * @param last_action_location
 	 * @param next_action_location

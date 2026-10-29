@@ -141,6 +141,8 @@ DARP_instance<Amodsim_node> DARP_benchmark_reader::read(std::filesystem::path in
 	if (config["type"] && config["type"].as<std::string>() == "grid") {
 		const unsigned grid_size = config["size"].as<unsigned>();
 		const travel_time_type distance = config["distance"].as<travel_time_type>();
+		// throws for a non-zero weight of a leg cost component, which needs a matrix instance
+		internal::load_leg_cost_components(config, instance_dir, std::nullopt);
 		auto travel_cost_provider = std::make_shared<fleet_sizing::Grid_travel_time_provider<Amodsim_node>>(grid_size, distance);
 		spdlog::info("Using grid travel time provider (size={}, distance={})", grid_size, distance);
 		auto vehicles = std::make_unique<std::vector<Vehicle<Amodsim_node>>>();
@@ -185,6 +187,14 @@ DARP_instance<Amodsim_node> DARP_benchmark_reader::read(std::filesystem::path in
 	    ? static_cast<std::unique_ptr<Distance_matrix_reader>>(std::make_unique<HDF_reader>())
 	    : std::make_unique<CSV_reader>();
     auto travel_cost_provider = std::make_shared<Distance_matrix_node_travel_time_provider<Amodsim_node>>(*dm_reader, dm_filepath.string());
+
+	// leg cost components (e.g., distance), indexed by the nodes of the travel time matrix
+	if(auto components = internal::load_leg_cost_components(config, instance_dir, travel_cost_provider->get_matrix_width());
+		!components.empty()) {
+		Cost_weights weights = configuration->get_cost_weights();
+		weights.leg_components = std::move(components);
+		configuration->set_cost_weights(std::move(weights));
+	}
 
     // vehicle loading
 	const unsigned instance_start_time = configuration->get_start_time();
@@ -462,14 +472,24 @@ Cost_weights load_cost_weights(const YAML::Node& config) {
 	};
 	// weights of the instance format that the benchmark does not evaluate: accepted only when zero
 	static const std::set<std::string> unsupported{
-		"distance_weight", "ride_time_weight", "earliness_weight", "plan_duration_weight", "fixed_plan_cost"
+		"ride_time_weight", "earliness_weight", "plan_duration_weight", "fixed_plan_cost"
 	};
-	static const std::string supported_list = "travel_time_weight, passenger_delay_weight, vehicle_capital_cost";
+	static const std::string supported_list = [] {
+		std::string list = "travel_time_weight, passenger_delay_weight, vehicle_capital_cost";
+		for(const auto& type: leg_cost_component_types()) {
+			list += ", " + type.weight_key;
+		}
+		return list;
+	}();
 
 	for(const auto& entry: cost) {
 		const auto key = entry.first.as<std::string>();
 		if(const auto it = supported.find(key); it != supported.end()) {
 			weights.*(it->second) = entry.second.as<double>();
+		}
+		else if(std::ranges::any_of(leg_cost_component_types(), [&key](const auto& type) { return type.weight_key == key; })) {
+			// loaded with the travel time matrix, see load_leg_cost_components
+			static_cast<void>(entry.second.as<double>());
 		}
 		else if(unsupported.contains(key)) {
 			if(entry.second.as<double>() != 0.0) {
@@ -493,6 +513,32 @@ Cost_weights load_cost_weights(const YAML::Node& config) {
 	}
 
 	return weights;
+}
+
+Leg_cost_components load_leg_cost_components(
+	const YAML::Node& config, const fs::path& instance_dir, std::optional<unsigned> node_count
+) {
+	Leg_cost_components components;
+	const YAML::Node cost = config["cost"];
+	if(!cost) {
+		return components;
+	}
+	for(const auto& type: leg_cost_component_types()) {
+		const YAML::Node weight_node = cost[type.weight_key];
+		if(!weight_node) {
+			continue;
+		}
+		const auto weight = weight_node.as<double>();
+		if(weight == 0.0) {
+			continue;
+		}
+		if(!node_count) {
+			throw std::runtime_error(fmt::format(
+				"Cost weight '{}' is supported only by instances with a distance matrix (dm_filepath)", type.weight_key));
+		}
+		components.push_back(type.load(weight, config, instance_dir, *node_count));
+	}
+	return components;
 }
 
 std::shared_ptr<DARP_instance_configuration> load_instance_configuration(const YAML::Node& config) {

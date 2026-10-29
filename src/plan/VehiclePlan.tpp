@@ -673,6 +673,7 @@ void DARP_vehicle_plan<N, P, V>::JSON_serialize(rapidjson::PrettyWriter<rapidjso
 	writer.StartObject();
     writer.Key("cost");
     writer.Double(this->cost);
+    write_cost_components(writer, cost_components);
     writer.Key("vehicle");
     this->vehicle.get().JSON_serialize(writer);
     writer.Key("departure_time");

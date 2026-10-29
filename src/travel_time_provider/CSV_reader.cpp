@@ -33,7 +33,8 @@
 
 #include "CSV_reader.h"
 
-travel_time_type parse_distance(
+template<typename T>
+T parse_distance(
 	const std::string& str, 
 	unsigned int nodeFrom, 
 	unsigned int nodeTo, const std::string& inputFile, 
@@ -44,26 +45,31 @@ travel_time_type parse_distance(
 	}
 	catch (std::invalid_argument&) {
 		std::cerr << "Warning: Found an unexpected value (" << str << ") in '" << inputFile << "'. It will be interpreted as 'no edge' from node " << nodeFrom << " to node " << nodeTo << "." << std::endl;
-		return std::numeric_limits<travel_time_type>::max();
+		return std::numeric_limits<T>::max();
 	}
 	catch (std::out_of_range&) {
 		std::cerr << "Warning: Found an out of range value (" << str << ") in '" << inputFile << "'. It will be interpreted as 'no edge' from node " << nodeFrom << " to node " << nodeTo << "." << std::endl;
-		return std::numeric_limits<travel_time_type>::max();
+		return std::numeric_limits<T>::max();
 	}
 
 	if (std::isnan(val)) {
-		return std::numeric_limits<travel_time_type>::max();
+		return std::numeric_limits<T>::max();
 	}
 
 	if (val < 0) {
 		std::cerr << "Warning: Found a negative value (" << str << ") in '" << inputFile << "'. It will be interpreted as 'no edge' from node " << nodeFrom << " to node " << nodeTo << "." << std::endl;
-		return std::numeric_limits<travel_time_type>::max();
+		return std::numeric_limits<T>::max();
 	}
 
-	return static_cast<travel_time_type>(round(val / (double)precisionLoss));
+	const double rounded = round(val / (double)precisionLoss);
+	if (rounded >= static_cast<double>(std::numeric_limits<T>::max())) {
+		return std::numeric_limits<T>::max();
+	}
+	return static_cast<T>(rounded);
 }
 
-std::pair<std::unique_ptr<travel_time_type[]>, unsigned> CSV_reader::read_matrix(const std::string& dm_filepath) {
+template<typename T>
+std::pair<std::unique_ptr<T[]>, unsigned> read_csv_matrix(const std::string& dm_filepath) {
 	csv2::Reader<csv2::delimiter<','>, csv2::quote_character<'"'>, csv2::first_row_is_header<false>,
 		csv2::trim_policy::trim_characters<' ', '\t', '\r', '\n'>> reader;
 
@@ -79,7 +85,7 @@ std::pair<std::unique_ptr<travel_time_type[]>, unsigned> CSV_reader::read_matrix
 	if (size != reader.rows())
 		throw std::runtime_error(dm_filepath + " does not contain a square matrix. Found " +
 			std::to_string(reader.rows()) + " rows and " + std::to_string(size) + " cols.\n");
-	auto dm = std::make_unique<travel_time_type[]>(size * size);
+	auto dm = std::make_unique<T[]>(static_cast<size_t>(size) * size);
 	unsigned int i = 0;
 
 	constexpr unsigned int step = 200;
@@ -96,8 +102,8 @@ std::pair<std::unique_ptr<travel_time_type[]>, unsigned> CSV_reader::read_matrix
 			std::string val;
 			/*cell.read_value(val);*/
 			cell.read_raw_value(val);
-			const travel_time_type dist = parse_distance(val, i, j, dm_filepath, (double)1);
-			dm[i * size + j] = dist;
+			const T dist = parse_distance<T>(val, i, j, dm_filepath, (double)1);
+			dm[static_cast<size_t>(i) * size + j] = dist;
 			++j;
 		}
 		if ((i % step) == 0) {
@@ -110,3 +116,10 @@ std::pair<std::unique_ptr<travel_time_type[]>, unsigned> CSV_reader::read_matrix
 }
 
 
+
+template std::pair<std::unique_ptr<travel_time_type[]>, unsigned> read_csv_matrix<travel_time_type>(const std::string&);
+template std::pair<std::unique_ptr<uint32_t[]>, unsigned> read_csv_matrix<uint32_t>(const std::string&);
+
+std::pair<std::unique_ptr<travel_time_type[]>, unsigned> CSV_reader::read_matrix(const std::string& dm_filepath) {
+	return read_csv_matrix<travel_time_type>(dm_filepath);
+}

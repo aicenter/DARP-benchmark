@@ -96,6 +96,7 @@ add_library(DARP_benchmark_lib
 	src/resources.cpp
 	src/serialization.cpp
 	src/Vehicle.cpp
+	src/cost/Leg_cost_component.cpp
 	src/travel_time_provider/CSV_reader.cpp
 	src/travel_time_provider/Distance_matrix_travel_time_provider.cpp
 	src/travel_time_provider/HDF_reader.cpp

@@ -28,6 +28,8 @@
 
 #include "travel_time_provider/Travel_time_provider.h"
 #include "Vehicle.h"
+#include "Virtual_node.h"
+#include "cost/Leg_cost_component.h"
 #include "Request.h"
 
 class Node {
@@ -44,6 +46,11 @@ public:
 	//}
 
 	[[nodiscard]] unsigned int get_index() const;
+
+	/** Whether this is the virtual node (see virtual_node()). */
+	[[nodiscard]] bool is_virtual() const {
+		return index == virtual_node_index;
+	}
 private:
 	const unsigned int index;
 };
@@ -69,9 +76,12 @@ struct Cost_weights {
 	double passenger_delay_weight{0.0};
 	/** Constant charged to every non-empty plan. */
 	double vehicle_capital_cost{0.0};
+	/** Components priced per leg by a loaded model (e.g., distance), only those with a non-zero weight. */
+	Leg_cost_components leg_components{};
 
 	[[nodiscard]] bool is_default() const {
-		return travel_time_weight == 1.0 && passenger_delay_weight == 0.0 && vehicle_capital_cost == 0.0;
+		return travel_time_weight == 1.0 && passenger_delay_weight == 0.0 && vehicle_capital_cost == 0.0
+			&& leg_components.empty();
 	}
 };
 

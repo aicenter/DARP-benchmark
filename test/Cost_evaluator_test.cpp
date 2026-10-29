@@ -21,6 +21,8 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE. */
 #include <memory>
+#include <optional>
+#include <string>
 #include <vector>
 
 #include "gtest_wrapper.h"
@@ -29,6 +31,7 @@
 #include "../src/DARP_instance.h"
 #include "../src/Solution.h"
 #include "../src/cost/Cost_evaluator.h"
+#include "../src/cost/Leg_cost_component.h"
 #include "../src/plan/VehiclePlan.h"
 #include "../src/travel_time_provider/Euclidean_travel_time_provider.h"
 
@@ -82,6 +85,21 @@ struct Line_instance {
 	}
 };
 
+/**
+ * Distance component over the nodes of Line_instance with the asymmetric distance 100 * from + to: the plan legs
+ * 0 -> 1 -> 2 -> 3 -> 4 have 1 + 102 + 203 + 304 = 610 m, the return leg 4 -> 0 has 400 m.
+ */
+std::shared_ptr<const Leg_cost_component> line_distance(double weight) {
+	constexpr unsigned size = 5;
+	auto matrix = std::make_unique<uint32_t[]>(size * size);
+	for(unsigned from = 0; from < size; ++from) {
+		for(unsigned to = 0; to < size; ++to) {
+			matrix[from * size + to] = from == to ? 0 : 100 * from + to;
+		}
+	}
+	return std::make_shared<const Matrix_leg_cost_component>("distance", weight, std::move(matrix), size);
+}
+
 DARP_instance_configuration configuration_with(Cost_weights weights, bool return_to_depot = false,
 	problem_type problem = problem_type::darp) {
 	return DARP_instance_configuration{0, 0, return_to_depot, false, 0, weights, problem};
@@ -116,7 +134,10 @@ TEST(Cost_evaluator_test, weighted_components) {
 
 	// the incremental hooks agree with the full evaluation
 	const cost_type incremental = evaluator.plan_constant()
-		+ evaluator.leg_cost(10) + evaluator.leg_cost(20) + evaluator.leg_cost(10) + evaluator.leg_cost(20)
+		+ evaluator.leg_cost(*instance.depot, *instance.a_pickup, 10)
+		+ evaluator.leg_cost(*instance.a_pickup, *instance.a_dropoff, 20)
+		+ evaluator.leg_cost(*instance.a_dropoff, *instance.b_pickup, 10)
+		+ evaluator.leg_cost(*instance.b_pickup, *instance.b_dropoff, 20)
 		+ evaluator.dropoff_cost(30, Cost_evaluator::ideal_dropoff_arrival(instance.requests->at(0)))
 		+ evaluator.dropoff_cost(60, Cost_evaluator::ideal_dropoff_arrival(instance.requests->at(1)));
 	EXPECT_TRUE(costs_equal(incremental, breakdown.total));
@@ -191,4 +212,89 @@ TEST(Cost_evaluator_test, solution_evaluates_plan_costs) {
 	EXPECT_DOUBLE_EQ(solution.get_plans().at(0).get_cost(), 72.5);
 	EXPECT_DOUBLE_EQ(solution.get_cost(), 72.5);
 	EXPECT_EQ(solution.get_dropped_request_count(), 0u);
+}
+
+TEST(Cost_evaluator_test, distance_component) {
+	Line_instance instance;
+	const auto configuration = configuration_with({1.0, 0.5, 10.0, {line_distance(0.01)}});
+	const Cost_evaluator evaluator = Cost_evaluator::from_configuration(configuration);
+	const VehiclePlan<Cordeau_node> plan = instance.make_plan(0);
+
+	const Cost_breakdown breakdown = evaluator.evaluate<Cordeau_node>(plan, *instance.travel_time_provider, configuration);
+
+	ASSERT_EQ(breakdown.leg_components.size(), 1u);
+	EXPECT_DOUBLE_EQ(breakdown.leg_components[0], 610.0);
+	EXPECT_DOUBLE_EQ(breakdown.total, 72.5 + 6.1);
+
+	// the weighted components sum to the total
+	cost_type sum = 0;
+	for(const auto& [key, value]: breakdown.components(configuration.get_cost_weights())) {
+		sum += value;
+		if(key == "distance") {
+			EXPECT_DOUBLE_EQ(value, 6.1);
+		}
+	}
+	EXPECT_TRUE(costs_equal(sum, breakdown.total));
+
+	// the incremental hooks agree with the full evaluation
+	const cost_type incremental = evaluator.plan_constant()
+		+ evaluator.leg_cost(*instance.depot, *instance.a_pickup, 10)
+		+ evaluator.leg_cost(*instance.a_pickup, *instance.a_dropoff, 20)
+		+ evaluator.leg_cost(*instance.a_dropoff, *instance.b_pickup, 10)
+		+ evaluator.leg_cost(*instance.b_pickup, *instance.b_dropoff, 20)
+		+ evaluator.dropoff_cost(30, Cost_evaluator::ideal_dropoff_arrival(instance.requests->at(0)))
+		+ evaluator.dropoff_cost(60, Cost_evaluator::ideal_dropoff_arrival(instance.requests->at(1)));
+	EXPECT_TRUE(costs_equal(incremental, breakdown.total));
+}
+
+TEST(Cost_evaluator_test, distance_component_on_return_leg) {
+	Line_instance instance;
+	const auto configuration = configuration_with({1.0, 0.0, 0.0, {line_distance(1.0)}}, true);
+	const VehiclePlan<Cordeau_node> plan = instance.make_plan(0);
+
+	const Cost_breakdown breakdown = Cost_evaluator::from_configuration(configuration)
+		.evaluate<Cordeau_node>(plan, *instance.travel_time_provider, configuration);
+
+	EXPECT_DOUBLE_EQ(breakdown.leg_components[0], 1010.0);
+	EXPECT_DOUBLE_EQ(breakdown.total, 120.0 + 1010.0);
+}
+
+TEST(Cost_evaluator_test, distance_component_ignores_virtual_first_leg) {
+	Line_instance instance;
+	const auto configuration = configuration_with({1.0, 0.0, 0.0, {line_distance(1.0)}});
+	const Cost_evaluator evaluator = Cost_evaluator::from_configuration(configuration);
+	const VehiclePlan<Cordeau_node> plan = instance.make_plan(0);
+
+	// a virtual vehicle has no position: its first leg starts at the virtual node
+	const Virtual_vehicle virtual_vehicle(4, 10);
+	const Cordeau_node& origin = instance.travel_time_provider->get_origin_node(virtual_vehicle);
+	EXPECT_EQ(&origin, &virtual_node<Cordeau_node>());
+	EXPECT_EQ(&instance.travel_time_provider->get_origin_node(instance.vehicles->at(0)), instance.depot.get());
+
+	const Cost_breakdown breakdown = evaluator.evaluate_sequence(
+		origin, 10, plan, *instance.travel_time_provider, std::nullopt);
+	EXPECT_DOUBLE_EQ(breakdown.leg_components[0], 609.0);
+	EXPECT_DOUBLE_EQ(evaluator.leg_cost(origin, *instance.a_pickup, 10), 10.0);
+	EXPECT_DOUBLE_EQ(evaluator.leg_cost(*instance.depot, *instance.a_pickup, 10), 11.0);
+}
+
+TEST(Cost_evaluator_test, solution_writes_cost_components) {
+	Line_instance instance_data;
+	std::vector<VehiclePlan<Cordeau_node>> plans;
+	plans.push_back(instance_data.make_plan(0));
+	const DARP_instance<Cordeau_node> instance
+		= instance_data.make_instance(configuration_with({1.0, 0.5, 10.0, {line_distance(0.01)}}));
+
+	const Solution<Cordeau_node> solution{instance, std::move(plans)};
+	const auto json = solution.JSON_serialize();
+	rapidjson::Document document;
+	document.Parse(json.GetString());
+
+	EXPECT_DOUBLE_EQ(document["cost"].GetDouble(), 72.5 + 6.1);
+	const auto& components = document["cost_components"];
+	EXPECT_DOUBLE_EQ(components["travel_time"].GetDouble(), 60.0);
+	EXPECT_DOUBLE_EQ(components["passenger_delay"].GetDouble(), 2.5);
+	EXPECT_DOUBLE_EQ(components["vehicle_capital"].GetDouble(), 10.0);
+	EXPECT_DOUBLE_EQ(components["distance"].GetDouble(), 6.1);
+	EXPECT_DOUBLE_EQ(document["plans"][0]["cost_components"]["distance"].GetDouble(), 6.1);
 }

@@ -51,6 +51,13 @@ private:
     const float y;
 };
 
+template<>
+[[nodiscard]] inline const Cordeau_node& virtual_node<Cordeau_node>() {
+	static const Cordeau_node node(0, 0, virtual_node_index);
+	return node;
+}
+
+
 static_assert(std::is_move_constructible_v<Cordeau_node>);
 static_assert(std::is_move_constructible_v<Action<Cordeau_node>>);
 static_assert(std::is_move_constructible_v<Request<Cordeau_node>>);

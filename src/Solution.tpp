@@ -33,6 +33,7 @@ rapidjson::StringBuffer  Solution_interface<N>::JSON_serialize(unsigned short re
 	if(feasible){
 		writer.Key("cost");
 		writer.Double(cost);
+		write_cost_components(writer, cost_components);
 		writer.Key("cost_minutes");
 		writer.Uint64(static_cast<unsigned long>(std::llround(cost / resolution)));
 		this->JSON_serialize_extra_fields(writer);
@@ -378,8 +379,22 @@ void Solution<N,P>::evaluate_costs(const DARP_instance<N>& instance) {
 	const DARP_instance_configuration& configuration = *instance.get_darp_instance_configuration();
 	const Cost_evaluator evaluator = Cost_evaluator::from_configuration(configuration);
 	this->cost = 0;
+	this->cost_components.clear();
 	for(P& plan: plans) {
-		plan.set_cost(evaluator.template evaluate<N>(plan, *instance.get_travelcost_provider(), configuration).total);
+		const Cost_breakdown breakdown
+			= evaluator.template evaluate<N>(plan, *instance.get_travelcost_provider(), configuration);
+		plan.set_cost(breakdown.total);
+		Cost_components components = breakdown.components(configuration.get_cost_weights());
+		// the components are listed in the same order for every plan
+		if(this->cost_components.empty()) {
+			this->cost_components = components;
+		}
+		else {
+			for(size_t i = 0; i < components.size(); ++i) {
+				this->cost_components[i].second += components[i].second;
+			}
+		}
+		plan.set_cost_components(std::move(components));
 		this->cost += plan.get_cost();
 	}
 }

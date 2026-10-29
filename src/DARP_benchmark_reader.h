@@ -46,6 +46,14 @@ std::shared_ptr<DARP_instance_configuration> load_instance_configuration(const Y
  */
 Cost_weights load_cost_weights(const YAML::Node& config);
 
+/**
+ * Loads the leg cost components with a non-zero weight in the `cost` section of \p config (see
+ * leg_cost_component_types()). \p node_count is the size of the travel time matrix; without it (instances without a
+ * distance matrix), a non-zero weight is an error.
+ */
+Leg_cost_components load_leg_cost_components(
+	const YAML::Node& config, const std::filesystem::path& instance_dir, std::optional<unsigned> node_count);
+
 void load_vehicles_csv(std::vector<Vehicle<Amodsim_node>>& vehicles, const std::string& file_path, unsigned instance_start_time);
 
 /**

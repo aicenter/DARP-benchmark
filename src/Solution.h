@@ -208,6 +208,8 @@ public:
 
 protected:
 	cost_type cost;
+	/** Per-component breakdown of the cost, set by Solution::evaluate_costs. */
+	Cost_components cost_components;
     std::vector<const Request<N>*> dropped_requests;
 	bool feasible{true};
 

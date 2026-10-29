@@ -152,6 +152,15 @@ public:
 
     void set_cost(cost_type new_cost);
 
+    /** Sets the per-component breakdown of the cost, written as `cost_components` (see Solution::evaluate_costs). */
+    void set_cost_components(Cost_components components) {
+        cost_components = std::move(components);
+    }
+
+    [[nodiscard]] const Cost_components& get_cost_components() const {
+        return cost_components;
+    }
+
     //using Benchmark_vehicle_plan<N>::get_actions;
 
     std::vector<ActionData<N>>& get_actions();
@@ -268,6 +277,8 @@ private:
     unsigned short free_capacity;
 
     variant_id_type variant_id{0};
+
+    Cost_components cost_components;
 };
 
 

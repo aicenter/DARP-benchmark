@@ -24,6 +24,14 @@
 
 #include "Distance_matrix_travel_time_provider.h"
 
+/**
+ * Reads a square comma-separated matrix without a header, rounding the values to the element type \p T (instantiated
+ * for travel_time_type and uint32_t). Values that do not fit, negative and non-numeric values become the maximum of
+ * \p T, which marks an unreachable pair.
+ */
+template<typename T>
+std::pair<std::unique_ptr<T[]>, unsigned> read_csv_matrix(const std::string& file_path);
+
 class CSV_reader: public Distance_matrix_reader {
 public:
 	std::pair<std::unique_ptr<travel_time_type[]>, unsigned> read_matrix(const std::string& file_path) override;

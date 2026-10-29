@@ -24,6 +24,13 @@
 
 #include "Distance_matrix_travel_time_provider.h"
 
+/**
+ * Reads a square matrix from the dataset `dm` (or the first dataset) of an HDF5 file, converting the values to the
+ * element type \p T (instantiated for travel_time_type and uint32_t).
+ */
+template<typename T>
+std::pair<std::unique_ptr<T[]>, unsigned> read_hdf_matrix(const std::string& file_path);
+
 class HDF_reader: public Distance_matrix_reader {
 	std::pair<std::unique_ptr<travel_time_type[]>, unsigned> read_matrix(const std::string& dm_filepath) override;
 };

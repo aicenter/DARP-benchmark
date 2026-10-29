@@ -38,6 +38,9 @@
 #include "../src/Request.h"
 #include "../src/Action.h"
 #include "../src/DARP_benchmark_node.h"
+#include "../src/cost/Leg_cost_component.h"
+
+#include <H5Cpp.h>
 
 namespace {
 
@@ -469,4 +472,70 @@ TEST(DARP_benchmark_reader_test, read_grid_instance) {
 
 	// Sanity: 4 requests from data/test_resources/grid/requests.csv
 	EXPECT_EQ(instance.get_requests().size(), 4u);
+}
+
+TEST(DARP_benchmark_reader_test, cost_section_distance_weight_accepted) {
+	YAML::Node config = YAML::Load("cost:\n  distance_weight: 0.0025\n");
+	// the distance component itself is loaded with the travel time matrix (load_leg_cost_components)
+	EXPECT_TRUE(internal::load_cost_weights(config).is_default());
+}
+
+TEST(DARP_benchmark_reader_test, read_instance_with_distance) {
+	DARP_benchmark_reader reader;
+	const auto instance = reader.read(fs::absolute(get_test_resource_path(fs::path("Chyse") / "config-distance.yaml")));
+
+	const Cost_weights& weights = instance.get_darp_instance_configuration()->get_cost_weights();
+	EXPECT_DOUBLE_EQ(weights.travel_time_weight, 0.1111);
+	ASSERT_EQ(weights.leg_components.size(), 1u);
+	const Leg_cost_component& distance = *weights.leg_components[0];
+	EXPECT_EQ(distance.name(), "distance");
+	EXPECT_DOUBLE_EQ(distance.weight(), 0.0025);
+	EXPECT_DOUBLE_EQ(distance.value(0, 1), 743.0);
+	EXPECT_DOUBLE_EQ(distance.value(1, 1), 0.0);
+	EXPECT_FALSE(weights.is_default());
+}
+
+TEST(DARP_benchmark_reader_test, leg_cost_components_zero_weight_not_loaded) {
+	YAML::Node config = YAML::Load("dist_filepath: ./missing.csv\ncost:\n  distance_weight: 0\n");
+	EXPECT_TRUE(internal::load_leg_cost_components(config, fs::current_path(), 38u).empty());
+}
+
+TEST(DARP_benchmark_reader_test, leg_cost_components_weight_without_file_throws) {
+	YAML::Node config = YAML::Load("cost:\n  distance_weight: 0.0025\n");
+	EXPECT_THROW(internal::load_leg_cost_components(config, fs::current_path(), 38u), std::runtime_error);
+}
+
+TEST(DARP_benchmark_reader_test, leg_cost_components_without_matrix_instance_throw) {
+	YAML::Node config = YAML::Load("dist_filepath: ./dist.csv\ncost:\n  distance_weight: 0.0025\n");
+	EXPECT_THROW(
+		internal::load_leg_cost_components(config, get_test_resource_path("Chyse"), std::nullopt), std::runtime_error);
+}
+
+TEST(DARP_benchmark_reader_test, leg_cost_components_size_mismatch_throws) {
+	YAML::Node config = YAML::Load("dist_filepath: ./dist.csv\ncost:\n  distance_weight: 0.0025\n");
+	EXPECT_THROW(internal::load_leg_cost_components(config, get_test_resource_path("Chyse"), 37u), std::runtime_error);
+}
+
+TEST(DARP_benchmark_reader_test, matrix_component_values_above_uint16) {
+	const fs::path dir = fs::temp_directory_path() / "DARP_benchmark_reader_test_matrix_component";
+	fs::create_directories(dir);
+	const std::vector<uint32_t> values{0, 70000, 4000000, 0};
+
+	const fs::path csv_path = dir / "dist.csv";
+	std::ofstream(csv_path) << "0,70000\n4000000,0\n";
+
+	const fs::path hdf_path = dir / "dist.h5";
+	{
+		H5::H5File file(hdf_path.string(), H5F_ACC_TRUNC);
+		const hsize_t dims[2]{2, 2};
+		H5::DataSet dataset = file.createDataSet("dm", H5::PredType::STD_U32LE, H5::DataSpace(2, dims));
+		dataset.write(values.data(), H5::PredType::NATIVE_UINT32);
+	}
+
+	for(const auto& path: {csv_path, hdf_path}) {
+		const auto component = Matrix_leg_cost_component::load("distance", 1.0, path, 2);
+		EXPECT_DOUBLE_EQ(component->value(0, 1), 70000.0) << path;
+		EXPECT_DOUBLE_EQ(component->value(1, 0), 4000000.0) << path;
+	}
+	fs::remove_all(dir);
 }
