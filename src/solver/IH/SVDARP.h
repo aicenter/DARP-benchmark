@@ -140,8 +140,10 @@ public:
             	pickup_position_in_plan = pickup_action_data->get_position_in_plan();
             	assert(vehicle_plan.get_action_order()[pickup_position_in_plan] == pickup_action_data_index);
             	
-                travel_time_to_depot = this->context.travel_time_provider()->get_travel_time(
-	                drop_off_action_data.get_node(), vehicle_plan.get_vehicle().get_init_position());
+                if(this->context.darp_instance_configuration()->is_return_to_depot()) {
+                	travel_time_to_depot = this->context.travel_time_provider()->get_travel_time(
+	                	drop_off_action_data.get_node(), vehicle_plan.get_vehicle().get_init_position());
+                }
                 diff = drop_off_service_start_time + drop_off_action_data.get_service_duration()
                     + travel_time_to_depot - this->context.darp_instance_configuration()->get_max_route_duration() - vehicle_plan.get_departure_time();
             }

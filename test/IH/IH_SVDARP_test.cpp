@@ -877,7 +877,9 @@ std::pair<
 
 	// Without the return to the depot, a plan ends after the service of its last action: a request fits a plan only if
 	// the route including the drop-off service time is within the max route duration.
-	bool fits_max_route_duration(unsigned long max_route_duration, unsigned short service_time) {
+	bool fits_max_route_duration(
+		unsigned long max_route_duration, unsigned short service_time, unsigned int pickup_min_time = 0
+	) {
 		const std::shared_ptr<Travel_time_provider<Cordeau_node>> travel_time_provider
 			= std::make_shared<Euclidean_travel_time_provider<Cordeau_node>>((unsigned short)60);
 		const auto config = std::make_shared<DARP_instance_configuration>(max_route_duration, 0, false);
@@ -885,7 +887,7 @@ std::pair<
 		SVDARP<Cordeau_node, Vehicle<Cordeau_node>, ActionData<Cordeau_node>, VehiclePlan<Cordeau_node>> solver{context};
 		Request_generator_cordeau_node request_generator{travel_time_provider, service_time};
 
-		Request<Cordeau_node> request = request_generator.generate_request(0, 1, 0, 86400, 0, 3, 0, 86400);
+		Request<Cordeau_node> request = request_generator.generate_request(0, 1, pickup_min_time, 86400, 0, 3, 0, 86400);
 		Request_data_Cordeau_node request_data(request);
 		const std::shared_ptr<Cordeau_node> vehicle_init_position{new Cordeau_node{0, 0}};
 		Vehicle<Cordeau_node> vehicle(0, vehicle_init_position, (unsigned short)6);
@@ -907,6 +909,20 @@ std::pair<
 		EXPECT_TRUE(fits_max_route_duration(0, service_time)); // unlimited
 		EXPECT_TRUE(fits_max_route_duration(route_duration, service_time));
 		EXPECT_FALSE(fits_max_route_duration(route_duration - 1, service_time));
+	}
+
+	// A route exceeding the max route duration because of waiting is shortened by a later vehicle departure. Without
+	// the return to the depot, the travel time to the depot does not count.
+	TEST(IH_SVDARP_test, max_route_duration_adjustment_without_return_to_depot) {
+		const unsigned short service_time = 100;
+		const unsigned int pickup_min_time = 1000; // the vehicle can arrive at 60 and would wait
+		const Euclidean_travel_time_provider<Cordeau_node> travel_time_provider((unsigned short)60);
+		const unsigned long route_duration
+			= travel_time_provider.get_travel_time(Cordeau_node{0, 0}, Cordeau_node{0, 1}) + service_time
+			+ travel_time_provider.get_travel_time(Cordeau_node{0, 1}, Cordeau_node{0, 3}) + service_time;
+
+		EXPECT_TRUE(fits_max_route_duration(route_duration, service_time, pickup_min_time));
+		EXPECT_FALSE(fits_max_route_duration(route_duration - 1, service_time, pickup_min_time));
 	}
 
 	TEST(IH_SVDARP_test_insert_request_into_plan_optimally, capacity_test) {
