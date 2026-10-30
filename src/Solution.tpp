@@ -116,7 +116,7 @@ Solution<N,P>::Solution(
     std::vector<const Request<N>*>&& dropped_requests
 ):
 	Solution_interface<N>(cost, std::move(dropped_requests), true),
-    plans{vehicle_plans}
+    plans{std::move(vehicle_plans)}
 {
 	assert(check());	
 }
@@ -129,7 +129,7 @@ Solution<N,P>::Solution(
     bool is_feasible
 ):
 	Solution_interface<N>(cost, std::move(dropped_requests), is_feasible),
-	plans{ vehicle_plans }
+	plans{std::move(vehicle_plans)}
 {
 	assert(check());
 }
@@ -272,7 +272,7 @@ Solution<N,P>::Solution(
 ):
 	Solution_interface<N>(0, std::vector<const Request<N>*>{}, true),
 	problem{instance.get_problem()},
-    plans{ vehicle_plans }
+    plans{std::move(vehicle_plans)}
 {
 
     std::unordered_set<const Request<N>*> served_requests;
