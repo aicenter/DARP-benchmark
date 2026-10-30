@@ -93,6 +93,15 @@ Additionaly, classical instances by Cordeau and Laporte are supported.
 
 For the travel time model it is essential to ensure that the triangle inequality holds. If you have doubts, you can use the `check_triangle_inequality` target to check the triangle inequality for your distance matrix.
 
+## IH fleet sizing
+[`python/scripts/run_sizing.py`](python/scripts/run_sizing.py) finds the smallest fleet with given vehicle positions that serves all requests: a binary search on the vehicle count k, where the fleet is the first k vehicles of the instance's `vehicles.csv` (backed up as `vehicles_pre_sizing.csv`) and each k is tested by an experiment (typically IH). This is different from the `fleet-sizing` problem, where the solver creates the vehicles.
+
+```bash
+python scripts/run_sizing.py <experiment config.yaml>... --executable <DARP-benchmark> --workers 3
+```
+
+With several experiment configs (e.g., one per day), all instances must have the same vehicle pool and k is sufficient only if no instance drops a request. The instances of one k run in parallel in `--workers` processes; once one drops a request, the instances not yet started are skipped. Each process loads its own travel time model, so the memory limits the workers. The search is logged in `sizing.csv` in the common parent directory of the instances, and an interrupted sizing resumes from it. At the end, every `vehicles.csv` holds the k vehicles and every instance config `vehicles.vehicle_count` k. As IH is a heuristic, the result is not guaranteed to be the minimum.
+
 
 # Extending the benchmark
 There are two ways to extend the benchmark:

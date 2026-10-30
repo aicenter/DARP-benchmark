@@ -31,27 +31,36 @@ from darpbenchmark.sizing import FleetSizing
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Run vehicle sizing (IH binary search on vehicles.csv) for a DARP instance."
+        description="Run vehicle sizing (IH binary search on vehicles.csv) for one or more DARP instances sharing "
+                    "the vehicle pool. A vehicle count is sufficient only if no instance drops a request."
     )
     parser.add_argument(
         "experiment_config",
         type=Path,
-        help="Path to experiment config.yaml (instance, method, outdir)",
+        nargs="+",
+        help="Path to experiment config.yaml (instance, method, outdir), one per instance",
     )
     parser.add_argument(
         "--executable",
         type=Path,
         help="Path to the DARP-benchmark executable (default: DARP-benchmark on PATH)",
     )
+    parser.add_argument(
+        "--workers",
+        type=int,
+        default=1,
+        help="Number of instances solved in parallel (each DARP-benchmark process loads its travel time model)",
+    )
     args = parser.parse_args()
 
     logging.basicConfig(level=logging.INFO)
-    config_path = args.experiment_config.resolve()
-    if not config_path.is_file():
-        parser.error(f"Experiment config not found: {config_path}")
+    config_paths = [path.resolve() for path in args.experiment_config]
+    for config_path in config_paths:
+        if not config_path.is_file():
+            parser.error(f"Experiment config not found: {config_path}")
 
-    fleet_sizing = FleetSizing(config_path)
-    fleet_sizing.calculate_sizing_for_instance(args.executable)
+    fleet_sizing = FleetSizing(config_paths, args.workers)
+    fleet_sizing.calculate_sizing(args.executable.resolve() if args.executable else None)
     return 0
 
 
