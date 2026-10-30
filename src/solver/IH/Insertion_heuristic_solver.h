@@ -33,6 +33,7 @@
 #include "../DARP_benchmark_solver.h"
 
 #include "../../DARP_instance.h"
+#include "../../common.h"
 #include "IH_vehicle_plan_builder.h"
 #include "SVDARP.h"
 #include "../../Iterable.h"
