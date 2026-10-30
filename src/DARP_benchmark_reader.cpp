@@ -24,6 +24,7 @@
 #include <algorithm>
 #include <cmath>
 #include <fstream>
+#include <limits>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -254,13 +255,14 @@ std::unique_ptr<std::vector<Request<Amodsim_node>>> DARP_benchmark_reader::load_
     const fs::path request_resolved = resolve_against_instance_dir(instance_directory, request_raw);
     const auto request_filepath = check_path(request_resolved.string());
 	const auto max_delay = internal::load_max_delay(config);
+	const auto service_time = internal::load_service_time(config);
 
     if (request_filepath.extension() == ".csv") {
         spdlog::info("Detected .csv format, using CSV loader for requests.");
-        return load_requests_csv(request_filepath.string(), max_delay, travel_cost_provider);
+        return load_requests_csv(request_filepath.string(), max_delay, service_time, travel_cost_provider);
     } else { // Assuming .di or other format for the original loader
         spdlog::info("Detected non-csv format, using DI loader for requests.");
-        return load_requests_di(request_filepath.string(), max_delay, travel_cost_provider);
+        return load_requests_di(request_filepath.string(), max_delay, service_time, travel_cost_provider);
     }
 }
 
@@ -268,6 +270,7 @@ std::unique_ptr<std::vector<Request<Amodsim_node>>> DARP_benchmark_reader::load_
 std::unique_ptr<std::vector<Request<Amodsim_node>>> DARP_benchmark_reader::load_requests_di(
     const std::string& request_filepath_str,
     const internal::Max_delay& max_delay,
+    unsigned short service_time,
     const std::shared_ptr<Travel_time_provider<Amodsim_node>>& travel_cost_provider
 ) {
     spdlog::info("Loading requests from DI file: {}", request_filepath_str);
@@ -289,7 +292,8 @@ std::unique_ptr<std::vector<Request<Amodsim_node>>> DARP_benchmark_reader::load_
 		const unsigned request_max_delay = max_delay.get(min_travel_time);
         requests->emplace_back(id, action_id, action_id + 1,
                 pickup_node, time, time + request_max_delay,
-                drop_off_node, time + min_travel_time, time + min_travel_time + request_max_delay, min_travel_time);
+                drop_off_node, time + min_travel_time, time + min_travel_time + request_max_delay, min_travel_time,
+                service_time, service_time);
         action_id += 2;
     }
     return requests;
@@ -300,6 +304,7 @@ template<char Delim>
 std::unique_ptr<std::vector<Request<Amodsim_node>>> load_requests_csv_impl(
 	const std::string& request_filepath_str,
 	const internal::Max_delay& max_delay,
+	unsigned short service_time,
 	const std::shared_ptr<Travel_time_provider<Amodsim_node>>& travel_cost_provider
 ) {
 	using CsvReader = csv2::Reader<csv2::delimiter<Delim>, csv2::quote_character<'"'>, csv2::first_row_is_header<true>,
@@ -310,6 +315,7 @@ std::unique_ptr<std::vector<Request<Amodsim_node>>> load_requests_csv_impl(
 	}
 	auto requests = std::make_unique<std::vector<Request<Amodsim_node>>>();
 	int time_col = -1, origin_col = -1, dest_col = -1;
+	int service_time_col = -1, pickup_service_time_col = -1, dropoff_service_time_col = -1;
 	bool time_in_seconds = false;
 	int col = 0;
 	for (const auto& cell : reader.header()) {
@@ -327,6 +333,12 @@ std::unique_ptr<std::vector<Request<Amodsim_node>>> load_requests_csv_impl(
 			dest_col = col;
 		} else if (name == "destination") {
 			dest_col = col;
+		} else if (name == "service_time") {
+			service_time_col = col;
+		} else if (name == "pickup_service_time") {
+			pickup_service_time_col = col;
+		} else if (name == "dropoff_service_time") {
+			dropoff_service_time_col = col;
 		}
 		++col;
 	}
@@ -334,6 +346,18 @@ std::unique_ptr<std::vector<Request<Amodsim_node>>> load_requests_csv_impl(
 		throw std::runtime_error("Request CSV header must include time/time_ms, origin, and dest/destination columns");
 	}
 	const int max_col = std::max({time_col, origin_col, dest_col});
+
+	// service time [s] of an optional column; an absent column or an empty cell gives the fallback
+	const auto service_time_cell = [](const std::vector<std::string>& cells, int column, unsigned short fallback) {
+		if (column < 0 || column >= static_cast<int>(cells.size()) || cells[column].empty()) {
+			return fallback;
+		}
+		const unsigned long value = std::stoul(cells[column]);
+		if (value > std::numeric_limits<unsigned short>::max()) {
+			throw std::runtime_error(fmt::format("Service time {} s in request CSV is out of range", value));
+		}
+		return static_cast<unsigned short>(value);
+	};
 	unsigned int action_id = 0;
 	unsigned long request_id_counter = 0;
 	for (const auto& row : reader) {
@@ -355,9 +379,12 @@ std::unique_ptr<std::vector<Request<Amodsim_node>>> load_requests_csv_impl(
 		std::shared_ptr<Amodsim_node> drop_off_node{new Amodsim_node(to)};
 		auto min_travel_time = static_cast<unsigned short>(travel_cost_provider->get_travel_time(*pickup_node, *drop_off_node));
 		const unsigned request_max_delay = max_delay.get(min_travel_time);
+		const unsigned short request_service_time = service_time_cell(cells, service_time_col, service_time);
 		requests->emplace_back(request_id_counter++, action_id, action_id + 1,
 			pickup_node, time, time + request_max_delay,
-			drop_off_node, time + min_travel_time, time + min_travel_time + request_max_delay, min_travel_time);
+			drop_off_node, time + min_travel_time, time + min_travel_time + request_max_delay, min_travel_time,
+			service_time_cell(cells, pickup_service_time_col, request_service_time),
+			service_time_cell(cells, dropoff_service_time_col, request_service_time));
 		action_id += 2;
 	}
 	return requests;
@@ -368,6 +395,7 @@ std::unique_ptr<std::vector<Request<Amodsim_node>>> load_requests_csv_impl(
 std::unique_ptr<std::vector<Request<Amodsim_node>>> DARP_benchmark_reader::load_requests_csv(
 	const std::string& request_filepath_str,
 	const internal::Max_delay& max_delay,
+	unsigned short service_time,
 	const std::shared_ptr<Travel_time_provider<Amodsim_node>>& travel_cost_provider
 ) {
 	spdlog::info("Loading requests from CSV file: {}", request_filepath_str);
@@ -381,9 +409,9 @@ std::unique_ptr<std::vector<Request<Amodsim_node>>> DARP_benchmark_reader::load_
 	}
 	const char delimiter = detect_tab_or_comma_delimiter(header_line);
 	if (delimiter == '\t') {
-		return load_requests_csv_impl<'\t'>(request_filepath_str, max_delay, travel_cost_provider);
+		return load_requests_csv_impl<'\t'>(request_filepath_str, max_delay, service_time, travel_cost_provider);
 	} else {
-		return load_requests_csv_impl<','>(request_filepath_str, max_delay, travel_cost_provider);
+		return load_requests_csv_impl<','>(request_filepath_str, max_delay, service_time, travel_cost_provider);
 	}
 }
 
@@ -415,6 +443,10 @@ Max_delay load_max_delay(const YAML::Node& config) {
 		return Max_delay{config["max_prolongation"].as<unsigned>(), std::nullopt};
 	}
 	return Max_delay{};
+}
+
+unsigned short load_service_time(const YAML::Node& config) {
+	return config["service_time"] ? config["service_time"].as<unsigned short>() : 0;
 }
 
 static problem_type parse_problem(const YAML::Node& config) {

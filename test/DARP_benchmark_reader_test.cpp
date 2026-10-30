@@ -356,6 +356,34 @@ TEST(DARP_benchmark_reader_test, request_loading_csv_max_delay) {
 	EXPECT_EQ(actual_requests[0].get_dropoff().get_max_time(), expected_time_0 + 1000);
 }
 
+TEST(DARP_benchmark_reader_test, request_loading_csv_service_times) {
+	// columns pickup_service_time and dropoff_service_time, otherwise service_time, otherwise the config service_time
+	const auto request_path = get_test_resource_path("requests-service-times.csv");
+	const YAML::Node config = YAML::Load(std::format(R"(
+	{{
+		service_time: 10,
+		demand: {{
+			filepath: "{}"
+		}}
+	}})", request_path.generic_string()));
+
+	const std::shared_ptr<Travel_time_provider<Amodsim_node>> travel_cost_provider
+		= std::make_shared<Zero_travel_time_provider>();
+	const auto requests = DARP_benchmark_reader::load_requests(config, travel_cost_provider, request_path.parent_path());
+
+	const std::vector<std::pair<unsigned short, unsigned short>> expected{{10, 10}, {30, 30}, {45, 30}, {50, 60}};
+	ASSERT_EQ(requests->size(), expected.size());
+	for (std::size_t i = 0; i < expected.size(); ++i) {
+		EXPECT_EQ((*requests)[i].get_pickup().get_service_duration(), expected[i].first) << "request " << i;
+		EXPECT_EQ((*requests)[i].get_dropoff().get_service_duration(), expected[i].second) << "request " << i;
+	}
+}
+
+TEST(DARP_benchmark_reader_test, service_time_default) {
+	EXPECT_EQ(internal::load_service_time(YAML::Load("{}")), 0);
+	EXPECT_EQ(internal::load_service_time(YAML::Load("{service_time: 90}")), 90);
+}
+
 // DI test unchanged from before
 TEST(DARP_benchmark_reader_test, request_loading_di) {
 	std::string request_filepath = get_test_resource_path("trips.di").generic_string();

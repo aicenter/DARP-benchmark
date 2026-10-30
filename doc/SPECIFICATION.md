@@ -108,6 +108,7 @@ The structure is following:
 - `max_route_duration`: the max duration [s] of a vehicle plan, 0 (default) = unlimited
 - `return_to_depot`: whether the vehicles return to their initial positions at the end of their plans (default `false`)
 - `save_shp`: if `true` then the shapefile will be saved for map, demand, and vehicles
+- `service_time`: the service time [s] of every pickup and drop-off whose request sets none (default 0). The CSV requests file can set it per request: the optional columns `pickup_service_time` and `dropoff_service_time`, otherwise `service_time` for both stops; an empty cell falls back to the next level.
 - `vehicles`: configuration object for vehicles
     - `start_time`: Each vehicle will be available since this datetime. Example: `'2022-03-11 17:45:00'`
     - `vehicle_capacity`: The capacity of the vehicle. Example: `4`

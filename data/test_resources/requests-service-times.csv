@@ -1,0 +1,5 @@
+time,origin,dest,service_time,pickup_service_time,dropoff_service_time
+100,0,1,,,
+200,1,2,30,,
+300,2,3,30,45,
+400,3,0,,50,60

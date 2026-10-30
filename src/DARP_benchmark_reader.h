@@ -72,6 +72,9 @@ struct Max_delay {
 
 /** The maximum delay is 0 if the configuration provides none of the keys. */
 Max_delay load_max_delay(const YAML::Node& config);
+
+/** The instance-wide service time [s] of the pickups and drop-offs (`service_time` key, default 0). */
+unsigned short load_service_time(const YAML::Node& config);
 }
 
 class DARP_benchmark_reader : public Reader<Amodsim_node> {
@@ -90,13 +93,16 @@ private:
 	static std::unique_ptr<std::vector<Request<Amodsim_node>>> load_requests_di(
 		const std::string& request_filepath_str,
 		const internal::Max_delay& max_delay,
+		unsigned short service_time,
 		const std::shared_ptr<Travel_time_provider<Amodsim_node>>& travel_cost_provider
 	);
 
-	// Loader for .csv format using csv2
+	// Loader for .csv format using csv2. The service times of a request are the optional columns pickup_service_time
+	// and dropoff_service_time, otherwise service_time (both stops), otherwise the instance-wide service_time.
 	static std::unique_ptr<std::vector<Request<Amodsim_node>>> load_requests_csv(
 		const std::string& request_filepath_str,
 		const internal::Max_delay& max_delay,
+		unsigned short service_time,
 		const std::shared_ptr<Travel_time_provider<Amodsim_node>>& travel_cost_provider
 	);
 
