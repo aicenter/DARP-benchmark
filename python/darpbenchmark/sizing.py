@@ -204,7 +204,7 @@ class FleetSizing:
             with open(self.sizing_file, "wt", encoding="utf-8") as f:
                 f.write("vehicle_count,dropped_requests,interval_size\n")
 
-    def run_vehicle_sizing_experiments(self):
+    def run_vehicle_sizing_experiments(self, executable_path: Path | None = None):
         """
         Run vehicle sizing for a given instance and experiment config file.
         epsilon_percentage is the percentage of the vehicle count that is used for epsilon, a stopping criterion.
@@ -247,7 +247,7 @@ class FleetSizing:
 
             # 2. run experiment
             self.delete_result_files()
-            darpbenchmark.experiments.run_experiment_using_config(str(self.experiment_config_file), executable_path=Path(r"C:\Workspaces\AIC\DARP-Benchmark\cmake-build-release/DARP-Benchmark.exe"))
+            darpbenchmark.experiments.run_experiment_using_config(str(self.experiment_config_file), executable_path=executable_path)
 
             # 3. read dropped vehicle count
             dropped_requests_count = self.get_dropped_requests_count()
@@ -257,9 +257,10 @@ class FleetSizing:
             logger.debug(f"Writing vehicle count: {vehicle_count}, dropped_requests: {dropped_requests_count}, "
                         f"interval_size: {interval_size}, epsilon: {epsilon}")
             
-            # 5. compute next sizing parameters
-            vehicle_count, interval_size = self.compute_next_sizing_parameters()
-            logger.info(f"Next sizing parameters: vehicle count: {vehicle_count} and interval size: {interval_size}")
+            # 5. compute next sizing parameters, the loop ends with the last tested vehicle count
+            if not (dropped_requests_count == 0 and interval_size <= epsilon):
+                vehicle_count, interval_size = self.compute_next_sizing_parameters()
+                logger.info(f"Next sizing parameters: vehicle count: {vehicle_count} and interval size: {interval_size}")
 
         logger.debug(
             f"Sizing for instance {self.instance_config_file} finished. Vehicle count: {vehicle_count} with interval {interval_size}")
@@ -279,19 +280,12 @@ class FleetSizing:
         return vehicle_count, dropped_requests, interval_size
 
 
-    def calculate_sizing_for_instance(self):
+    def calculate_sizing_for_instance(self, executable_path: Path | None = None):
         assert self.instance_config_file.is_file(), f"Instance config file {self.instance_config_file} does not exist"
         assert self.experiment_config_file.is_file(), f"Experiment config file {self.experiment_config_file} does not exist"
 
-        # Check sizing was not already performed
-        instance_config = load_yaml(self.instance_config_file)
-        if hasattr(instance_config, "vehicles") and "vehicle_count" in instance_config["vehicles"]:
-            logger.error(f"The instance already contains sizing info! {instance_config}")
-            return None
-
-
         # Run vehicle sizing
-        vehicle_count, interval_size, epsilon = self.run_vehicle_sizing_experiments()
+        vehicle_count, interval_size, epsilon = self.run_vehicle_sizing_experiments(executable_path)
 
         logger.info(
             f"FINISHED: SAVED VEHICLE COUNT {vehicle_count} in sizing.csv for instance {self.instance_config_file}")

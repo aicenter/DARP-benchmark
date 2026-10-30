@@ -38,6 +38,11 @@ def main() -> int:
         type=Path,
         help="Path to experiment config.yaml (instance, method, outdir)",
     )
+    parser.add_argument(
+        "--executable",
+        type=Path,
+        help="Path to the DARP-benchmark executable (default: DARP-benchmark on PATH)",
+    )
     args = parser.parse_args()
 
     logging.basicConfig(level=logging.INFO)
@@ -46,7 +51,7 @@ def main() -> int:
         parser.error(f"Experiment config not found: {config_path}")
 
     fleet_sizing = FleetSizing(config_path)
-    fleet_sizing.calculate_sizing_for_instance()
+    fleet_sizing.calculate_sizing_for_instance(args.executable)
     return 0
 
 
