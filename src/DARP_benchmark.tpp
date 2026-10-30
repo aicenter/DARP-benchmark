@@ -101,9 +101,16 @@ void DARP_benchmark<N>::process_instance(
 	auto solver = Default_solver_registry::get().create_solver(method, darp_instance, solver_arguments, out_dir);
 	std::string method_lower_case = method;
 	std::transform(method.begin(), method.end(), method_lower_case.begin(), ::tolower);
-	if(!darp_instance.get_darp_instance_configuration()->get_cost_weights().is_default()
-		&& method_lower_case != "vga" && method_lower_case != "rolling_horizon_vga"
-		&& method_lower_case != "vga_chaining" && method_lower_case != "fleet_sizing_chaining") {
+	// methods optimizing the weighted cost incrementally (Cost_evaluator hooks per leg and drop-off)
+	const bool weighted_method = method_lower_case == "vga" || method_lower_case == "rolling_horizon_vga"
+		|| method_lower_case == "vga_chaining" || method_lower_case == "fleet_sizing_chaining";
+	const Cost_weights& cost_weights = darp_instance.get_darp_instance_configuration()->get_cost_weights();
+	if(weighted_method && cost_weights.plan_duration_weight != 0.0) {
+		throw std::runtime_error(fmt::format(
+			"The {} method optimizes the weighted cost per leg and drop-off and cannot price the plan duration; "
+			"'cost.plan_duration_weight' must be 0", method));
+	}
+	if(!cost_weights.is_default() && !weighted_method) {
 		spdlog::warn("The instance defines non-default cost weights, but the {} method optimizes its own objective; "
 			"only the reported cost of its solution is weighted", method);
 	}

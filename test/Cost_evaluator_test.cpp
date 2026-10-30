@@ -278,6 +278,52 @@ TEST(Cost_evaluator_test, distance_component_ignores_virtual_first_leg) {
 	EXPECT_DOUBLE_EQ(evaluator.leg_cost(*instance.depot, *instance.a_pickup, 10), 11.0);
 }
 
+Cost_weights plan_duration_weights(double weight) {
+	Cost_weights weights;
+	weights.travel_time_weight = 0.0;
+	weights.plan_duration_weight = weight;
+	return weights;
+}
+
+TEST(Cost_evaluator_test, plan_duration_from_departure_to_last_action) {
+	Line_instance instance;
+	const auto configuration = configuration_with(plan_duration_weights(2.0));
+	const Cost_evaluator evaluator = Cost_evaluator::from_configuration(configuration);
+	// B is picked up at 50 instead of 40: the plan departs at 0 and ends with the B drop-off at 70
+	const VehiclePlan<Cordeau_node> plan = instance.make_plan(0, 50);
+
+	const Cost_breakdown breakdown = evaluator.evaluate<Cordeau_node>(plan, *instance.travel_time_provider, configuration);
+
+	EXPECT_DOUBLE_EQ(breakdown.plan_duration, 70.0);
+	EXPECT_DOUBLE_EQ(breakdown.total, 140.0);
+	EXPECT_DOUBLE_EQ(evaluator.plan_duration_cost(0, 70), 140.0);
+}
+
+TEST(Cost_evaluator_test, plan_duration_includes_return_leg) {
+	Line_instance instance;
+	const auto configuration = configuration_with(plan_duration_weights(1.0), true);
+	const Cost_evaluator evaluator = Cost_evaluator::from_configuration(configuration);
+	const VehiclePlan<Cordeau_node> plan = instance.make_plan(0);
+
+	const Cost_breakdown breakdown = evaluator.evaluate<Cordeau_node>(plan, *instance.travel_time_provider, configuration);
+
+	// the last action ends at 60, the return leg takes 60 s
+	EXPECT_DOUBLE_EQ(breakdown.plan_duration, 120.0);
+	EXPECT_DOUBLE_EQ(breakdown.total, 120.0);
+}
+
+TEST(Cost_evaluator_test, empty_plan_has_no_duration) {
+	Line_instance instance;
+	const auto configuration = configuration_with(plan_duration_weights(1.0));
+	const Cost_evaluator evaluator = Cost_evaluator::from_configuration(configuration);
+	const VehiclePlan<Cordeau_node> plan{instance.vehicles->at(0), 4};
+
+	const Cost_breakdown breakdown = evaluator.evaluate<Cordeau_node>(plan, *instance.travel_time_provider, configuration);
+
+	EXPECT_DOUBLE_EQ(breakdown.plan_duration, 0.0);
+	EXPECT_DOUBLE_EQ(breakdown.total, 0.0);
+}
+
 TEST(Cost_evaluator_test, solution_writes_cost_components) {
 	Line_instance instance_data;
 	std::vector<VehiclePlan<Cordeau_node>> plans;
@@ -296,5 +342,6 @@ TEST(Cost_evaluator_test, solution_writes_cost_components) {
 	EXPECT_DOUBLE_EQ(components["passenger_delay"].GetDouble(), 2.5);
 	EXPECT_DOUBLE_EQ(components["vehicle_capital"].GetDouble(), 10.0);
 	EXPECT_DOUBLE_EQ(components["distance"].GetDouble(), 6.1);
+	EXPECT_DOUBLE_EQ(components["plan_duration"].GetDouble(), 0.0);
 	EXPECT_DOUBLE_EQ(document["plans"][0]["cost_components"]["distance"].GetDouble(), 6.1);
 }

@@ -501,13 +501,14 @@ Cost_weights load_cost_weights(const YAML::Node& config) {
 		{"travel_time_weight", &Cost_weights::travel_time_weight},
 		{"passenger_delay_weight", &Cost_weights::passenger_delay_weight},
 		{"vehicle_capital_cost", &Cost_weights::vehicle_capital_cost},
+		{"plan_duration_weight", &Cost_weights::plan_duration_weight},
 	};
 	// weights of the instance format that the benchmark does not evaluate: accepted only when zero
 	static const std::set<std::string> unsupported{
-		"ride_time_weight", "earliness_weight", "plan_duration_weight", "fixed_plan_cost"
+		"ride_time_weight", "earliness_weight", "fixed_plan_cost"
 	};
 	static const std::string supported_list = [] {
-		std::string list = "travel_time_weight, passenger_delay_weight, vehicle_capital_cost";
+		std::string list = "travel_time_weight, passenger_delay_weight, vehicle_capital_cost, plan_duration_weight";
 		for(const auto& type: leg_cost_component_types()) {
 			list += ", " + type.weight_key;
 		}

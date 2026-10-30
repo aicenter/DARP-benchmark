@@ -78,10 +78,12 @@ struct Cost_weights {
 	double vehicle_capital_cost{0.0};
 	/** Components priced per leg by a loaded model (e.g., distance), only those with a non-zero weight. */
 	Leg_cost_components leg_components{};
+	/** Weight of a second of plan duration: from the plan departure to the end of the last action or the depot return. */
+	double plan_duration_weight{0.0};
 
 	[[nodiscard]] bool is_default() const {
 		return travel_time_weight == 1.0 && passenger_delay_weight == 0.0 && vehicle_capital_cost == 0.0
-			&& leg_components.empty();
+			&& leg_components.empty() && plan_duration_weight == 0.0;
 	}
 };
 

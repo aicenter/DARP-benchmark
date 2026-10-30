@@ -124,15 +124,16 @@ The solution cost is the weighted sum of the cost components of its plans, with 
 | `passenger_delay_weight` | passenger delay [s]: drop-off arrival minus the arrival of the direct ride started at the desired pickup time, summed over drop-offs | 0.0 | `demand.relative_delay_cost` |
 | `vehicle_capital_cost` | constant charged to every non-empty plan | 0.0 | `vehicles.capital_cost` |
 | `distance_weight` | vehicle travel distance [m]: the same legs as the travel time, each with the value of the `dist_filepath` matrix (detours of re-routed vehicles do not count) | 0.0 | |
+| `plan_duration_weight` | plan duration [s]: from the plan departure to the end of the last action or, when the instance requires the return to the depot, the depot return; includes the waiting and the service; 0 for empty plans | 0.0 | |
 
 Distance is a *leg cost component*: a component priced per leg by a model loaded at startup (`Leg_cost_component`, `src/cost/Leg_cost_component.h`). Such components are loaded only for a non-zero weight and only for instances with a distance matrix (not grid instances); they need the leg's nodes:
 
 - The first leg of a virtual vehicle (fleet sizing, the VGA batches of VGA chaining) starts at the *virtual node*, as the vehicle has no position. The leg cost components count 0 on it, as in the solution checker of the DARP instances project.
 - The first leg of a vehicle on its way (rolling horizon VGA) counts the components from the next node on its path only. The remainder of its current leg is the same for every candidate plan.
 
-The other weights of the instance format (`ride_time_weight`, `earliness_weight`, `plan_duration_weight`, `fixed_plan_cost`) are accepted only when zero, and `accounting` only as `per_traveller`; any other value makes the instance loading fail. Unknown keys in the `cost` section are an error.
+The other weights of the instance format (`ride_time_weight`, `earliness_weight`, `fixed_plan_cost`) are accepted only when zero, and `accounting` only as `per_traveller`; any other value makes the instance loading fail. Unknown keys in the `cost` section are an error.
 
-The weighted cost is a floating-point number; the plan and solution `cost` fields of the solution file are numbers, `cost_minutes` stays an integer. Every plan and the solution also have the `cost_components` object: the weighted contribution of each component (`travel_time`, `passenger_delay`, `vehicle_capital` and the leg cost components such as `distance`), summing to `cost` (format: `cost_components.schema.json` of the DARP instances project). The VGA, rolling horizon VGA, VGA chaining and fleet-sizing chaining solvers optimize the weighted cost; the other methods optimize the travel time and only their reported cost is weighted (the benchmark logs a warning in that case).
+The weighted cost is a floating-point number; the plan and solution `cost` fields of the solution file are numbers, `cost_minutes` stays an integer. Every plan and the solution also have the `cost_components` object: the weighted contribution of each component (`travel_time`, `passenger_delay`, `vehicle_capital`, `plan_duration` and the leg cost components such as `distance`), summing to `cost` (format: `cost_components.schema.json` of the DARP instances project). The VGA, rolling horizon VGA, VGA chaining and fleet-sizing chaining solvers optimize the weighted cost; the other methods optimize the travel time and only their reported cost is weighted (the benchmark logs a warning in that case). The four weighted-cost solvers price the cost per leg and drop-off and cannot price the plan duration: with a non-zero `plan_duration_weight`, running them is an error.
 
 ### Demand Instance File
 Each line has the following structure:

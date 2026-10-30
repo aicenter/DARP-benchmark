@@ -61,6 +61,8 @@ struct Cost_breakdown {
 	std::vector<double> leg_components;
 	/** Constant of the plan: the vehicle capital cost, charged to non-empty plans. */
 	cost_type plan_constant{0};
+	/** Plan duration [s]: from the plan departure to the end of the last action or the depot return; 0 if empty. */
+	double plan_duration{0};
 	/** Weighted cost of the plan. */
 	cost_type total{0};
 
@@ -70,6 +72,7 @@ struct Cost_breakdown {
 			{"travel_time", weights.travel_time_weight * travel_time},
 			{"passenger_delay", weights.passenger_delay_weight * passenger_delay},
 			{"vehicle_capital", plan_constant},
+			{"plan_duration", weights.plan_duration_weight * plan_duration},
 		};
 		for(size_t i = 0; i < weights.leg_components.size(); ++i) {
 			const Leg_cost_component& component = *weights.leg_components[i];
@@ -80,8 +83,9 @@ struct Cost_breakdown {
 
 	[[nodiscard]] std::string describe(const Cost_weights& weights) const {
 		std::string description = fmt::format(
-			"travel_time {} s * {} + passenger_delay {} s * {} + vehicle_capital_cost {}",
-			travel_time, weights.travel_time_weight, passenger_delay, weights.passenger_delay_weight, plan_constant);
+			"travel_time {} s * {} + passenger_delay {} s * {} + vehicle_capital_cost {} + plan_duration {} s * {}",
+			travel_time, weights.travel_time_weight, passenger_delay, weights.passenger_delay_weight, plan_constant,
+			plan_duration, weights.plan_duration_weight);
 		for(size_t i = 0; i < weights.leg_components.size(); ++i) {
 			const Leg_cost_component& component = *weights.leg_components[i];
 			description += fmt::format(" + {} {} * {}", component.name(), leg_components[i], component.weight());
@@ -160,6 +164,16 @@ struct Vehicle_capital_component {
 	}
 };
 
+/** Duration of a plan, charged once per non-empty plan. */
+struct Plan_duration_component {
+	double weight;
+
+	[[nodiscard]] cost_type on_plan(time_type departure, time_type end) const noexcept {
+		assert(end >= departure && "plan ends before its departure");
+		return weight * (static_cast<double>(end) - static_cast<double>(departure));
+	}
+};
+
 /**
  * @brief Solver-independent evaluation of the weighted plan cost (see Cost_weights). The solvers use the incremental
  * hooks while building plans; the framework evaluates finished plans with evaluate() when a Solution is created and
@@ -171,7 +185,8 @@ public:
 		weights_(weights),
 		travel_time_{weights.travel_time_weight},
 		passenger_delay_{weights.passenger_delay_weight},
-		vehicle_capital_{weights.vehicle_capital_cost} {
+		vehicle_capital_{weights.vehicle_capital_cost},
+		plan_duration_{weights.plan_duration_weight} {
 	}
 
 	[[nodiscard]] static Cost_evaluator from_configuration(const DARP_instance_configuration& configuration) {
@@ -215,6 +230,12 @@ public:
 		return vehicle_capital_.on_plan();
 	}
 
+	/** Cost of the duration of a non-empty plan departing at \p departure and ending at \p end (the end of the last
+	 * action, or the depot return when the plan includes it). */
+	[[nodiscard]] cost_type plan_duration_cost(time_type departure, time_type end) const noexcept {
+		return plan_duration_.on_plan(departure, end);
+	}
+
 	/** Arrival of the direct ride started at the desired pickup time. */
 	template<typename N>
 	[[nodiscard]] static time_type ideal_dropoff_arrival(const Request<N>& request) noexcept {
@@ -232,7 +253,8 @@ public:
 
 	/**
 	 * Evaluates a finished plan: the first leg from the vehicle start (the time to start for virtual vehicles), the
-	 * legs between the actions, the return-to-depot leg when the instance requires it, and the drop-off delays.
+	 * legs between the actions, the return-to-depot leg when the instance requires it, the drop-off delays, and the
+	 * plan duration from the plan departure to the end of the last action or the depot return.
 	 * @tparam Plan plan or plan builder providing get_vehicle(), get_length(), operator[] and get_departure_time()
 	 */
 	template<typename N, typename Plan>
@@ -306,15 +328,20 @@ public:
 			previous = &action;
 		}
 		if(previous != nullptr) {
+			assert(previous->get_departure_time() >= 0);
+			time_type end = static_cast<time_type>(previous->get_departure_time());
 			if(return_leg) {
 				breakdown.travel_time += static_cast<double>(return_leg->travel_time);
 				add_leg_components(breakdown, previous->get_node(), *return_leg->target);
+				end += return_leg->travel_time;
 			}
 			breakdown.plan_constant = plan_constant();
+			breakdown.plan_duration = static_cast<double>(end) - static_cast<double>(plan.get_departure_time());
 		}
 		breakdown.total = weights_.travel_time_weight * breakdown.travel_time
 			+ weights_.passenger_delay_weight * breakdown.passenger_delay
-			+ breakdown.plan_constant;
+			+ breakdown.plan_constant
+			+ weights_.plan_duration_weight * breakdown.plan_duration;
 		for(size_t i = 0; i < weights_.leg_components.size(); ++i) {
 			breakdown.total += weights_.leg_components[i]->weight() * breakdown.leg_components[i];
 		}
@@ -326,6 +353,7 @@ private:
 	Travel_time_component travel_time_;
 	Passenger_delay_component passenger_delay_;
 	Vehicle_capital_component vehicle_capital_;
+	Plan_duration_component plan_duration_;
 
 	template<typename N>
 	void add_leg_components(Cost_breakdown& breakdown, const N& from, const N& to) const {

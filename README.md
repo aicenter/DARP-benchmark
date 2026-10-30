@@ -72,7 +72,7 @@ So far, only one method is included: Insertion Heuristic (IH).
 - `ih.temporal_pruning_min_plan_length` - minimum existing plan length for IH temporal insertion-position pruning in YAML config. Default: 32. Set to 0 to disable pruning.
 
 
-The objective of the benchmark is the weighted solution cost configured by the `cost` section of the instance `config.yaml` (travel time by default); see the section "Cost model" in [doc/SPECIFICATION.md](doc/SPECIFICATION.md). Besides the travel time, the passenger delay and the vehicle capital cost, the cost can include the vehicle travel distance (`distance_weight` with a `dist_filepath` matrix); the solution files report the weighted contribution of each component in `cost_components`.
+The objective of the benchmark is the weighted solution cost configured by the `cost` section of the instance `config.yaml` (travel time by default); see the section "Cost model" in [doc/SPECIFICATION.md](doc/SPECIFICATION.md). Besides the travel time, the passenger delay and the vehicle capital cost, the cost can include the vehicle travel distance (`distance_weight` with a `dist_filepath` matrix) and the plan duration including waiting and service (`plan_duration_weight`, not for the methods optimizing the weighted cost per leg); the solution files report the weighted contribution of each component in `cost_components`.
 
 ## Usage Examples
 

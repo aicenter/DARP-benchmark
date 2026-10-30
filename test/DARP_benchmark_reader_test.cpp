@@ -309,6 +309,14 @@ TEST(DARP_benchmark_reader_test, cost_section_zero_unsupported_weights_accepted)
 	EXPECT_TRUE(internal::load_cost_weights(config).is_default());
 }
 
+TEST(DARP_benchmark_reader_test, cost_section_plan_duration_weight) {
+	YAML::Node config = YAML::Load("cost:\n  travel_time_weight: 0\n  plan_duration_weight: 0.1111\n");
+	const Cost_weights weights = internal::load_cost_weights(config);
+	EXPECT_DOUBLE_EQ(weights.travel_time_weight, 0.0);
+	EXPECT_DOUBLE_EQ(weights.plan_duration_weight, 0.1111);
+	EXPECT_FALSE(weights.is_default());
+}
+
 TEST(DARP_benchmark_reader_test, cost_section_nonzero_unsupported_weight_throws) {
 	YAML::Node config = YAML::Load("cost:\n  ride_time_weight: 0.5\n");
 	EXPECT_THROW(internal::load_cost_weights(config), std::runtime_error);
