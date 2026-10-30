@@ -52,11 +52,20 @@ public:
 
 	void set_cost_before_drop_off() {
 		this->cost_before_drop_off = this->get_cost();
+		adding_drop_off = true;
+	}
+
+	/**
+	 * @brief Marks that no drop off is being added, as after the drop off of the last request was removed.
+	 */
+	void clear_drop_off() {
+		cost_before_drop_off = 0;
+		adding_drop_off = false;
 	}
 
 	
 	[[nodiscard]] plan_size_type compute_time_adjustment_start_index() const {
-		if(cost_before_drop_off == 0) {
+		if(!adding_drop_off) {
 			return 0;
 		}
 		
@@ -74,7 +83,7 @@ public:
 			return 0;
 		}
 		// we are adding the drop off action
-		if(cost_before_drop_off) {
+		if(adding_drop_off) {
 			return action_data_used_length;
 		}
 		// we are adding the pickup action
@@ -173,8 +182,8 @@ public:
 		this->action_data[action_data_used_length - 2].set_other_action_data_index(
 			static_cast<index_in_plan>(action_data_used_length - 1));
 
-		// we need to erase this, as it is a drop off indicator
-		cost_before_drop_off = 0; 
+		// a new request starts with its pickup
+		adding_drop_off = false;
 	}
 
 	void remove_new_request_data() {
@@ -255,9 +264,8 @@ public:
 		lastly_added_action_data.delete_departure_time();
     	lastly_added_action_data.set_arrival_time(0);
 
-		//cost before drop off needs to be set to zero, because it is an indicator
 		if(!pickup) {
-			cost_before_drop_off = 0; 
+			clear_drop_off();
 		}
 	}
 
@@ -281,6 +289,12 @@ private:
 	 * Cost of the plan before the drop off action was added.
 	 */
 	cost_type cost_before_drop_off{0};
+
+	/*
+	 * Whether the drop off action of the last request is being added (or has been added). The cost before the drop off
+	 * cannot indicate this, as it is zero when the pickup is at the vehicle's initial position.
+	 */
+	bool adding_drop_off{false};
 
 	time_type operating_start;
 

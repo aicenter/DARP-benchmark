@@ -755,8 +755,7 @@ std::pair<
 		ActionData<Cordeau_node>& r0_drop_off = expected_plan[2];
 		r0_drop_off.set_arrival_time(r0_drop_off.get_arrival_time() - time_adjustment);
 		r0_drop_off.set_departure_time(r0_drop_off.get_departure_time() - time_adjustments[13]);
-		expected_plan.set_cost(0);
-		expected_plan.set_cost_before_drop_off();
+		expected_plan.clear_drop_off();
 		expected_plan.set_cost(1103);
 		
 
@@ -957,6 +956,34 @@ std::pair<
 			request_data_0.pickup_action_data, request_data_0.drop_off_action_data, plan, cutoff), cutoff);
 		EXPECT_LT(solver.insert_request_into_plan_optimally(
 			request_data_1.pickup_action_data, request_data_1.drop_off_action_data, plan, cutoff), cutoff);
+	}
+
+	// A request picked up at the vehicle's initial position has zero cost before its drop-off is added; the finalized
+	// plan still ends after the service of the drop-off.
+	TEST(IH_SVDARP_test, plan_arrival_after_pickup_at_vehicle_position) {
+		const unsigned short service_time = 100;
+		const std::shared_ptr<Travel_time_provider<Cordeau_node>> travel_time_provider
+			= std::make_shared<Euclidean_travel_time_provider<Cordeau_node>>((unsigned short)60);
+		const auto config = std::make_shared<DARP_instance_configuration>(0, 0, false);
+		const DARP_context<Cordeau_node> context(travel_time_provider, config);
+		SVDARP<Cordeau_node, Vehicle<Cordeau_node>, ActionData<Cordeau_node>, VehiclePlan<Cordeau_node>> solver{context};
+		Request_generator_cordeau_node request_generator{travel_time_provider, service_time};
+		Request<Cordeau_node> request = request_generator.generate_request(0, 0, 0, 86400, 0, 2, 0, 86400);
+		Request_data_Cordeau_node request_data(request);
+		const std::shared_ptr<Cordeau_node> vehicle_init_position{new Cordeau_node{0, 0}};
+		Vehicle<Cordeau_node> vehicle(0, vehicle_init_position, (unsigned short)6);
+		IH_vehicle_plan_builder<Vehicle<Cordeau_node>, ActionData<Cordeau_node>, VehiclePlan<Cordeau_node>> plan(vehicle, 4);
+
+		const cost_type cutoff = std::numeric_limits<cost_type>::max();
+		ASSERT_LT(solver.insert_request_into_plan_optimally(
+			request_data.pickup_action_data, request_data.drop_off_action_data, plan, cutoff), cutoff);
+		ASSERT_EQ(plan.get_length(), 2);
+		EXPECT_EQ(plan.get_active_length(), 2);
+		solver.finalize_plan(plan);
+
+		const unsigned long drop_off_departure
+			= service_time + travel_time_provider->get_travel_time(Cordeau_node{0, 0}, Cordeau_node{0, 2}) + service_time;
+		EXPECT_EQ(plan.get_arrival_time(), drop_off_departure);
 	}
 
 	TEST(IH_SVDARP_test_insert_request_into_plan_optimally, capacity_test) {
