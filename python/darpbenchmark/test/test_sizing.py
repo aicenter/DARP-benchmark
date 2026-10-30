@@ -27,30 +27,48 @@ from pathlib import Path
 import pytest
 import yaml
 
-from darpbenchmark.sizing import CostPerRequestSizing, FleetSizing, COST_SIZING_FILE, SIZING_FILE, VEHICLES_FILE
+from darpbenchmark.sizing import (
+    COST_SIZING_FILE, DROPPED_REQUESTS_FILE, DROPPING_FILE, REQUEST_POOL_FILE, REQUESTS_FILE, SIZING_FILE, VEHICLES_FILE,
+    CostPerRequestSizing, DroppingSizing, FleetSizing,
+)
 
-# The fake DARP-benchmark drops (required vehicles - vehicle count) of its 100 requests, where the required vehicle
-# count is set in the instance config. Its route cost per served request is (vehicle count - cost optimum)^2 + 1 (one
-# plan, travel time weight 1). It logs its calls as "<instance dir name>,<vehicle count>".
+# The fake DARP-benchmark serves the requests of requests.csv (100 if there is none). With the IH method, it drops
+# (required vehicles - vehicle count) requests, where the required vehicle count is set in the instance config, or
+# computed from requests_per_vehicle. With the worst_removal method, it drops the requests whose "profitable" column
+# is 0, and those with 2 when at most 7 requests remain. Its cost per served request is
+# (vehicle count - cost optimum)^2 + 1 (one plan, the cost is its duration). It logs its calls as
+# "<instance dir name>,<vehicle count>".
 FAKE_EXECUTABLE = f"""#!{sys.executable}
-import argparse, json, pathlib, yaml
+import argparse, json, math, pathlib, yaml
 parser = argparse.ArgumentParser()
 parser.add_argument("--instance", type=pathlib.Path)
 parser.add_argument("--outdir", type=pathlib.Path)
 parser.add_argument("--method")
+parser.add_argument("--drop_threshold")
 args = parser.parse_args()
+if args.drop_threshold is not None:
+    (pathlib.Path(__file__).parent / "drop_threshold.log").write_text(args.drop_threshold)
 config = yaml.safe_load(args.instance.read_text())
 vehicle_count = len((args.instance.parent / "vehicles.csv").read_text().splitlines())
-dropped = min(100, max(0, config["required_vehicles"] - vehicle_count))
-served = 100 - dropped
+requests_file = args.instance.parent / "requests.csv"
+rows = requests_file.read_text().splitlines()[1:] if requests_file.is_file() else ["1"] * 100
+if args.method == "worst_removal":
+    profitable = [int(row.split(",")[-1]) for row in rows]
+    dropped = [i for i, p in enumerate(profitable) if p == 0 or (p == 2 and len(rows) <= 7)]
+else:
+    required = config.get("required_vehicles")
+    if required is None:
+        required = math.ceil(len(rows) / config["requests_per_vehicle"])
+    dropped = list(range(min(len(rows), max(0, required - vehicle_count))))
+served = len(rows) - len(dropped)
 route_duration = served * ((vehicle_count - config.get("cost_optimum", 0)) ** 2 + 1)
 plan = {{
     "departure_time": 0,
     "arrival_time": route_duration,
-    "actions": [{{"action": {{"type": "pickup"}}}}] * served + [{{"action": {{"type": "dropoff"}}}}] * served,
+    "actions": [{{"action": {{"type": "pickup"}}}}] * served + [{{"action": {{"type": "drop_off"}}}}] * served,
     "cost_components": {{"travel_time": route_duration, "distance": 0}},
 }}
-solution = {{"dropped_requests": list(range(dropped)), "plans": [plan]}}
+solution = {{"cost": route_duration, "dropped_requests": [{{"index": i}} for i in dropped], "plans": [plan]}}
 (args.outdir / f"{{args.instance.name}}-solution.json").write_text(json.dumps(solution))
 with open(pathlib.Path(__file__).parent / "calls.log", "a") as log:
     log.write(f"{{args.instance.parent.name}},{{vehicle_count}}\\n")
@@ -219,3 +237,77 @@ def test_min_cost_sizing_resume(tmp_path, executable):
 
     assert CostPerRequestSizing([experiment], step=10).calculate_sizing(executable) == 13
     assert ("day_1", 10) not in read_calls(tmp_path)[:-1]
+
+
+def create_dropping_experiment(root: Path, name: str, profitable: list[int], pool_size: int = 8) -> tuple[Path, Path]:
+    """The IH and the worst_removal experiment of an instance with the requests of the given profitability."""
+    experiment = create_experiment(root, name, required_vehicles=0, pool_size=pool_size)
+    instance_dir = root / "instances" / name
+    instance_config = yaml.safe_load((instance_dir / "config.yaml").read_text())
+    del instance_config["required_vehicles"]
+    instance_config["requests_per_vehicle"] = 2
+    (instance_dir / "config.yaml").write_text(yaml.dump(instance_config))
+    (instance_dir / REQUESTS_FILE).write_text(
+        "time,origin,destination,profitable\n" + "".join(f"0,{i},{i + 1},{p}\n" for i, p in enumerate(profitable)))
+    dropping_dir = root / "experiments_drop" / name
+    dropping_dir.mkdir(parents=True)
+    dropping_experiment = dropping_dir / "config.yaml"
+    dropping_experiment.write_text(yaml.dump(
+        {"instance": f"../../instances/{name}/config.yaml", "outdir": ".", "method": "worst_removal"}))
+    return experiment, dropping_experiment
+
+
+def read_dropping(path: Path) -> list[list[str]]:
+    return [line.split(",") for line in path.read_text().splitlines()[1:]]
+
+
+def test_dropping_rounds(tmp_path, executable):
+    day_1 = create_dropping_experiment(tmp_path, "day_1", [1, 1, 0, 1, 1, 0, 1, 0, 2, 1])
+    day_2 = create_dropping_experiment(tmp_path, "day_2", [1, 1, 1, 1, 1, 1])
+    sizing = DroppingSizing([day_1[0], day_2[0]], [day_1[1], day_2[1]], workers=2)
+
+    vehicle_count = sizing.calculate_sizing(executable)
+
+    # round 1: 10 requests need 5 vehicles, 3 are dropped; round 2: 7 need 4, the request at 8 is dropped;
+    # round 3: 6 need 3, nothing is dropped
+    assert vehicle_count == 3
+    rounds = read_dropping(tmp_path / "instances" / DROPPING_FILE)
+    assert [(r[0], r[1], r[3]) for r in rounds] == [("1", "5", "3"), ("2", "4", "1"), ("3", "3", "0")]
+    assert rounds[0][2] == str(7 + 6)
+    instance_dir = tmp_path / "instances" / "day_1"
+    assert (instance_dir / DROPPED_REQUESTS_FILE).read_text().splitlines()[1:] == ["1,2", "1,5", "1,7", "2,8"]
+    remaining = [line.split(",")[1] for line in (instance_dir / REQUESTS_FILE).read_text().splitlines()[1:]]
+    assert remaining == ["0", "1", "3", "4", "6", "9"]
+    assert len((instance_dir / REQUEST_POOL_FILE).read_text().splitlines()) == 11
+    assert len((instance_dir / VEHICLES_FILE).read_text().splitlines()) == 3
+    assert (tmp_path / "instances" / "sizing_round_2.csv").is_file()
+
+
+def test_dropping_resume_and_finished(tmp_path, executable):
+    day_1 = create_dropping_experiment(tmp_path, "day_1", [1, 1, 0, 1, 1, 0, 1, 0, 2, 1])
+    sizing = DroppingSizing([day_1[0]], [day_1[1]])
+    sizing.calculate_sizing(executable)
+    calls_file = tmp_path / "calls.log"
+    calls_file.unlink()
+
+    # a finished sizing runs nothing
+    assert DroppingSizing([day_1[0]], [day_1[1]]).calculate_sizing(executable) == 3
+    assert not calls_file.exists()
+
+    # an interrupted third round (logged drops, no round record) is repeated without duplicating them
+    dropping_file = tmp_path / "instances" / "day_1" / DROPPING_FILE
+    dropping_file.write_text("\n".join(dropping_file.read_text().splitlines()[:-1]) + "\n")
+    dropped_file = tmp_path / "instances" / "day_1" / DROPPED_REQUESTS_FILE
+    dropped_file.write_text(dropped_file.read_text() + "3,0\n")
+    assert DroppingSizing([day_1[0]], [day_1[1]]).calculate_sizing(executable) == 3
+    assert dropped_file.read_text().splitlines()[1:] == ["1,2", "1,5", "1,7", "2,8"]
+    assert len(read_dropping(dropping_file)) == 3
+
+
+def test_dropping_threshold_is_passed(tmp_path, executable):
+    day_1 = create_dropping_experiment(tmp_path, "day_1", [1, 1, 1, 1])
+    sizing = DroppingSizing([day_1[0]], [day_1[1]], drop_threshold=60)
+    parameters = sizing.dropping.instances[0].load_experiment_parameters()
+    assert "drop_threshold" not in parameters
+    sizing.calculate_sizing(executable)
+    assert float((tmp_path / "drop_threshold.log").read_text()) == 60

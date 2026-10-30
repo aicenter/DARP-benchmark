@@ -26,14 +26,15 @@ import sys
 from pathlib import Path
 
 import darpbenchmark.log
-from darpbenchmark.sizing import CostPerRequestSizing, FleetSizing
+from darpbenchmark.sizing import CostPerRequestSizing, DroppingSizing, FleetSizing
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(
         description="Run vehicle sizing (IH runs with the first k vehicles of vehicles.csv) for one or more DARP "
                     "instances sharing the vehicle pool. By default, a binary search for the smallest k with which no "
-                    "instance drops a request; with --min-cost, a scan for the minimum route cost per served request."
+                    "instance drops a request; with --min-cost, a scan for the minimum cost per served request; with "
+                    "--drop, rounds of the binary search and dropping the requests that do not pay off."
     )
     parser.add_argument(
         "experiment_config",
@@ -63,6 +64,20 @@ def main() -> int:
         default=10,
         help="Step of the coarse vehicle count scan of --min-cost",
     )
+    parser.add_argument(
+        "--drop",
+        type=Path,
+        nargs="+",
+        metavar="DROPPING_EXPERIMENT_CONFIG",
+        help="Dropping experiment configs (method worst_removal), one per experiment config and in the same order: "
+             "alternate the sizing with dropping the requests that do not pay off until nothing is dropped",
+    )
+    parser.add_argument(
+        "--drop-threshold",
+        type=float,
+        help="With --drop: drop while the saving per request exceeds this value (e.g., the revenue per request) "
+             "instead of while the average cost per served request decreases",
+    )
     args = parser.parse_args()
 
     logging.basicConfig(level=logging.INFO)
@@ -71,7 +86,12 @@ def main() -> int:
         if not config_path.is_file():
             parser.error(f"Experiment config not found: {config_path}")
 
-    if args.min_cost:
+    if args.min_cost and args.drop:
+        parser.error("--min-cost and --drop are alternatives")
+    if args.drop:
+        dropping_paths = [path.resolve() for path in args.drop]
+        fleet_sizing = DroppingSizing(config_paths, dropping_paths, args.workers, args.drop_threshold)
+    elif args.min_cost:
         fleet_sizing = CostPerRequestSizing(config_paths, args.workers, args.step)
     else:
         fleet_sizing = FleetSizing(config_paths, args.workers)

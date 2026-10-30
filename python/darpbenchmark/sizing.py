@@ -99,22 +99,21 @@ class SizingInstance:
             solution = json.load(json_data)
         return len(solution["dropped_requests"])
 
-    def get_route_cost(self) -> tuple[int, float]:
+    def get_served_requests_and_cost(self) -> tuple[int, float]:
         """
-        The served request count and the route cost of the solution: the instance's travel time weight applies to the
-        whole duration of each plan (travel, service and waiting, as the vehicle is paid for its route), plus the other
-        cost components of the plans (e.g., distance).
+        The served request count and the cost of the solution. The cost is the weighted cost of the instance; with
+        `plan_duration_weight`, it prices the whole route time (travel, service and waiting).
         """
         with open(self.solution_file, "rt", encoding="utf-8") as json_data:
             solution = json.load(json_data)
-        travel_time_weight = load_yaml(self.instance_config_file).get("cost", {}).get("travel_time_weight", 1)
         served_requests = sum(
             1 for plan in solution["plans"] for action in plan["actions"] if action["action"]["type"] == "pickup")
-        route_cost = 0.0
-        for plan in solution["plans"]:
-            route_cost += (plan["arrival_time"] - plan["departure_time"]) * travel_time_weight
-            route_cost += sum(value for name, value in plan["cost_components"].items() if name != "travel_time")
-        return served_requests, route_cost
+        return served_requests, solution["cost"]
+
+    def get_dropped_request_indices(self) -> list[int]:
+        with open(self.solution_file, "rt", encoding="utf-8") as json_data:
+            solution = json.load(json_data)
+        return [dropped["index"] for dropped in solution["dropped_requests"]]
 
     def load_experiment_parameters(self) -> dict:
         """The DARP-benchmark parameters of the experiment. Not thread-safe, the loading changes the working directory."""
@@ -282,13 +281,14 @@ class FleetSizing:
 
 
 COST_SIZING_FILE = "cost_sizing.csv"
-COST_SIZING_HEADER = "vehicle_count,served_requests,dropped_requests,route_cost,cost_per_served_request\n"
+COST_SIZING_HEADER = "vehicle_count,served_requests,dropped_requests,cost,cost_per_served_request\n"
 
 
 class CostPerRequestSizing(FleetSizing):
     """
-    Fleet sizing for the minimum route cost per served request (dropped requests bring no revenue and no cost), see
-    `SizingInstance.get_route_cost`. The costs and served requests are summed over all instances. The cost per served
+    Fleet sizing for the minimum cost per served request (dropped requests bring no revenue and no cost); the cost is
+    the solution cost, see `SizingInstance.get_served_requests_and_cost`. The costs and served requests are summed over
+    all instances. The cost per served
     request need not be monotone or unimodal in the vehicle count, so the search is a scan: every `step`-th vehicle
     count of the pool, then every vehicle count closer than `step` to the best one.
     """
@@ -299,21 +299,21 @@ class CostPerRequestSizing(FleetSizing):
         self.sizing_file = self.sizing_file.with_name(COST_SIZING_FILE)
 
     def get_sizing_records(self) -> dict[int, tuple[int, int, float]]:
-        """vehicle count -> (served requests, dropped requests, route cost) of the evaluated vehicle counts"""
+        """vehicle count -> (served requests, dropped requests, cost) of the evaluated vehicle counts"""
         if not self.sizing_file.is_file():
             return {}
         with open(self.sizing_file, "rt", encoding="utf-8") as f:
             lines = [line.strip() for line in f.readlines()[1:] if line.strip()]
         records = {}
         for line in lines:
-            vehicle_count, served_requests, dropped_requests, route_cost, _ = line.split(",")
-            records[int(vehicle_count)] = (int(served_requests), int(dropped_requests), float(route_cost))
+            vehicle_count, served_requests, dropped_requests, solution_cost, _ = line.split(",")
+            records[int(vehicle_count)] = (int(served_requests), int(dropped_requests), float(solution_cost))
         return records
 
     @staticmethod
     def cost_per_served_request(record: tuple[int, int, float]) -> float:
-        served_requests, _, route_cost = record
-        return route_cost / served_requests if served_requests else math.inf
+        served_requests, _, solution_cost = record
+        return solution_cost / served_requests if served_requests else math.inf
 
     def evaluate(
         self,
@@ -323,14 +323,14 @@ class CostPerRequestSizing(FleetSizing):
     ) -> tuple[int, int, float]:
         dropped = self.run_instances(vehicle_count, experiment_parameters, executable_path, fail_fast=False)
         served_requests = 0
-        route_cost = 0.0
+        solution_cost = 0.0
         for instance in self.instances:
-            instance_served_requests, instance_route_cost = instance.get_route_cost()
+            instance_served_requests, instance_cost = instance.get_served_requests_and_cost()
             served_requests += instance_served_requests
-            route_cost += instance_route_cost
-        record = (served_requests, sum(dropped), route_cost)
+            solution_cost += instance_cost
+        record = (served_requests, sum(dropped), solution_cost)
         with open(self.sizing_file, "at", encoding="utf-8") as f:
-            f.write(f"{vehicle_count},{served_requests},{sum(dropped)},{route_cost:.4f},"
+            f.write(f"{vehicle_count},{served_requests},{sum(dropped)},{solution_cost:.4f},"
                     f"{self.cost_per_served_request(record):.4f}\n")
         logger.info(f"Vehicle count: {vehicle_count}, served requests: {served_requests}, dropped requests: "
                     f"{sum(dropped)}, cost per served request: {self.cost_per_served_request(record):.4f}")
@@ -376,3 +376,150 @@ class CostPerRequestSizing(FleetSizing):
         logger.info(f"FINISHED: vehicle count {vehicle_count} with cost per served request "
                     f"{self.cost_per_served_request(records[vehicle_count]):.4f}, records in {self.sizing_file}")
         return vehicle_count
+
+
+DROPPING_FILE = "dropping.csv"
+DROPPING_HEADER = "round,vehicle_count,served_requests,dropped_requests,cost,cost_per_served_request\n"
+REQUESTS_FILE = "requests.csv"
+REQUEST_POOL_FILE = "requests_pre_dropping.csv"
+DROPPED_REQUESTS_FILE = "dropped_requests.csv"
+DROPPED_REQUESTS_HEADER = "round,request_index\n"
+
+
+class DroppingSizing:
+    """
+    Fleet sizing alternated with dropping the requests that do not pay off, until a round drops nothing. Each round:
+    1. sizes the fleet for serving all current requests (FleetSizing on the IH experiments, logged in
+       `sizing_round_<round>.csv`),
+    2. runs the dropping experiments (method `worst_removal`) with that fleet,
+    3. removes the requests dropped in an instance from its `requests.csv`.
+
+    The original requests of an instance are backed up as `requests_pre_dropping.csv`, and its
+    `dropped_requests.csv` lists the dropped requests by their index in the original file (the row order) with their
+    round. The rounds are logged in `dropping.csv` in the common parent directory of the instances; an interrupted
+    sizing resumes from it.
+    """
+    def __init__(
+        self,
+        experiment_config_files: list[Path],
+        dropping_experiment_config_files: list[Path],
+        workers: int = 1,
+        drop_threshold: float | None = None
+    ):
+        if len(experiment_config_files) != len(dropping_experiment_config_files):
+            raise ValueError("Each experiment config needs a dropping experiment config of the same instance")
+        self.experiment_config_files = experiment_config_files
+        self.workers = workers
+        self.drop_threshold = drop_threshold
+        self.dropping = FleetSizing(dropping_experiment_config_files, workers)
+        for experiment_config_file, dropping_instance in zip(experiment_config_files, self.dropping.instances):
+            instance_config_file = SizingInstance(experiment_config_file).instance_config_file
+            if instance_config_file != dropping_instance.instance_config_file:
+                raise ValueError(
+                    f"The experiment {experiment_config_file} and the dropping experiment "
+                    f"{dropping_instance.experiment_config_file} solve different instances")
+        self.dropping_file = self.dropping.sizing_file.with_name(DROPPING_FILE)
+
+    @staticmethod
+    def _instance_file(instance: SizingInstance, name: str) -> Path:
+        return instance.instance_config_file.parent / name
+
+    def get_rounds(self) -> list[tuple[int, int, int, int, float]]:
+        """(round, vehicle count, served requests, dropped requests, cost) of the finished rounds"""
+        if not self.dropping_file.is_file():
+            return []
+        with open(self.dropping_file, "rt", encoding="utf-8") as f:
+            lines = [line.strip() for line in f.readlines()[1:] if line.strip()]
+        rounds = []
+        for line in lines:
+            round_number, vehicle_count, served, dropped, cost, _ = line.split(",")
+            rounds.append((int(round_number), int(vehicle_count), int(served), int(dropped), float(cost)))
+        return rounds
+
+    def backup_request_pools(self):
+        for instance in self.dropping.instances:
+            pool_file = self._instance_file(instance, REQUEST_POOL_FILE)
+            if not pool_file.is_file():
+                shutil.copy(self._instance_file(instance, REQUESTS_FILE), pool_file)
+            dropped_file = self._instance_file(instance, DROPPED_REQUESTS_FILE)
+            if not dropped_file.is_file():
+                dropped_file.write_text(DROPPED_REQUESTS_HEADER, encoding="utf-8")
+
+    def get_dropped_requests(self, instance: SizingInstance) -> list[tuple[int, int]]:
+        """(round, original request index) of the dropped requests of the instance"""
+        with open(self._instance_file(instance, DROPPED_REQUESTS_FILE), "rt", encoding="utf-8") as f:
+            lines = [line.strip() for line in f.readlines()[1:] if line.strip()]
+        return [tuple(int(num) for num in line.split(",")) for line in lines]
+
+    def record_dropped_requests(self, instance: SizingInstance, round_number: int, request_indices: list[int]):
+        # the requests of an unfinished earlier attempt of the round are replaced
+        kept = [(r, index) for r, index in self.get_dropped_requests(instance) if r < round_number]
+        kept.extend((round_number, index) for index in request_indices)
+        with open(self._instance_file(instance, DROPPED_REQUESTS_FILE), "wt", encoding="utf-8") as f:
+            f.write(DROPPED_REQUESTS_HEADER)
+            f.writelines(f"{r},{index}\n" for r, index in kept)
+
+    def write_requests_file(self, instance: SizingInstance, last_round: int) -> list[int]:
+        """
+        Writes the requests of the instance without those dropped up to \\p last_round, returns the original index of
+        each written request.
+        """
+        dropped = {index for r, index in self.get_dropped_requests(instance) if r <= last_round}
+        with open(self._instance_file(instance, REQUEST_POOL_FILE), "rt", encoding="utf-8") as f:
+            header, *rows = f.readlines()
+        kept = [index for index in range(len(rows)) if index not in dropped]
+        with open(self._instance_file(instance, REQUESTS_FILE), "wt", encoding="utf-8") as f:
+            f.write(header)
+            f.writelines(rows[index] for index in kept)
+        return kept
+
+    def calculate_sizing(self, executable_path: Path | None = None) -> int:
+        """
+        Runs the rounds, resuming from the dropping log, and returns the final vehicle count. The instances end with
+        the final requests and fleet, the dropping experiment dirs with the solutions of the last round.
+        """
+        self.backup_request_pools()
+        rounds = self.get_rounds()
+        if not rounds:
+            with open(self.dropping_file, "wt", encoding="utf-8") as f:
+                f.write(DROPPING_HEADER)
+        elif rounds[-1][3] == 0:
+            logger.info(f"The dropping sizing in {self.dropping_file} is already finished")
+            return rounds[-1][1]
+        round_number = len(rounds) + 1
+
+        while True:
+            # the requests not dropped in the finished rounds
+            original_indices = [
+                self.write_requests_file(instance, round_number - 1) for instance in self.dropping.instances]
+
+            sizing = FleetSizing(self.experiment_config_files, self.workers)
+            sizing.sizing_file = sizing.sizing_file.with_name(f"sizing_round_{round_number}.csv")
+            vehicle_count = sizing.calculate_sizing(executable_path)
+
+            # loaded in advance, the loading changes the working directory
+            parameters = [instance.load_experiment_parameters() for instance in self.dropping.instances]
+            if self.drop_threshold is not None:
+                for instance_parameters in parameters:
+                    instance_parameters["drop_threshold"] = self.drop_threshold
+            self.dropping.run_instances(vehicle_count, parameters, executable_path, fail_fast=False)
+
+            served_requests = 0
+            dropped_requests = 0
+            cost = 0.0
+            for instance, instance_original_indices in zip(self.dropping.instances, original_indices):
+                instance_served, instance_cost = instance.get_served_requests_and_cost()
+                served_requests += instance_served
+                cost += instance_cost
+                dropped = [instance_original_indices[index] for index in instance.get_dropped_request_indices()]
+                self.record_dropped_requests(instance, round_number, dropped)
+                dropped_requests += len(dropped)
+            cost_per_served_request = cost / served_requests if served_requests else math.inf
+            with open(self.dropping_file, "at", encoding="utf-8") as f:
+                f.write(f"{round_number},{vehicle_count},{served_requests},{dropped_requests},{cost:.4f},"
+                        f"{cost_per_served_request:.4f}\n")
+            logger.info(f"Round {round_number}: {vehicle_count} vehicles, {served_requests} served, "
+                        f"{dropped_requests} dropped, cost per served request {cost_per_served_request:.4f}")
+            if dropped_requests == 0:
+                return vehicle_count
+            round_number += 1
