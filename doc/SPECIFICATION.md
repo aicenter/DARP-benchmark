@@ -32,7 +32,7 @@ In addition to the theoretical formalization, there are real data used for the s
 Each DARP instance have the following parameters:
 - **max route duration** defining the max length \[s\] for any vehicle plan (plan departure time minus plan arrival time). The default value is 0 (unlimited)
 - **max ride time** defining the max length \[s\] a travel request can be serviced (request drop off time minus rquest pickup time). The default value is 0 (unlimited)
-- **return to depot** which indicates whether each vehicle has to return to its initial position after serving all requests in the plan. The default value is true.
+- **return to depot** which indicates whether each vehicle has to return to its initial position after serving all requests in the plan. The default value is false.
 - **use virtual vehicles** indicates whether the instance uses virtual vehicles, which can arrive at any position in an equal, constant time, or real vehicles. The default value is false.
 - **start time** The start time \[s\] of the instance. At this time, the vehicles can depart from theirs initial positions. The default value is 0.
 
@@ -104,6 +104,9 @@ The structure is following:
 - `max_delay`: the maximum extra time a request spends over the direct transportation from origin to destination, in seconds, including the waiting times. Either `mode: absolute` with `seconds`, or `mode: relative` with `relative` (a proportion of the minimal travel time). `max_prolongation` (plain seconds) and `max_travel_time_delay` are deprecated aliases. Example: `300`
 - `problem`: `DARP` (default) or `fleet-sizing` (vehicles are not loaded, the solver creates them)
 - `vehicles.capital_cost`: legacy default of `cost.vehicle_capital_cost`
+- `max_ride_time`: the max ride time [s] of a request, 0 (default) = unlimited
+- `max_route_duration`: the max duration [s] of a vehicle plan, 0 (default) = unlimited
+- `return_to_depot`: whether the vehicles return to their initial positions at the end of their plans (default `false`)
 - `save_shp`: if `true` then the shapefile will be saved for map, demand, and vehicles
 - `vehicles`: configuration object for vehicles
     - `start_time`: Each vehicle will be available since this datetime. Example: `'2022-03-11 17:45:00'`
@@ -165,9 +168,9 @@ There are two variants of the speed computation:
 | travel requests | The set of travel requests (origin, destination, min time) | `requests` |`trips.di` file, each row is a request | instance file, each row is a request |
 | vehicles | The set of vehicles (start position, capacity) | `vehicles` | `vehicles.csv` file, each row is a vehicle | TODO |
 | max delay | The maximum extra time a request spend over the direct transportation from origin to destination, in seconds. | `request.drop_off.max_time` | `max_prolongation` in `config.yaml` | each request has a specific max delay, it is defined in the request row in the instance file |
-| max ride time | The maximum ride time of a single request | `darp_insrtance_configuration.max_ride_time` | not present, set to 0 (unconstrained) | TODO |
-| max route time | The maximum route time of a single vehicle | `darp_insrtance_configuration.max_route_time` | not present, set to 0 (unconstrained) | TODO |
-| return to depot | Whether the vehicle has to return to depot | `darp_insrtance_configuration.return_to_depot` | not present, set to `false` | not present, set to `true` |
+| max ride time | The maximum ride time of a single request | `darp_insrtance_configuration.max_ride_time` | `max_ride_time` in `config.yaml`, default 0 (unconstrained) | TODO |
+| max route time | The maximum route time of a single vehicle | `darp_insrtance_configuration.max_route_time` | `max_route_duration` in `config.yaml`, default 0 (unconstrained) | TODO |
+| return to depot | Whether the vehicle has to return to depot | `darp_insrtance_configuration.return_to_depot` | `return_to_depot` in `config.yaml`, default `false` | not present, set to `true` |
 | start time | The start time for vehicles. At this time, vehicles can start their trips. | `darp_insrtance_configuration.start_time` | `vehicles.start_time` in `config.yaml` | not present set to 0 |
 
 

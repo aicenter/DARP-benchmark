@@ -113,6 +113,20 @@ TEST(DARP_benchmark_reader_test, darp_instance_configuration_loading_without_veh
 	ASSERT_EQ(darp_config->get_problem(), problem_type::darp);
 }
 
+TEST(DARP_benchmark_reader_test, darp_instance_configuration_limits) {
+	const YAML::Node config = YAML::Load("{max_route_duration: 18000, max_ride_time: 3600, return_to_depot: true}");
+	const auto darp_config = internal::load_instance_configuration(config);
+
+	EXPECT_EQ(darp_config->get_max_route_duration(), 18000);
+	EXPECT_EQ(darp_config->get_max_ride_time(), 3600);
+	EXPECT_TRUE(darp_config->is_return_to_depot());
+}
+
+TEST(DARP_benchmark_reader_test, darp_instance_configuration_return_to_depot_false) {
+	const auto darp_config = internal::load_instance_configuration(YAML::Load("{return_to_depot: false}"));
+	EXPECT_FALSE(darp_config->is_return_to_depot());
+}
+
 TEST(DARP_benchmark_reader_test, darp_instance_configuration_problem_darp_explicit) {
 	YAML::Node config = YAML::Load("problem: DARP\n");
 	auto darp_config = internal::load_instance_configuration(config);

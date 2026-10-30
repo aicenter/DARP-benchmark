@@ -559,10 +559,16 @@ std::shared_ptr<DARP_instance_configuration> load_instance_configuration(const Y
 	const problem_type problem = parse_problem(config);
 	const bool virtual_vehicles = (problem == problem_type::fleet_sizing);
 
+	// limits in seconds, 0 = unlimited
+	const unsigned long max_route_duration
+		= config["max_route_duration"] ? config["max_route_duration"].as<unsigned long>() : 0;
+	const unsigned long max_ride_time = config["max_ride_time"] ? config["max_ride_time"].as<unsigned long>() : 0;
+	const bool return_to_depot = config["return_to_depot"] && config["return_to_depot"].as<bool>();
+
 	return std::make_shared<DARP_instance_configuration>(
-			0,
-			0,
-			false,
+			max_route_duration,
+			max_ride_time,
+			return_to_depot,
 			virtual_vehicles,
 			start_time_seconds,
 			cost_weights,
