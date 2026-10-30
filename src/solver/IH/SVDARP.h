@@ -253,8 +253,9 @@ public:
                     unsigned int service_time
                         = std::max(action_data.get_arrival_time(), action_data.get_min_time());
 
-                    // max ride time check
-                    if (service_time - vehicle_plan.get_other(action_data).get_departure_time() 
+                    // max ride time check, 0 = unlimited
+                    if (this->context.darp_instance_configuration()->get_max_ride_time()
+						&& service_time - vehicle_plan.get_other(action_data).get_departure_time()
 						> this->context.darp_instance_configuration()->get_max_ride_time()) {
 						++stack_top_index;
                         assert(stack_top_index < (Vehicle_plan_builder<V, A, P>::adj_stack_size));

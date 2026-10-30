@@ -925,6 +925,40 @@ std::pair<
 		EXPECT_FALSE(fits_max_route_duration(route_duration - 1, service_time, pickup_min_time));
 	}
 
+	// Without the max ride time (0 = unlimited), the drop-offs delayed by the max route duration adjustment are not max
+	// ride time violations.
+	TEST(IH_SVDARP_test, max_route_duration_adjustment_without_max_ride_time) {
+		const unsigned short service_time = 100;
+		const unsigned int pickup_min_time = 1000; // the vehicle can arrive at the second pickup at 380 and would wait
+		const std::shared_ptr<Travel_time_provider<Cordeau_node>> travel_time_provider
+			= std::make_shared<Euclidean_travel_time_provider<Cordeau_node>>((unsigned short)60);
+		const auto travel_time = [&](float from_y, float to_y) {
+			return travel_time_provider->get_travel_time(Cordeau_node{0, from_y}, Cordeau_node{0, to_y});
+		};
+		// the route of the plan P0 (0, 1), D0 (0, 2), P1 (0, 3), D1 (0, 4) without waiting, the only plan that fits
+		const unsigned long route_duration = travel_time(0, 1) + service_time + travel_time(1, 2) + service_time
+			+ travel_time(2, 3) + service_time + travel_time(3, 4) + service_time;
+
+		const auto config = std::make_shared<DARP_instance_configuration>(route_duration, 0, false);
+		const DARP_context<Cordeau_node> context(travel_time_provider, config);
+		SVDARP<Cordeau_node, Vehicle<Cordeau_node>, ActionData<Cordeau_node>, VehiclePlan<Cordeau_node>> solver{context};
+		Request_generator_cordeau_node request_generator{travel_time_provider, service_time};
+		Request<Cordeau_node> request_0 = request_generator.generate_request(0, 1, 0, 86400, 0, 2, 0, 86400);
+		Request<Cordeau_node> request_1 = request_generator.generate_request(0, 3, pickup_min_time, 86400, 0, 4, 0, 86400);
+		Request_data_Cordeau_node request_data_0(request_0);
+		Request_data_Cordeau_node request_data_1(request_1);
+		const std::shared_ptr<Cordeau_node> vehicle_init_position{new Cordeau_node{0, 0}};
+		Vehicle<Cordeau_node> vehicle(0, vehicle_init_position, (unsigned short)6);
+		IH_vehicle_plan_builder<Vehicle<Cordeau_node>, ActionData<Cordeau_node>, VehiclePlan<Cordeau_node>> plan(vehicle, 4);
+
+		// the returned cost increment equals the cutoff if the request cannot be inserted
+		const cost_type cutoff = std::numeric_limits<cost_type>::max();
+		ASSERT_LT(solver.insert_request_into_plan_optimally(
+			request_data_0.pickup_action_data, request_data_0.drop_off_action_data, plan, cutoff), cutoff);
+		EXPECT_LT(solver.insert_request_into_plan_optimally(
+			request_data_1.pickup_action_data, request_data_1.drop_off_action_data, plan, cutoff), cutoff);
+	}
+
 	TEST(IH_SVDARP_test_insert_request_into_plan_optimally, capacity_test) {
 		// get requests action data
 		const std::pair<
