@@ -239,6 +239,15 @@ public:
 
     void remove_last_action(bool was_last);
 
+	/**
+	 * Removes the actions flagged in \p removed in place: the remaining actions keep their order, the pickup map and
+	 * the pickup / drop-off references are updated, and no memory is allocated. The pickup and the drop-off of a
+	 * request must be removed together. The times of the remaining actions, the plan times and the cost are not
+	 * changed; the caller sets them for the new action sequence (e.g., Worst_removal).
+	 * @param removed removal flags indexed by the action positions, at least get_length() long
+	 */
+	void remove_actions(const std::vector<char>& removed);
+
 	ActionData<N>& get_other(const ActionData<N>& source_action_data);
 
 	const ActionData<N>& get_other(const ActionData<N>& source_action_data) const override;

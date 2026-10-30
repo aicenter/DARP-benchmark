@@ -404,6 +404,42 @@ void DARP_vehicle_plan<N,P,V>::remove_last_action() {
 }
 
 template <typename N, class P, class V>
+void DARP_vehicle_plan<N,P,V>::remove_actions(const std::vector<char>& removed) {
+	assert(removed.size() >= this->actions.size());
+	plan_size_type kept = 0;
+	for(plan_size_type i = 0; i < this->actions.size(); ++i) {
+		const Action_type action_type = this->actions[i].get_action_type();
+		const auto request_index = action_type == Action_type::depot
+			? request_index_type{0}
+			: static_cast<const Service_action<N>&>(this->actions[i].get_action()).get_request().get_index();
+		if(removed[i]) {
+			assert(action_type != Action_type::depot && "depot actions cannot be removed");
+			assert(removed[this->actions[i].get_other_action_data_index()] && "pickup and drop-off removed together");
+			if(action_type == Action_type::pickup) {
+				pickup_map.erase(request_index);
+			}
+			continue;
+		}
+		if(kept != i) {
+			this->actions[kept] = this->actions[i];
+		}
+		ActionData<N>& action_data = this->actions[kept];
+		action_data.set_position_in_plan(static_cast<index_in_plan>(kept));
+		if(action_type == Action_type::pickup) {
+			pickup_map[request_index] = static_cast<short>(kept);
+		}
+		else if(action_type == Action_type::dropoff) {
+			// the pickup precedes the drop-off, so it is already at its new position
+			const auto pickup_index = static_cast<index_in_plan>(pickup_map.at(request_index));
+			action_data.set_other_action_data_index(pickup_index);
+			this->actions[pickup_index].set_other_action_data_index(static_cast<index_in_plan>(kept));
+		}
+		++kept;
+	}
+	this->actions.erase(this->actions.begin() + kept, this->actions.end());
+}
+
+template <typename N, class P, class V>
 unsigned short DARP_vehicle_plan<N,P,V>::get_free_capacity() const {
     return free_capacity;
 }

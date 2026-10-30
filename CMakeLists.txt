@@ -191,6 +191,7 @@ add_executable(test_run
 	test/IH/Insertion_heuristic_solver_test.cpp
 	test/Solution_test.cpp
 	test/Vehicle_plan_test.cpp
+	test/Worst_removal_test.cpp
 	test/functional/functional_tests.cpp
 )
 target_link_libraries(test_run
