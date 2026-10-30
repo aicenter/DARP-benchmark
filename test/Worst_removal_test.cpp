@@ -20,8 +20,12 @@
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE. */
+#include <filesystem>
+#include <fstream>
 #include <memory>
 #include <vector>
+
+#include <future-config/configuration.h>
 
 #include "gtest_wrapper.h"
 
@@ -30,7 +34,9 @@
 #include "../src/cost/Cost_evaluator.h"
 #include "../src/plan/VehiclePlan.h"
 #include "../src/solver/DARP_context.h"
-#include "../src/solver/operators/Worst_removal.h"
+#include "../src/solver/operators/Worst_removal_operator.h"
+#include "../src/solver/worst_removal/Worst_removal_solver.h"
+#include "../src/config/DARP-benchmark_config.h"
 #include "../src/travel_time_provider/Euclidean_travel_time_provider.h"
 
 namespace {
@@ -120,8 +126,8 @@ std::vector<std::pair<unsigned, bool>> far_request_line(Line& line) {
 	return {{0, true}, {0, false}, {1, true}, {1, false}, {2, true}, {2, false}};
 }
 
-const Worst_removal<Cordeau_node>::Candidate* find_candidate(
-	const Worst_removal<Cordeau_node>& removal, plan_size_type first, plan_size_type length
+const Worst_removal_operator<Cordeau_node>::Candidate* find_candidate(
+	const Worst_removal_operator<Cordeau_node>& removal, plan_size_type first, plan_size_type length
 ) {
 	for(const auto& candidate: removal.get_candidates(0)) {
 		if(candidate.first == first && candidate.length == length) {
@@ -139,7 +145,7 @@ TEST(Worst_removal_test, saving_equals_evaluated_cost_difference) {
 	std::vector<Plan> plans{line.make_plan(far_request_line(line), config)};
 	const Plan without_far_request = line.make_plan({{0, true}, {0, false}, {1, true}, {1, false}}, config);
 	const auto context = line.context(config);
-	Worst_removal<Cordeau_node> removal{context};
+	Worst_removal_operator<Cordeau_node> removal{context};
 
 	removal.init(plans);
 
@@ -156,7 +162,7 @@ TEST(Worst_removal_test, remove_while_improving_drops_the_far_request) {
 	const auto config = configuration();
 	std::vector<Plan> plans{line.make_plan(far_request_line(line), config)};
 	const auto context = line.context(config);
-	Worst_removal<Cordeau_node> removal{context};
+	Worst_removal_operator<Cordeau_node> removal{context};
 	removal.init(plans);
 	std::vector<const Request<Cordeau_node>*> removed;
 
@@ -180,7 +186,7 @@ TEST(Worst_removal_test, threshold_compares_the_saving_per_request) {
 
 	// only the far request saves more than 100
 	std::vector<Plan> plans{line.make_plan(sequence, config)};
-	Worst_removal<Cordeau_node> removal{context};
+	Worst_removal_operator<Cordeau_node> removal{context};
 	removal.init(plans);
 	std::vector<const Request<Cordeau_node>*> removed;
 	EXPECT_EQ(removal.remove_while_improving(plans, removed, 100), 1u);
@@ -199,7 +205,7 @@ TEST(Worst_removal_test, remove_worst_removes_the_largest_savings) {
 	const auto config = configuration();
 	std::vector<Plan> plans{line.make_plan(far_request_line(line), config)};
 	const auto context = line.context(config);
-	Worst_removal<Cordeau_node> removal{context};
+	Worst_removal_operator<Cordeau_node> removal{context};
 	removal.init(plans);
 	std::vector<const Request<Cordeau_node>*> removed;
 
@@ -227,7 +233,7 @@ TEST(Worst_removal_test, stop_removal) {
 
 	// a single request at the box saves nothing, the whole stop saves the trip to it (49 of 51)
 	std::vector<Plan> plans{line.make_plan(sequence, config)};
-	Worst_removal<Cordeau_node> removal{context};
+	Worst_removal_operator<Cordeau_node> removal{context};
 	removal.init(plans);
 	const auto* stop = find_candidate(removal, 2, 3);
 	ASSERT_NE(stop, nullptr);
@@ -238,7 +244,7 @@ TEST(Worst_removal_test, stop_removal) {
 
 	// without the stops, no single removal decreases the average
 	std::vector<Plan> single_plans{line.make_plan(sequence, config)};
-	Worst_removal<Cordeau_node> single_removal{context, false};
+	Worst_removal_operator<Cordeau_node> single_removal{context, false};
 	single_removal.init(single_plans);
 	removed.clear();
 	EXPECT_EQ(single_removal.remove_while_improving(single_plans, removed), 0u);
@@ -252,7 +258,7 @@ TEST(Worst_removal_test, plan_duration_and_return_to_depot) {
 	const auto config = configuration(0, 0, true, weights);
 	std::vector<Plan> plans{line.make_plan(far_request_line(line), config)};
 	const auto context = line.context(config);
-	Worst_removal<Cordeau_node> removal{context};
+	Worst_removal_operator<Cordeau_node> removal{context};
 
 	removal.init(plans);
 
@@ -273,7 +279,7 @@ TEST(Worst_removal_test, removing_the_first_request_keeps_the_departure_no_earli
 	line.add_request(30, 40, 100);
 	std::vector<Plan> plans{line.make_plan({{0, true}, {0, false}, {1, true}, {1, false}}, config)};
 	const auto context = line.context(config);
-	Worst_removal<Cordeau_node> removal{context};
+	Worst_removal_operator<Cordeau_node> removal{context};
 
 	removal.init(plans);
 
@@ -291,7 +297,7 @@ TEST(Worst_removal_test, candidate_breaking_max_ride_time_is_skipped) {
 	line.add_request(10, 20, 0, 30);
 	std::vector<Plan> plans{line.make_plan({{0, true}, {0, false}, {1, true}, {1, false}}, config)};
 	const auto context = line.context(config);
-	Worst_removal<Cordeau_node> removal{context};
+	Worst_removal_operator<Cordeau_node> removal{context};
 
 	removal.init(plans);
 
@@ -305,7 +311,7 @@ TEST(Worst_removal_test, buffers_are_reused) {
 	const auto config = configuration();
 	std::vector<Plan> plans{line.make_plan(far_request_line(line), config)};
 	const auto context = line.context(config);
-	Worst_removal<Cordeau_node> removal{context};
+	Worst_removal_operator<Cordeau_node> removal{context};
 	removal.init(plans);
 	const auto capacity = removal.get_candidates(0).capacity();
 	const auto* candidates_data = removal.get_candidates(0).data();
@@ -346,4 +352,78 @@ TEST(Worst_removal_test, plan_remove_actions_keeps_references) {
 	EXPECT_EQ(&plan.get_other(plan[1]), &plan[0]);
 	EXPECT_TRUE(plan.contains_pickup(dynamic_cast<const Service_action<Cordeau_node>&>(plan[3].get_action())));
 	EXPECT_FALSE(plan.contains_pickup(line.requests[1].get_dropoff()));
+}
+
+namespace {
+
+/** Instance with the requests 10 -> 20, 20 -> 30 and the far 30 -> 200 and one vehicle at 0. */
+std::shared_ptr<DARP_instance<Cordeau_node>> far_request_instance() {
+	auto travel_time_provider
+		= std::make_shared<Euclidean_travel_time_provider<Cordeau_node>>(static_cast<unsigned short>(1));
+	auto vehicles = std::make_unique<std::vector<Vehicle<Cordeau_node>>>();
+	auto requests = std::make_unique<std::vector<Request<Cordeau_node>>>();
+	requests->reserve(3);
+	vehicles->emplace_back(0u, Line::node(0), static_cast<unsigned short>(10));
+	const std::vector<std::pair<unsigned, unsigned>> trips{{10, 20}, {20, 30}, {30, 200}};
+	for(unsigned index = 0; index < trips.size(); ++index) {
+		const auto [from, to] = trips[index];
+		requests->emplace_back(
+			index, 2 * index, 2 * index + 1, Line::node(from), 0u, 10'000u, Line::node(to), 0u, 10'000u,
+			static_cast<unsigned short>(to - from));
+	}
+	return std::make_shared<DARP_instance<Cordeau_node>>(
+		std::move(requests), std::move(vehicles), travel_time_provider,
+		std::make_shared<DARP_instance_configuration>());
+}
+
+void expect_far_request_dropped(const Solution<Cordeau_node>& solution) {
+	ASSERT_TRUE(solution.is_feasible());
+	ASSERT_EQ(solution.get_dropped_requests().size(), 1u);
+	EXPECT_EQ(solution.get_dropped_requests()[0]->get_index(), 2u);
+	ASSERT_EQ(solution.get_plans().size(), 1u);
+	EXPECT_EQ(solution.get_plans()[0].get_length(), 4u);
+	EXPECT_DOUBLE_EQ(solution.get_cost(), 30.0);
+}
+
+}
+
+TEST(Worst_removal_solver_test, drops_the_far_request_of_the_insertion_heuristic_solution) {
+	const auto instance = far_request_instance();
+	auto solver_config = fc::load<DARP_benchmark_config>();
+
+	Worst_removal_solver<Cordeau_node> solver{*instance, solver_config, fs::path{}};
+	const auto solution = solver.solve();
+
+	expect_far_request_dropped(*solution);
+}
+
+TEST(Worst_removal_solver_test, initial_solution_from_file) {
+	const auto instance = far_request_instance();
+	auto solver_config = fc::load<DARP_benchmark_config>();
+	Insertion_heuristic_solver<Cordeau_node> ih_solver{*instance, solver_config, fs::path{}};
+	const auto initial_solution = ih_solver.solve();
+	ASSERT_EQ(initial_solution->get_dropped_requests().size(), 0u);
+	const fs::path initial_solution_path = fs::temp_directory_path() / "worst_removal_initial_solution.json";
+	{
+		std::ofstream file{initial_solution_path};
+		file << initial_solution->JSON_serialize().GetString();
+	}
+	solver_config.worst_removal.initial_solution = initial_solution_path.string();
+
+	Worst_removal_solver<Cordeau_node> solver{*instance, solver_config, fs::path{}};
+	const auto solution = solver.solve();
+	fs::remove(initial_solution_path);
+
+	expect_far_request_dropped(*solution);
+}
+
+TEST(Worst_removal_solver_test, threshold_keeps_requests_saving_less) {
+	const auto instance = far_request_instance();
+	auto solver_config = fc::load<DARP_benchmark_config>();
+	solver_config.worst_removal.drop_threshold = 200;
+
+	Worst_removal_solver<Cordeau_node> solver{*instance, solver_config, fs::path{}};
+	const auto solution = solver.solve();
+
+	EXPECT_EQ(solution->get_dropped_requests().size(), 0u);
 }

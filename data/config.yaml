@@ -29,5 +29,10 @@
   ih: {
     temporal_pruning_min_plan_length: 32
   },
+  worst_removal: {
+    initial_solution: "",
+    drop_threshold: 0.0,
+    stop_groups: true
+  },
   simple_csv_export: false
 }

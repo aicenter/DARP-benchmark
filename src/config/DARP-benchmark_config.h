@@ -12,23 +12,37 @@ struct Ih {
 	{};
 };
 
+struct Worst_removal {
+	bool stop_groups;
+	double drop_threshold;
+	std::string initial_solution;
+
+	explicit Worst_removal(const fc::Config_object& config_object):
+		stop_groups(config_object.get<bool>("stop_groups")),
+		drop_threshold(config_object.get<double>("drop_threshold")),
+		initial_solution(config_object.get<std::string>("initial_solution"))
+	{};
+};
+
 struct DARP_benchmark_config {
-	int tcount;
-	std::string instance;
-	std::string outdir;
-	std::string method;
 	bool simple_csv_export;
-	int tmax;
 	Ih ih;
+	int tcount;
+	Worst_removal worst_removal;
+	std::string method;
+	std::string outdir;
+	int tmax;
+	std::string instance;
 
 	explicit DARP_benchmark_config(const fc::Config_object& config_object):
-		tcount(config_object.get<int>("tcount")),
-		instance(config_object.get<std::string>("instance")),
-		outdir(config_object.get<std::string>("outdir")),
-		method(config_object.get<std::string>("method")),
 		simple_csv_export(config_object.get<bool>("simple_csv_export")),
+		ih(config_object.get<fc::Config_object&>("ih")),
+		tcount(config_object.get<int>("tcount")),
+		worst_removal(config_object.get<fc::Config_object&>("worst_removal")),
+		method(config_object.get<std::string>("method")),
+		outdir(config_object.get<std::string>("outdir")),
 		tmax(config_object.get<int>("tmax")),
-		ih(config_object.get<fc::Config_object&>("ih"))
+		instance(config_object.get<std::string>("instance"))
 	{};
 };
 

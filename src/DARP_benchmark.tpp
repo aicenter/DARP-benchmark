@@ -16,6 +16,7 @@
 #include "number_formatter.h"
 #include "memory.h"
 #include "solver/IH/Insertion_heuristic_solver.h"
+#include "solver/worst_removal/Worst_removal_solver.h"
 
 
 namespace DARP {
@@ -179,6 +180,7 @@ int DARP_benchmark<N>::run(
 template <class N>
 DARP_benchmark<N>::DARP_benchmark(std::unique_ptr<Reader<N>> reader): reader(std::move(reader)){
 	Default_solver_registry::get().register_solver<Insertion_heuristic_solver>("ih");
+	Default_solver_registry::get().register_solver<Worst_removal_solver>("worst_removal");
 }
 
 template<typename... NO>

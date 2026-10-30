@@ -51,7 +51,7 @@
  * @tparam P plan type
  */
 template<typename N, class P = VehiclePlan<N>>
-class Worst_removal {
+class Worst_removal_operator {
 public:
 	/**
 	 * Removal candidate of a plan: \c length consecutive actions starting at \c first, each of a different request.
@@ -64,7 +64,7 @@ public:
 		cost_type saving;
 	};
 
-	explicit Worst_removal(const DARP_context<N>& context, bool stop_groups = true);
+	explicit Worst_removal_operator(const DARP_context<N>& context, bool stop_groups = true);
 
 	/**
 	 * Evaluates the plans and all their removal candidates. Must be called before the removals, and again when the
@@ -156,4 +156,4 @@ private:
 		std::vector<const Request<N>*>& removed);
 };
 
-#include "Worst_removal.tpp"
+#include "Worst_removal_operator.tpp"

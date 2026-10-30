@@ -4,7 +4,7 @@
 #include <cassert>
 
 template<typename N, class P>
-Worst_removal<N, P>::Worst_removal(const DARP_context<N>& context, bool stop_groups):
+Worst_removal_operator<N, P>::Worst_removal_operator(const DARP_context<N>& context, bool stop_groups):
 	travel_time_provider(*context.travel_time_provider()),
 	configuration(*context.darp_instance_configuration()),
 	evaluator(context.cost_evaluator()),
@@ -12,7 +12,7 @@ Worst_removal<N, P>::Worst_removal(const DARP_context<N>& context, bool stop_gro
 }
 
 template<typename N, class P>
-void Worst_removal<N, P>::init(const std::vector<P>& plans) {
+void Worst_removal_operator<N, P>::init(const std::vector<P>& plans) {
 	if(candidates.size() < plans.size()) {
 		candidates.resize(plans.size());
 		plan_costs.resize(plans.size());
@@ -38,7 +38,7 @@ void Worst_removal<N, P>::init(const std::vector<P>& plans) {
 }
 
 template<typename N, class P>
-void Worst_removal<N, P>::ensure_buffers(plan_size_type plan_length) {
+void Worst_removal_operator<N, P>::ensure_buffers(plan_size_type plan_length) {
 	if(removed_flags.size() < plan_length) {
 		removed_flags.resize(plan_length, 0);
 		flagged_positions.reserve(plan_length);
@@ -50,7 +50,7 @@ void Worst_removal<N, P>::ensure_buffers(plan_size_type plan_length) {
 }
 
 template<typename N, class P>
-void Worst_removal<N, P>::prepare_plan(const P& plan) {
+void Worst_removal_operator<N, P>::prepare_plan(const P& plan) {
 	depot = nullptr;
 	if(configuration.is_return_to_depot() && configuration.get_problem() != problem_type::fleet_sizing) {
 		if(const auto* vehicle = dynamic_cast<const Vehicle<N>*>(&plan.get_vehicle())) {
@@ -62,7 +62,7 @@ void Worst_removal<N, P>::prepare_plan(const P& plan) {
 }
 
 template<typename N, class P>
-void Worst_removal<N, P>::evaluate_plan(const std::vector<P>& plans, size_t plan_index) {
+void Worst_removal_operator<N, P>::evaluate_plan(const std::vector<P>& plans, size_t plan_index) {
 	const P& plan = plans[plan_index];
 	std::vector<Candidate>& plan_candidates = candidates[plan_index];
 	plan_candidates.clear();
@@ -101,7 +101,7 @@ void Worst_removal<N, P>::evaluate_plan(const std::vector<P>& plans, size_t plan
 }
 
 template<typename N, class P>
-plan_size_type Worst_removal<N, P>::flag_candidate(const P& plan, plan_size_type first, plan_size_type length) {
+plan_size_type Worst_removal_operator<N, P>::flag_candidate(const P& plan, plan_size_type first, plan_size_type length) {
 	plan_size_type from = first;
 	for(plan_size_type i = first; i < first + length; ++i) {
 		const auto other = static_cast<plan_size_type>(plan[i].get_other_action_data_index());
@@ -115,7 +115,7 @@ plan_size_type Worst_removal<N, P>::flag_candidate(const P& plan, plan_size_type
 }
 
 template<typename N, class P>
-void Worst_removal<N, P>::clear_flags() {
+void Worst_removal_operator<N, P>::clear_flags() {
 	for(const plan_size_type position: flagged_positions) {
 		removed_flags[position] = 0;
 	}
@@ -123,7 +123,7 @@ void Worst_removal<N, P>::clear_flags() {
 }
 
 template<typename N, class P>
-void Worst_removal<N, P>::evaluate_candidate(
+void Worst_removal_operator<N, P>::evaluate_candidate(
 	const P& plan, size_t plan_index, plan_size_type first, plan_size_type length
 ) {
 	const plan_size_type from = flag_candidate(plan, first, length);
@@ -135,7 +135,7 @@ void Worst_removal<N, P>::evaluate_candidate(
 }
 
 template<typename N, class P>
-std::optional<cost_type> Worst_removal<N, P>::simulate(const P& plan, plan_size_type from, bool base) {
+std::optional<cost_type> Worst_removal_operator<N, P>::simulate(const P& plan, plan_size_type from, bool base) {
 	std::vector<time_type>& departures = base ? base_departures : candidate_departures;
 	const Vehicle_base& vehicle = plan.get_vehicle();
 	const unsigned long max_ride_time = configuration.get_max_ride_time();
@@ -219,7 +219,7 @@ std::optional<cost_type> Worst_removal<N, P>::simulate(const P& plan, plan_size_
 }
 
 template<typename N, class P>
-void Worst_removal<N, P>::apply(
+void Worst_removal_operator<N, P>::apply(
 	std::vector<P>& plans, size_t plan_index, const Candidate& candidate, std::vector<const Request<N>*>& removed
 ) {
 	P& plan = plans[plan_index];
@@ -255,7 +255,7 @@ void Worst_removal<N, P>::apply(
 }
 
 template<typename N, class P>
-unsigned Worst_removal<N, P>::remove_while_improving(
+unsigned Worst_removal_operator<N, P>::remove_while_improving(
 	std::vector<P>& plans, std::vector<const Request<N>*>& removed, cost_type threshold
 ) {
 	assert(candidates.size() >= plans.size() && "init() not called");
@@ -299,7 +299,7 @@ unsigned Worst_removal<N, P>::remove_while_improving(
 }
 
 template<typename N, class P>
-unsigned Worst_removal<N, P>::remove_worst(
+unsigned Worst_removal_operator<N, P>::remove_worst(
 	std::vector<P>& plans, unsigned request_count, std::vector<const Request<N>*>& removed
 ) {
 	assert(candidates.size() >= plans.size() && "init() not called");
