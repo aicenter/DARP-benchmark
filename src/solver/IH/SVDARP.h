@@ -479,7 +479,8 @@ public:
 		        		plan_arrival_time = action_data.get_departure_time() + travel_time_to_depot;
                     }
                     else{
-                    	plan_arrival_time = action_data.get_arrival_time();
+                    	// the plan ends after the service of its last action
+                    	plan_arrival_time = action_data.get_departure_time();
                     }
 	                if(plan_arrival_time - plan.get_departure_time() > this->context.darp_instance_configuration()->get_max_route_duration()){
 			            if (!adjust_times(action_index, plan, Adjustment_reason::max_route_time)) {
