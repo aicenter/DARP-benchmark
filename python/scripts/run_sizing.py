@@ -26,13 +26,14 @@ import sys
 from pathlib import Path
 
 import darpbenchmark.log
-from darpbenchmark.sizing import FleetSizing
+from darpbenchmark.sizing import CostPerRequestSizing, FleetSizing
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Run vehicle sizing (IH binary search on vehicles.csv) for one or more DARP instances sharing "
-                    "the vehicle pool. A vehicle count is sufficient only if no instance drops a request."
+        description="Run vehicle sizing (IH runs with the first k vehicles of vehicles.csv) for one or more DARP "
+                    "instances sharing the vehicle pool. By default, a binary search for the smallest k with which no "
+                    "instance drops a request; with --min-cost, a scan for the minimum route cost per served request."
     )
     parser.add_argument(
         "experiment_config",
@@ -51,6 +52,17 @@ def main() -> int:
         default=1,
         help="Number of instances solved in parallel (each DARP-benchmark process loads its travel time model)",
     )
+    parser.add_argument(
+        "--min-cost",
+        action="store_true",
+        help="Size for the minimum route cost per served request instead of serving all requests",
+    )
+    parser.add_argument(
+        "--step",
+        type=int,
+        default=10,
+        help="Step of the coarse vehicle count scan of --min-cost",
+    )
     args = parser.parse_args()
 
     logging.basicConfig(level=logging.INFO)
@@ -59,7 +71,10 @@ def main() -> int:
         if not config_path.is_file():
             parser.error(f"Experiment config not found: {config_path}")
 
-    fleet_sizing = FleetSizing(config_paths, args.workers)
+    if args.min_cost:
+        fleet_sizing = CostPerRequestSizing(config_paths, args.workers, args.step)
+    else:
+        fleet_sizing = FleetSizing(config_paths, args.workers)
     fleet_sizing.calculate_sizing(args.executable.resolve() if args.executable else None)
     return 0
 

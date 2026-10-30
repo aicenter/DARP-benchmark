@@ -102,6 +102,8 @@ python scripts/run_sizing.py <experiment config.yaml>... --executable <DARP-benc
 
 With several experiment configs (e.g., one per day), all instances must have the same vehicle pool and k is sufficient only if no instance drops a request. The instances of one k run in parallel in `--workers` processes; once one drops a request, the instances not yet started are skipped. Each process loads its own travel time model, so the memory limits the workers. The search is logged in `sizing.csv` in the common parent directory of the instances, and an interrupted sizing resumes from it. At the end, every `vehicles.csv` holds the k vehicles and every instance config `vehicles.vehicle_count` k. As IH is a heuristic, the result is not guaranteed to be the minimum.
 
+With `--min-cost`, the sizing looks for the minimum route cost per served request instead of serving all requests; dropped requests bring no revenue and no cost. The route cost prices the whole duration of each route (travel, service and waiting) with the instance's `travel_time_weight` and adds the other cost components (e.g., distance), summed over all instances. As this cost need not be monotone in k, the search is a scan: every `--step`-th k (default 10), then every k closer than the step to the best one. Every evaluated k is logged in `cost_sizing.csv`, and the instances end with the best k as above.
+
 
 # Extending the benchmark
 There are two ways to extend the benchmark:

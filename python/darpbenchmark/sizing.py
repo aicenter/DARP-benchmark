@@ -99,6 +99,23 @@ class SizingInstance:
             solution = json.load(json_data)
         return len(solution["dropped_requests"])
 
+    def get_route_cost(self) -> tuple[int, float]:
+        """
+        The served request count and the route cost of the solution: the instance's travel time weight applies to the
+        whole duration of each plan (travel, service and waiting, as the vehicle is paid for its route), plus the other
+        cost components of the plans (e.g., distance).
+        """
+        with open(self.solution_file, "rt", encoding="utf-8") as json_data:
+            solution = json.load(json_data)
+        travel_time_weight = load_yaml(self.instance_config_file).get("cost", {}).get("travel_time_weight", 1)
+        served_requests = sum(
+            1 for plan in solution["plans"] for action in plan["actions"] if action["action"]["type"] == "pickup")
+        route_cost = 0.0
+        for plan in solution["plans"]:
+            route_cost += (plan["arrival_time"] - plan["departure_time"]) * travel_time_weight
+            route_cost += sum(value for name, value in plan["cost_components"].items() if name != "travel_time")
+        return served_requests, route_cost
+
     def load_experiment_parameters(self) -> dict:
         """The DARP-benchmark parameters of the experiment. Not thread-safe, the loading changes the working directory."""
         return load_experiment_config(self.experiment_config_file)
@@ -165,13 +182,17 @@ class FleetSizing:
             vehicle_count = previous_vehicle_count + interval_size
         return vehicle_count, interval_size
 
-    def run_step(
+    def run_instances(
         self,
         vehicle_count: int,
         experiment_parameters: list[dict],
-        executable_path: Path | None
-    ) -> int:
-        """Runs all instances with the given vehicle count, returns the dropped requests summed over the instances that ran."""
+        executable_path: Path | None,
+        fail_fast: bool
+    ) -> list[int | None]:
+        """
+        Runs all instances with the given vehicle count, returns the dropped requests of each instance. With `fail_fast`,
+        the instances not yet started once an instance drops a request are skipped (None).
+        """
         for instance in self.instances:
             instance.set_vehicles_file(vehicle_count)
             instance.delete_result_files()
@@ -189,13 +210,21 @@ class FleetSizing:
             dropped_requests_count = instance.get_dropped_requests_count()
             logger.info(f"{instance.experiment_config_file}: {vehicle_count} vehicles, "
                         f"{dropped_requests_count} dropped requests")
-            if dropped_requests_count > 0:
+            if fail_fast and dropped_requests_count > 0:
                 stop.set()
             return dropped_requests_count
 
         with ThreadPoolExecutor(max_workers=self.workers) as executor:
-            results = list(executor.map(run_instance, self.instances, experiment_parameters))
+            return list(executor.map(run_instance, self.instances, experiment_parameters))
 
+    def run_step(
+        self,
+        vehicle_count: int,
+        experiment_parameters: list[dict],
+        executable_path: Path | None
+    ) -> int:
+        """Runs all instances with the given vehicle count, returns the dropped requests summed over the instances that ran."""
+        results = self.run_instances(vehicle_count, experiment_parameters, executable_path, fail_fast=True)
         return sum(result for result in results if result is not None)
 
     def run_vehicle_sizing_experiments(self, executable_path: Path | None = None) -> int:
@@ -249,4 +278,101 @@ class FleetSizing:
             instance.set_instance_config_vehicle_count(vehicle_count)
 
         logger.info(f"FINISHED: vehicle count {vehicle_count} saved in {self.sizing_file}")
+        return vehicle_count
+
+
+COST_SIZING_FILE = "cost_sizing.csv"
+COST_SIZING_HEADER = "vehicle_count,served_requests,dropped_requests,route_cost,cost_per_served_request\n"
+
+
+class CostPerRequestSizing(FleetSizing):
+    """
+    Fleet sizing for the minimum route cost per served request (dropped requests bring no revenue and no cost), see
+    `SizingInstance.get_route_cost`. The costs and served requests are summed over all instances. The cost per served
+    request need not be monotone or unimodal in the vehicle count, so the search is a scan: every `step`-th vehicle
+    count of the pool, then every vehicle count closer than `step` to the best one.
+    """
+    def __init__(self, experiment_config_files: list[Path], workers: int = 1, step: int = 10):
+        super().__init__(experiment_config_files, workers)
+        assert step > 0, "The scan step must be positive"
+        self.step = step
+        self.sizing_file = self.sizing_file.with_name(COST_SIZING_FILE)
+
+    def get_sizing_records(self) -> dict[int, tuple[int, int, float]]:
+        """vehicle count -> (served requests, dropped requests, route cost) of the evaluated vehicle counts"""
+        if not self.sizing_file.is_file():
+            return {}
+        with open(self.sizing_file, "rt", encoding="utf-8") as f:
+            lines = [line.strip() for line in f.readlines()[1:] if line.strip()]
+        records = {}
+        for line in lines:
+            vehicle_count, served_requests, dropped_requests, route_cost, _ = line.split(",")
+            records[int(vehicle_count)] = (int(served_requests), int(dropped_requests), float(route_cost))
+        return records
+
+    @staticmethod
+    def cost_per_served_request(record: tuple[int, int, float]) -> float:
+        served_requests, _, route_cost = record
+        return route_cost / served_requests if served_requests else math.inf
+
+    def evaluate(
+        self,
+        vehicle_count: int,
+        experiment_parameters: list[dict],
+        executable_path: Path | None
+    ) -> tuple[int, int, float]:
+        dropped = self.run_instances(vehicle_count, experiment_parameters, executable_path, fail_fast=False)
+        served_requests = 0
+        route_cost = 0.0
+        for instance in self.instances:
+            instance_served_requests, instance_route_cost = instance.get_route_cost()
+            served_requests += instance_served_requests
+            route_cost += instance_route_cost
+        record = (served_requests, sum(dropped), route_cost)
+        with open(self.sizing_file, "at", encoding="utf-8") as f:
+            f.write(f"{vehicle_count},{served_requests},{sum(dropped)},{route_cost:.4f},"
+                    f"{self.cost_per_served_request(record):.4f}\n")
+        logger.info(f"Vehicle count: {vehicle_count}, served requests: {served_requests}, dropped requests: "
+                    f"{sum(dropped)}, cost per served request: {self.cost_per_served_request(record):.4f}")
+        return record
+
+    def best_vehicle_count(self, records: dict[int, tuple[int, int, float]]) -> int:
+        # ties go to the smaller fleet
+        return min(records, key=lambda count: (self.cost_per_served_request(records[count]), count))
+
+    def calculate_sizing(self, executable_path: Path | None = None) -> int:
+        """
+        Scans the vehicle counts, resuming from the sizing file, and sets the best one in the instances: the vehicles
+        file holds the first k vehicles of the pool, the instance config has `vehicles.vehicle_count` k, and the
+        solutions in the experiment dirs are those of k.
+        """
+        for instance in self.instances:
+            assert instance.instance_config_file.is_file(), \
+                f"Instance config file {instance.instance_config_file} does not exist"
+        pool_size = self.check_vehicle_pools()
+        records = self.get_sizing_records()
+        if not records:
+            with open(self.sizing_file, "wt", encoding="utf-8") as f:
+                f.write(COST_SIZING_HEADER)
+
+        # loaded in advance, the loading changes the working directory
+        experiment_parameters = [instance.load_experiment_parameters() for instance in self.instances]
+
+        def scan(vehicle_counts):
+            for vehicle_count in vehicle_counts:
+                if vehicle_count not in records:
+                    records[vehicle_count] = self.evaluate(vehicle_count, experiment_parameters, executable_path)
+
+        scan(range(self.step, pool_size + 1, self.step))
+        coarse_best = self.best_vehicle_count(records)
+        scan(range(max(1, coarse_best - self.step + 1), min(pool_size, coarse_best + self.step - 1) + 1))
+        vehicle_count = self.best_vehicle_count(records)
+
+        # the solutions of the best vehicle count
+        self.run_instances(vehicle_count, experiment_parameters, executable_path, fail_fast=False)
+        for instance in self.instances:
+            instance.set_instance_config_vehicle_count(vehicle_count)
+
+        logger.info(f"FINISHED: vehicle count {vehicle_count} with cost per served request "
+                    f"{self.cost_per_served_request(records[vehicle_count]):.4f}, records in {self.sizing_file}")
         return vehicle_count
