@@ -224,7 +224,8 @@ public:
     			return static_cast<plan_size_type>(i);
     		}
     	}
-		return static_cast<plan_size_type>(i + 1);
+		// all positions are used
+		return static_cast<plan_size_type>(i);
     }
 
 	bool check(const DARP_instance_configuration& configuration) const;
