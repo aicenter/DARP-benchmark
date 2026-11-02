@@ -118,6 +118,13 @@ public:
 	/** Legacy accessor of `cost_weights.passenger_delay_weight`; prefer get_cost_weights(). */
 	[[nodiscard]] double get_relative_delay_cost() const;
 	[[nodiscard]] problem_type get_problem() const;
+	/** Capacity of the vehicles created by the solvers in the fleet-sizing mode (`vehicles.capacity`), 0 if not given. */
+	[[nodiscard]] unsigned short get_vehicle_capacity() const;
+	/** Revenue of a served request (`request_revenue`), in the unit of the cost. */
+	[[nodiscard]] double get_request_revenue() const;
+	/** Minimum revenue of a non-empty plan (`min_plan_revenue`), 0 = no minimum. Only the solvers supporting it accept
+	 * an instance with a minimum (DARP_benchmark_solver_interface::supports_min_plan_revenue). */
+	[[nodiscard]] double get_min_plan_revenue() const;
 
 	void set_max_route_duration(unsigned long value);
 	void set_max_ride_time(unsigned long value);
@@ -130,6 +137,9 @@ public:
 	/** Legacy setter of `cost_weights.passenger_delay_weight`; prefer set_cost_weights(). */
 	void set_relative_delay_cost(double value);
 	void set_problem(problem_type value);
+	void set_vehicle_capacity(unsigned short value);
+	void set_request_revenue(double value);
+	void set_min_plan_revenue(double value);
 
 private:
     unsigned long max_route_duration{0};
@@ -148,6 +158,9 @@ private:
     unsigned start_time{0};
 	Cost_weights cost_weights{};
 	problem_type problem{problem_type::darp};
+	unsigned short vehicle_capacity{0};
+	double request_revenue{0.0};
+	double min_plan_revenue{0.0};
 };
 
 class DARP_instance_interface {

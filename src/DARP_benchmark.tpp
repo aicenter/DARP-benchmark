@@ -17,6 +17,7 @@
 #include "memory.h"
 #include "solver/IH/Insertion_heuristic_solver.h"
 #include "solver/worst_removal/Worst_removal_solver.h"
+#include "solver/min_revenue_ih/Min_revenue_IH_solver.h"
 
 
 namespace DARP {
@@ -53,6 +54,13 @@ std::unique_ptr<DARP_benchmark_solver_interface<N>> Solver_registry<NO...>::crea
 			R"(Solver method "{}" does not support instance problem type "{}")",
 			method,
 			problem_str));
+	}
+	const double min_plan_revenue = darp_instance.get_darp_instance_configuration()->get_min_plan_revenue();
+	if (min_plan_revenue > 0 && !solver->supports_min_plan_revenue()) {
+		throw std::runtime_error(fmt::format(
+			R"(Solver method "{}" does not support the minimum plan revenue (min_plan_revenue: {}))",
+			method,
+			min_plan_revenue));
 	}
 	return solver;
 }
@@ -181,6 +189,7 @@ template <class N>
 DARP_benchmark<N>::DARP_benchmark(std::unique_ptr<Reader<N>> reader): reader(std::move(reader)){
 	Default_solver_registry::get().register_solver<Insertion_heuristic_solver>("ih");
 	Default_solver_registry::get().register_solver<Worst_removal_solver>("worst_removal");
+	Default_solver_registry::get().register_solver<Min_revenue_IH_solver>("min_revenue_ih");
 }
 
 template<typename... NO>

@@ -140,6 +140,19 @@ TEST(DARP_benchmark_reader_test, darp_instance_configuration_problem_fleet_sizin
 	EXPECT_TRUE(darp_config->use_virtual_vehicles());
 }
 
+TEST(DARP_benchmark_reader_test, darp_instance_configuration_vehicle_capacity_and_revenue) {
+	const auto darp_config = internal::load_instance_configuration(YAML::Load(
+		"{problem: fleet-sizing, vehicles: {capacity: 70}, request_revenue: 60, min_plan_revenue: 300}"));
+	EXPECT_EQ(darp_config->get_vehicle_capacity(), 70);
+	EXPECT_DOUBLE_EQ(darp_config->get_request_revenue(), 60.0);
+	EXPECT_DOUBLE_EQ(darp_config->get_min_plan_revenue(), 300.0);
+
+	const auto defaults = internal::load_instance_configuration(YAML::Load("{}"));
+	EXPECT_EQ(defaults->get_vehicle_capacity(), 0);
+	EXPECT_DOUBLE_EQ(defaults->get_request_revenue(), 0.0);
+	EXPECT_DOUBLE_EQ(defaults->get_min_plan_revenue(), 0.0);
+}
+
 TEST(DARP_benchmark_reader_test, darp_instance_configuration_problem_invalid) {
 	YAML::Node config = YAML::Load("problem: unknown\n");
 	EXPECT_THROW(internal::load_instance_configuration(config), std::runtime_error);

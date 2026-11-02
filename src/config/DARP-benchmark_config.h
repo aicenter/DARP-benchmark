@@ -4,6 +4,16 @@
 #include <string>
 
 
+struct Min_revenue_ih {
+	int new_plan_penalty_count;
+	double new_plan_penalty_step;
+
+	explicit Min_revenue_ih(const fc::Config_object& config_object):
+		new_plan_penalty_count(config_object.get<int>("new_plan_penalty_count")),
+		new_plan_penalty_step(config_object.get<double>("new_plan_penalty_step"))
+	{};
+};
+
 struct Ih {
 	int temporal_pruning_min_plan_length;
 
@@ -26,6 +36,7 @@ struct Worst_removal {
 
 struct DARP_benchmark_config {
 	bool simple_csv_export;
+	Min_revenue_ih min_revenue_ih;
 	Ih ih;
 	int tcount;
 	Worst_removal worst_removal;
@@ -36,6 +47,7 @@ struct DARP_benchmark_config {
 
 	explicit DARP_benchmark_config(const fc::Config_object& config_object):
 		simple_csv_export(config_object.get<bool>("simple_csv_export")),
+		min_revenue_ih(config_object.get<fc::Config_object&>("min_revenue_ih")),
 		ih(config_object.get<fc::Config_object&>("ih")),
 		tcount(config_object.get<int>("tcount")),
 		worst_removal(config_object.get<fc::Config_object&>("worst_removal")),

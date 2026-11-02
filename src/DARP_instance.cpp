@@ -98,3 +98,27 @@ void DARP_instance_configuration::set_relative_delay_cost(double value) {
 void DARP_instance_configuration::set_problem(problem_type value) {
 	problem = value;
 }
+
+unsigned short DARP_instance_configuration::get_vehicle_capacity() const {
+	return vehicle_capacity;
+}
+
+double DARP_instance_configuration::get_request_revenue() const {
+	return request_revenue;
+}
+
+double DARP_instance_configuration::get_min_plan_revenue() const {
+	return min_plan_revenue;
+}
+
+void DARP_instance_configuration::set_vehicle_capacity(unsigned short value) {
+	vehicle_capacity = value;
+}
+
+void DARP_instance_configuration::set_request_revenue(double value) {
+	request_revenue = value;
+}
+
+void DARP_instance_configuration::set_min_plan_revenue(double value) {
+	min_plan_revenue = value;
+}

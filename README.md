@@ -60,20 +60,24 @@ The DARP benchmark program accepts the following command line arguments:
 |----------|-------------|----------|---------|
 | `--instance` | Path to the instance file (`.yaml` for DARP benchmark instances or classic instance files) | Yes | - |
 | `--outdir` | Output directory for results | Yes | - |
-| `--method` | Method for solving DARP (`ih`, `worst_removal`, and in the darp_solvers project `vga`, `vga_chaining`, `halns`) | Yes | - |
+| `--method` | Method for solving DARP (`ih`, `worst_removal`, `min_revenue_ih`, and in the darp_solvers project `vga`, `vga_chaining`, `halns`) | Yes | - |
 | `--tcount` | Number of executions for averaging | No | 1 |
 | `--tmax` | Maximum number of threads for parallel regions | No | 0 (auto) |
 
 Additionally, there are some parameters that are specific to the methods.
 
-This project includes two methods:
+This project includes three methods:
 
 - `--method ih`: Insertion Heuristic (IH).
     - `ih.temporal_pruning_min_plan_length` - minimum existing plan length for IH temporal insertion-position pruning in YAML config. Default: 32. Set to 0 to disable pruning.
+    - In the `fleet-sizing` problem, IH creates a vehicle at the pickup of a request that no plan can take, at the vehicle operation start of the instance and with the capacity `vehicles.capacity` (required); the vehicle has no first leg.
 - `--method worst_removal`: drops the requests that do not pay off. From an initial solution, it removes requests while the average cost per served request decreases, the removal decreasing it most first (worst removal, `src/solver/operators/Worst_removal_operator.h`, an operator usable by other solvers too). The removal candidates are the single requests and the stops (runs of consecutive actions of one type at one node).
     - `--initial_solution` (`worst_removal.initial_solution`): solution file to start from; empty (default) for the IH solution.
     - `--drop_threshold` (`worst_removal.drop_threshold`): with a positive value, requests are removed while their saving per request exceeds it instead (e.g., the revenue per request, for the maximum profit). Default: 0.
     - `worst_removal.stop_groups`: whether the stops are removal candidates. Default: true.
+- `--method min_revenue_ih`: IH for the `fleet-sizing` problem keeping the minimum plan revenue of the instance (`min_plan_revenue`, the only method supporting it). For each opening penalty 0, s, …, (n − 1) s, IH builds the plans, creating a new vehicle also when the weighted cost of its plan plus the penalty is lower than the weighted cost increase of the best insertion; then the plans below the minimum are dissolved, the one with the lowest revenue first, and their requests are inserted into the other plans without new vehicles (a dissolution whose request fits no other plan is undone). The solution with the fewest plans below the minimum, then the fewest dropped requests, then the lowest cost is kept; remaining plans below the minimum are logged as an error.
+    - `min_revenue_ih.new_plan_penalty_step` (s): the step of the opening penalties, in the unit of the cost. Default: 25.
+    - `min_revenue_ih.new_plan_penalty_count` (n): the number of the opening penalties. Default: 17.
 
 
 The objective of the benchmark is the weighted solution cost configured by the `cost` section of the instance `config.yaml` (travel time by default); see the section "Cost model" in [doc/SPECIFICATION.md](doc/SPECIFICATION.md). Besides the travel time, the passenger delay and the vehicle capital cost, the cost can include the vehicle travel distance (`distance_weight` with a `dist_filepath` matrix) and the plan duration including waiting and service (`plan_duration_weight`, not for the methods optimizing the weighted cost per leg); the solution files report the weighted contribution of each component in `cost_components`.

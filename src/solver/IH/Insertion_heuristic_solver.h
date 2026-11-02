@@ -23,7 +23,9 @@
 
 #pragma once
 
+#include <deque>
 #include <map>
+#include <span>
 #include <vector>
 #include <limits>
 #include <optional>
@@ -38,6 +40,7 @@
 #include "SVDARP.h"
 #include "../../Iterable.h"
 #include "../../config/DARP-benchmark_config.h"
+#include "../../cost/Cost_evaluator.h"
 
 namespace fs = std::filesystem;
 
@@ -87,8 +90,24 @@ public:
 
 	DARP_benchmark_solver<N>::solution_impl_ret_val solve_impl() override;
 
+	/** Both problems: in the fleet-sizing mode, the solver creates the vehicles (see process_request). */
+	[[nodiscard]] std::span<const problem_type> supported_problem_types() const override;
+
 	template<class R, Iterable<V> I>
     std::unique_ptr<Solution<N>> compute(const R& requests, const I& vehicles);
+
+	/**
+	 * @brief Sets the opening penalty of the fleet-sizing mode: a request gets a new vehicle also when the weighted
+	 * cost of the new plan plus the penalty is lower than the weighted cost increase of the best insertion into an
+	 * existing plan. Without a penalty (default), a new vehicle is created only when no plan can take the request.
+	 */
+	void set_new_plan_penalty(std::optional<cost_type> penalty);
+
+	/**
+	 * @brief Enables the repair of the plans below the minimum plan revenue of the instance after all requests are
+	 * inserted (see repair_short_plans).
+	 */
+	void set_min_plan_revenue_repair(bool enabled);
 
 	/**
 	 * @brief Insert request on the best place in an existing solution. It means that all positions in all plans are
@@ -119,6 +138,22 @@ private:
 
 	const bool minimize_used_vehicles{false};
 
+	/** Fleet-sizing mode: a vehicle is created at the pickup of the first request of its plan, at the vehicle
+	 * operation start of the instance, with the capacity `vehicles.capacity`. */
+	const bool fleet_sizing;
+
+	/** The vehicles created in the fleet-sizing mode; a deque, as the plan builders reference them. */
+	std::deque<Vehicle<N>> created_vehicles;
+
+	std::optional<cost_type> new_plan_penalty{std::nullopt};
+
+	bool min_plan_revenue_repair{false};
+
+	/** Whether a request that no plan can take gets a new vehicle in the fleet-sizing mode (not during the repair). */
+	bool open_new_vehicles{true};
+
+	const Cost_evaluator cost_evaluator;
+
     std::vector<IH_vehicle_plan_builder<V, A, P>> vehicle_plan_builders;
 
     cost_type min_cost_increment{0};
@@ -145,6 +180,24 @@ private:
 
 	void reset();
 	void set_best_plan();
+
+	/** Fleet sizing: evaluates the request in a plan of a new vehicle and keeps the new vehicle if its plan is the
+	 * best one for the request (see set_new_plan_penalty). */
+	void try_new_vehicle(A& pickup_action_data, A& drop_off_action_data);
+
+	/** Weighted cost of the finalized copy of the plan (Cost_evaluator). */
+	[[nodiscard]] cost_type weighted_cost(const IH_vehicle_plan_builder<V, A, P>& plan) const;
+
+	/** Revenue of the requests the plan serves (request_revenue per drop-off). */
+	[[nodiscard]] double plan_revenue(const IH_vehicle_plan_builder<V, A, P>& plan) const;
+
+	/**
+	 * @brief Dissolves the plans below the minimum plan revenue: the plan with the lowest revenue first, its requests
+	 * are inserted one by one into the other plans at the best positions, without new vehicles. If a request fits
+	 * nowhere, the dissolution is undone and the plan is kept. Ends when no short plan can be dissolved; each
+	 * dissolution removes a plan.
+	 */
+	void repair_short_plans();
 
     void process_request(const Request<N>& request);
 

@@ -59,6 +59,12 @@ class DARP_benchmark_solver_interface
 
 	/** Problem kinds this solver can handle (instance `config.yaml` `problem` field). */
 	[[nodiscard]] virtual std::span<const problem_type> supported_problem_types() const = 0;
+
+	/** Whether the solver keeps the minimum plan revenue of the instance (`min_plan_revenue`); the other solvers
+	 * refuse an instance with a minimum. */
+	[[nodiscard]] virtual bool supports_min_plan_revenue() const {
+		return false;
+	}
 };
 
 template<template<typename, class...> class S, typename N>

@@ -34,5 +34,9 @@
     drop_threshold: 0.0,
     stop_groups: true
   },
+  min_revenue_ih: {
+    new_plan_penalty_step: 25.0,
+    new_plan_penalty_count: 17
+  },
   simple_csv_export: false
 }

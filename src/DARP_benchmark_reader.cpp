@@ -598,7 +598,7 @@ std::shared_ptr<DARP_instance_configuration> load_instance_configuration(const Y
 	const unsigned long max_ride_time = config["max_ride_time"] ? config["max_ride_time"].as<unsigned long>() : 0;
 	const bool return_to_depot = config["return_to_depot"] && config["return_to_depot"].as<bool>();
 
-	return std::make_shared<DARP_instance_configuration>(
+	auto configuration = std::make_shared<DARP_instance_configuration>(
 			max_route_duration,
 			max_ride_time,
 			return_to_depot,
@@ -607,6 +607,12 @@ std::shared_ptr<DARP_instance_configuration> load_instance_configuration(const Y
 			cost_weights,
 			problem
 	);
+	if (config["vehicles"] && config["vehicles"]["capacity"]) {
+		configuration->set_vehicle_capacity(config["vehicles"]["capacity"].as<unsigned short>());
+	}
+	configuration->set_request_revenue(config["request_revenue"] ? config["request_revenue"].as<double>() : 0.0);
+	configuration->set_min_plan_revenue(config["min_plan_revenue"] ? config["min_plan_revenue"].as<double>() : 0.0);
+	return configuration;
 }
 
 void load_vehicles_csv(std::vector<Vehicle<Amodsim_node>>& vehicles, const std::string& file_path, unsigned instance_start_time) {

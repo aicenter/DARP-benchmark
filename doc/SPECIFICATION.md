@@ -102,7 +102,9 @@ The structure is following:
 - `dist_filepath`: the [distance matrix file](#distance-matrix-file-of-lengths) of the vehicle travel distances, required by a non-zero `cost.distance_weight`. A relative path is relative to the instance directory.
 - `demand.relative_delay_cost`: legacy default of `cost.passenger_delay_weight`
 - `max_delay`: the maximum extra time a request spends over the direct transportation from origin to destination, in seconds, including the waiting times. Either `mode: absolute` with `seconds`, or `mode: relative` with `relative` (a proportion of the minimal travel time). `max_prolongation` (plain seconds) and `max_travel_time_delay` are deprecated aliases. Example: `300`
-- `problem`: `DARP` (default) or `fleet-sizing` (vehicles are not loaded, the solver creates them)
+- `problem`: `DARP` (default) or `fleet-sizing` (vehicles are not loaded, the solver creates them; IH and `min_revenue_ih` create a vehicle at the pickup of the first request of its plan, at the vehicle operation start, with the capacity `vehicles.capacity`)
+- `request_revenue`: the revenue of a served request, in the unit of the cost (default 0)
+- `min_plan_revenue`: the minimum revenue of a non-empty plan, i.e., of the requests it serves (default 0 = no minimum). Solvers must support it explicitly (`supports_min_plan_revenue()`); the benchmark refuses the other solvers for an instance with a minimum. Only `min_revenue_ih` supports it.
 - `vehicles.capital_cost`: legacy default of `cost.vehicle_capital_cost`
 - `max_ride_time`: the max ride time [s] of a request, 0 (default) = unlimited
 - `max_route_duration`: the max duration [s] of a vehicle plan, 0 (default) = unlimited
@@ -110,6 +112,7 @@ The structure is following:
 - `save_shp`: if `true` then the shapefile will be saved for map, demand, and vehicles
 - `service_time`: the service time [s] of every pickup and drop-off whose request sets none (default 0). The CSV requests file can set it per request: the optional columns `pickup_service_time` and `dropoff_service_time`, otherwise `service_time` for both stops; an empty cell falls back to the next level.
 - `vehicles`: configuration object for vehicles
+    - `capacity`: the capacity of the vehicles created by the solver in the `fleet-sizing` problem. Example: `70`
     - `start_time`: Each vehicle will be available since this datetime. Example: `'2022-03-11 17:45:00'`
     - `vehicle_capacity`: The capacity of the vehicle. Example: `4`
     `vehicle_to_request_ratio`: The ration between vehicles and requests. Example: `0.5` (meaning 1 vehicle per 2 requests).
