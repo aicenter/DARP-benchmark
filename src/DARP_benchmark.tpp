@@ -112,7 +112,8 @@ void DARP_benchmark<N>::process_instance(
 	std::transform(method.begin(), method.end(), method_lower_case.begin(), ::tolower);
 	// methods optimizing the weighted cost incrementally (Cost_evaluator hooks per leg and drop-off)
 	const bool weighted_method = method_lower_case == "vga" || method_lower_case == "rolling_horizon_vga"
-		|| method_lower_case == "vga_chaining" || method_lower_case == "fleet_sizing_chaining";
+		|| method_lower_case == "vga_chaining" || method_lower_case == "fleet_sizing_chaining"
+		|| method_lower_case == "rolling_horizon_vga_chaining";
 	const Cost_weights& cost_weights = darp_instance.get_darp_instance_configuration()->get_cost_weights();
 	if(weighted_method && cost_weights.plan_duration_weight != 0.0) {
 		throw std::runtime_error(fmt::format(
