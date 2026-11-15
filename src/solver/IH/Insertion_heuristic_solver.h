@@ -93,6 +93,11 @@ public:
 	/** Both problems: in the fleet-sizing mode, the solver creates the vehicles (see process_request). */
 	[[nodiscard]] std::span<const problem_type> supported_problem_types() const override;
 
+	/** The insertion checks the pickup and the drop-off windows separately. */
+	[[nodiscard]] bool supports_max_pickup_delay() const override {
+		return true;
+	}
+
 	template<class R, Iterable<V> I>
     std::unique_ptr<Solution<N>> compute(const R& requests, const I& vehicles);
 

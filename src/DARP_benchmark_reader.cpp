@@ -213,10 +213,13 @@ DARP_instance<Amodsim_node> DARP_benchmark_reader::read(std::filesystem::path in
     // Algorithms supporting virtual vehicles will create Virtual_vehicle instances as needed.
 
     // request loading - Calls dispatcher
+	internal::Request_load_info request_load_info;
     auto requests = load_requests(
 		config,
 		std::static_pointer_cast<Travel_time_provider<Amodsim_node>>(travel_cost_provider),
-		instance_dir);
+		instance_dir,
+		&request_load_info);
+	configuration->set_request_pickup_delay_overrides(request_load_info.pickup_delay_overrides);
 
     return {
 		std::move(requests),
@@ -249,20 +252,25 @@ void DARP_benchmark_reader::load_vehicles(std::vector<Vehicle<Amodsim_node>>& ve
 std::unique_ptr<std::vector<Request<Amodsim_node>>> DARP_benchmark_reader::load_requests(
     const YAML::Node& config,
     const std::shared_ptr<Travel_time_provider<Amodsim_node>>& travel_cost_provider,
-    const std::filesystem::path& instance_directory
+    const std::filesystem::path& instance_directory,
+	internal::Request_load_info* info
 ) {
     const fs::path request_raw(config["demand"]["filepath"].as<std::string>());
     const fs::path request_resolved = resolve_against_instance_dir(instance_directory, request_raw);
     const auto request_filepath = check_path(request_resolved.string());
 	const auto max_delay = internal::load_max_delay(config);
+	const auto max_pickup_delay = internal::load_max_pickup_delay(config);
 	const auto service_time = internal::load_service_time(config);
+	internal::Request_load_info local_info;
+	internal::Request_load_info& load_info = info != nullptr ? *info : local_info;
 
     if (request_filepath.extension() == ".csv") {
         spdlog::info("Detected .csv format, using CSV loader for requests.");
-        return load_requests_csv(request_filepath.string(), max_delay, service_time, travel_cost_provider);
+        return load_requests_csv(
+			request_filepath.string(), max_delay, max_pickup_delay, service_time, travel_cost_provider, load_info);
     } else { // Assuming .di or other format for the original loader
         spdlog::info("Detected non-csv format, using DI loader for requests.");
-        return load_requests_di(request_filepath.string(), max_delay, service_time, travel_cost_provider);
+        return load_requests_di(request_filepath.string(), max_delay, max_pickup_delay, service_time, travel_cost_provider);
     }
 }
 
@@ -270,6 +278,7 @@ std::unique_ptr<std::vector<Request<Amodsim_node>>> DARP_benchmark_reader::load_
 std::unique_ptr<std::vector<Request<Amodsim_node>>> DARP_benchmark_reader::load_requests_di(
     const std::string& request_filepath_str,
     const internal::Max_delay& max_delay,
+	std::optional<unsigned> max_pickup_delay,
     unsigned short service_time,
     const std::shared_ptr<Travel_time_provider<Amodsim_node>>& travel_cost_provider
 ) {
@@ -291,7 +300,7 @@ std::unique_ptr<std::vector<Request<Amodsim_node>>> DARP_benchmark_reader::load_
 		auto min_travel_time = static_cast<unsigned short>(travel_cost_provider->get_travel_time(*pickup_node, *drop_off_node));
 		const unsigned request_max_delay = max_delay.get(min_travel_time);
         requests->emplace_back(id, action_id, action_id + 1,
-                pickup_node, time, time + request_max_delay,
+                pickup_node, time, time + max_pickup_delay.value_or(request_max_delay),
                 drop_off_node, time + min_travel_time, time + min_travel_time + request_max_delay, min_travel_time,
                 service_time, service_time);
         action_id += 2;
@@ -304,8 +313,10 @@ template<char Delim>
 std::unique_ptr<std::vector<Request<Amodsim_node>>> load_requests_csv_impl(
 	const std::string& request_filepath_str,
 	const internal::Max_delay& max_delay,
+	std::optional<unsigned> max_pickup_delay,
 	unsigned short service_time,
-	const std::shared_ptr<Travel_time_provider<Amodsim_node>>& travel_cost_provider
+	const std::shared_ptr<Travel_time_provider<Amodsim_node>>& travel_cost_provider,
+	internal::Request_load_info& info
 ) {
 	using CsvReader = csv2::Reader<csv2::delimiter<Delim>, csv2::quote_character<'"'>, csv2::first_row_is_header<true>,
 		csv2::trim_policy::trim_characters<' ', '\t', '\r', '\n'>>;
@@ -316,6 +327,7 @@ std::unique_ptr<std::vector<Request<Amodsim_node>>> load_requests_csv_impl(
 	auto requests = std::make_unique<std::vector<Request<Amodsim_node>>>();
 	int time_col = -1, origin_col = -1, dest_col = -1;
 	int service_time_col = -1, pickup_service_time_col = -1, dropoff_service_time_col = -1;
+	int max_pickup_delay_col = -1;
 	bool time_in_seconds = false;
 	int col = 0;
 	for (const auto& cell : reader.header()) {
@@ -339,6 +351,8 @@ std::unique_ptr<std::vector<Request<Amodsim_node>>> load_requests_csv_impl(
 			pickup_service_time_col = col;
 		} else if (name == "dropoff_service_time") {
 			dropoff_service_time_col = col;
+		} else if (name == "max_pickup_delay") {
+			max_pickup_delay_col = col;
 		}
 		++col;
 	}
@@ -357,6 +371,20 @@ std::unique_ptr<std::vector<Request<Amodsim_node>>> load_requests_csv_impl(
 			throw std::runtime_error(fmt::format("Service time {} s in request CSV is out of range", value));
 		}
 		return static_cast<unsigned short>(value);
+	};
+	// pickup delay [s] of a request: the max_pickup_delay cell (a number, or -1/off = no separate pickup delay),
+	// otherwise the instance value, otherwise the maximum delay of the request
+	const auto pickup_delay_cell = [&](const std::vector<std::string>& cells, unsigned request_max_delay) {
+		if (max_pickup_delay_col >= 0 && max_pickup_delay_col < static_cast<int>(cells.size())
+			&& !cells[max_pickup_delay_col].empty()) {
+			info.pickup_delay_overrides = true;
+			const std::string& cell = cells[max_pickup_delay_col];
+			if (cell == "-1" || cell == "off") {
+				return request_max_delay;
+			}
+			return static_cast<unsigned>(std::stoul(cell));
+		}
+		return max_pickup_delay.value_or(request_max_delay);
 	};
 	unsigned int action_id = 0;
 	unsigned long request_id_counter = 0;
@@ -381,7 +409,7 @@ std::unique_ptr<std::vector<Request<Amodsim_node>>> load_requests_csv_impl(
 		const unsigned request_max_delay = max_delay.get(min_travel_time);
 		const unsigned short request_service_time = service_time_cell(cells, service_time_col, service_time);
 		requests->emplace_back(request_id_counter++, action_id, action_id + 1,
-			pickup_node, time, time + request_max_delay,
+			pickup_node, time, time + pickup_delay_cell(cells, request_max_delay),
 			drop_off_node, time + min_travel_time, time + min_travel_time + request_max_delay, min_travel_time,
 			service_time_cell(cells, pickup_service_time_col, request_service_time),
 			service_time_cell(cells, dropoff_service_time_col, request_service_time));
@@ -395,8 +423,10 @@ std::unique_ptr<std::vector<Request<Amodsim_node>>> load_requests_csv_impl(
 std::unique_ptr<std::vector<Request<Amodsim_node>>> DARP_benchmark_reader::load_requests_csv(
 	const std::string& request_filepath_str,
 	const internal::Max_delay& max_delay,
+	std::optional<unsigned> max_pickup_delay,
 	unsigned short service_time,
-	const std::shared_ptr<Travel_time_provider<Amodsim_node>>& travel_cost_provider
+	const std::shared_ptr<Travel_time_provider<Amodsim_node>>& travel_cost_provider,
+	internal::Request_load_info& info
 ) {
 	spdlog::info("Loading requests from CSV file: {}", request_filepath_str);
 	std::ifstream file(request_filepath_str);
@@ -409,9 +439,11 @@ std::unique_ptr<std::vector<Request<Amodsim_node>>> DARP_benchmark_reader::load_
 	}
 	const char delimiter = detect_tab_or_comma_delimiter(header_line);
 	if (delimiter == '\t') {
-		return load_requests_csv_impl<'\t'>(request_filepath_str, max_delay, service_time, travel_cost_provider);
+		return load_requests_csv_impl<'\t'>(
+			request_filepath_str, max_delay, max_pickup_delay, service_time, travel_cost_provider, info);
 	} else {
-		return load_requests_csv_impl<','>(request_filepath_str, max_delay, service_time, travel_cost_provider);
+		return load_requests_csv_impl<','>(
+			request_filepath_str, max_delay, max_pickup_delay, service_time, travel_cost_provider, info);
 	}
 }
 
@@ -447,6 +479,44 @@ Max_delay load_max_delay(const YAML::Node& config) {
 
 unsigned short load_service_time(const YAML::Node& config) {
 	return config["service_time"] ? config["service_time"].as<unsigned short>() : 0;
+}
+
+std::optional<unsigned> load_max_pickup_delay(const YAML::Node& config) {
+	if (config["max_pickup_delay"]) {
+		return config["max_pickup_delay"].as<unsigned>();
+	}
+	return std::nullopt;
+}
+
+Online_mode load_online_mode(const YAML::Node& config) {
+	Online_mode online_mode;
+	const YAML::Node node = config["online_mode"];
+	if (!node) {
+		return online_mode;
+	}
+	if (!node.IsMap()) {
+		throw std::runtime_error("The 'online_mode' section of instance config must be a map (keys on, batch_period, "
+			"allow_delay_promised_pickup)");
+	}
+	for (const auto& entry : node) {
+		const auto key = entry.first.as<std::string>();
+		if (key == "on") {
+			online_mode.on = entry.second.as<bool>();
+		} else if (key == "batch_period") {
+			online_mode.batch_period = entry.second.as<unsigned>();
+		} else if (key == "allow_delay_promised_pickup") {
+			online_mode.allow_delay_promised_pickup = entry.second.as<bool>();
+		} else {
+			throw std::runtime_error(fmt::format(
+				"Unknown key in the 'online_mode' section of instance config: '{}', supported keys: on, batch_period, "
+				"allow_delay_promised_pickup", key));
+		}
+	}
+	if (online_mode.on && online_mode.batch_period == 0) {
+		throw std::runtime_error(
+			"'online_mode.batch_period' (seconds, greater than 0) is required when 'online_mode.on' is true");
+	}
+	return online_mode;
 }
 
 static problem_type parse_problem(const YAML::Node& config) {
@@ -612,6 +682,8 @@ std::shared_ptr<DARP_instance_configuration> load_instance_configuration(const Y
 	}
 	configuration->set_request_revenue(config["request_revenue"] ? config["request_revenue"].as<double>() : 0.0);
 	configuration->set_min_plan_revenue(config["min_plan_revenue"] ? config["min_plan_revenue"].as<double>() : 0.0);
+	configuration->set_max_pickup_delay(load_max_pickup_delay(config));
+	configuration->set_online_mode(load_online_mode(config));
 	return configuration;
 }
 

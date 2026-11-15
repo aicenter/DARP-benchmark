@@ -6,7 +6,8 @@
 
 template<typename N>
 ActionData<N>::ActionData(const Action<N>& action_param) :
-    action(std::ref(action_param))
+    action(std::ref(action_param)),
+    max_time(action_param.get_max_time())
     {}
 
 
@@ -18,6 +19,7 @@ ActionData<N>::ActionData(
 	const Action<N>& action
 ) :
 	action(std::ref(action)),
+	max_time(action.get_max_time()),
 	arrival_time(json_action_data["arrival_time"].GetUint()),
 	departure_time(json_action_data["departure_time"].GetInt()),
 	position_in_plan(position_in_plan),
@@ -78,7 +80,7 @@ const Action<N>& ActionData<N>::get_action() const {
 
 template<typename N>
 void ActionData<N>::set_arrival_time(unsigned int arrival_time_par) {
-    assert(arrival_time_par <= action.get().get_max_time());
+    assert(arrival_time_par <= get_max_time());
     arrival_time = arrival_time_par;
 }
 
@@ -119,7 +121,14 @@ Action_type ActionData<N>::get_action_type() const {
 
 template<typename N>
 unsigned ActionData<N>::get_max_time() const {
-    return this->action.get().get_max_time();
+    return max_time;
+}
+
+template<typename N>
+void ActionData<N>::tighten_max_time(unsigned new_max_time) {
+    assert(new_max_time <= max_time);
+    assert(new_max_time >= get_min_time());
+    max_time = new_max_time;
 }
 
 template<typename N>

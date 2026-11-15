@@ -80,9 +80,17 @@ public:
 
     [[nodiscard]] Action_type get_action_type() const;
 
+    /**
+     * Latest time of the action in this plan: the max time of the action unless tightened (tighten_max_time), e.g. to
+     * the pickup time promised to a passenger in the online mode. Not exported to JSON: a deserialized action data
+     * starts from the max time of the action again.
+     */
     [[nodiscard]] unsigned get_max_time() const;
 
     [[nodiscard]] unsigned get_min_time() const;
+
+    /** Lowers the latest time of the action in this plan; new_max_time must stay within [min time, current max time]. */
+    void tighten_max_time(unsigned new_max_time);
 
     [[nodiscard]] const N& get_node() const;
 
@@ -117,6 +125,9 @@ public:
 
 protected:
     std::reference_wrapper<const Action<N>> action;
+
+    /** See get_max_time(). */
+    unsigned max_time;
 
     /**
      * A in Cordeau and Laport 2003

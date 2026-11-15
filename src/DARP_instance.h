@@ -24,6 +24,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <vector>
 
 #include "travel_time_provider/Travel_time_provider.h"
@@ -87,6 +88,23 @@ struct Cost_weights {
 	}
 };
 
+/**
+ * The `online_mode` section of the instance config. In the online mode, a request is known from its time on and the
+ * solver re-plans in batches: the batch at time T plans the requests announced by T from the vehicle states at T and
+ * changes only what happens after T (the actions already executed or departing by T are fixed). Only the solvers
+ * supporting the online mode accept such an instance (DARP_benchmark_solver_interface::supports_online_mode).
+ */
+struct Online_mode {
+	bool on{false};
+	/** Length of a batch [s]: the solver waits this long for new requests before re-planning. Required when on. */
+	unsigned batch_period{0};
+	/**
+	 * Whether the pickup time of a request assigned (promised) in a batch may be moved later by a later batch. By
+	 * default a promised pickup may only be moved earlier.
+	 */
+	bool allow_delay_promised_pickup{false};
+};
+
 class DARP_instance_configuration {
 public:
 	explicit DARP_instance_configuration(
@@ -125,6 +143,16 @@ public:
 	/** Minimum revenue of a non-empty plan (`min_plan_revenue`), 0 = no minimum. Only the solvers supporting it accept
 	 * an instance with a minimum (DARP_benchmark_solver_interface::supports_min_plan_revenue). */
 	[[nodiscard]] double get_min_plan_revenue() const;
+	/** Maximum pickup delay [s] of the requests (`max_pickup_delay`), if the instance sets one; otherwise the pickup
+	 * window is as long as the drop-off window (the maximum delay). */
+	[[nodiscard]] std::optional<unsigned> get_max_pickup_delay() const;
+	/** Whether a request of the demand file overrides the pickup delay (`max_pickup_delay` column). */
+	[[nodiscard]] bool has_request_pickup_delay_overrides() const;
+	/** Whether the pickup windows of the requests are set separately from the drop-off windows (`max_pickup_delay`
+	 * of the instance or of a request). Only the solvers supporting it accept such an instance
+	 * (DARP_benchmark_solver_interface::supports_max_pickup_delay). */
+	[[nodiscard]] bool uses_separate_pickup_delay() const;
+	[[nodiscard]] const Online_mode& get_online_mode() const;
 
 	void set_max_route_duration(unsigned long value);
 	void set_max_ride_time(unsigned long value);
@@ -140,6 +168,9 @@ public:
 	void set_vehicle_capacity(unsigned short value);
 	void set_request_revenue(double value);
 	void set_min_plan_revenue(double value);
+	void set_max_pickup_delay(std::optional<unsigned> value);
+	void set_request_pickup_delay_overrides(bool value);
+	void set_online_mode(Online_mode value);
 
 private:
     unsigned long max_route_duration{0};
@@ -161,6 +192,9 @@ private:
 	unsigned short vehicle_capacity{0};
 	double request_revenue{0.0};
 	double min_plan_revenue{0.0};
+	std::optional<unsigned> max_pickup_delay{};
+	bool request_pickup_delay_overrides{false};
+	Online_mode online_mode{};
 };
 
 class DARP_instance_interface {

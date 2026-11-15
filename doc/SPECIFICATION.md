@@ -102,6 +102,8 @@ The structure is following:
 - `dist_filepath`: the [distance matrix file](#distance-matrix-file-of-lengths) of the vehicle travel distances, required by a non-zero `cost.distance_weight`. A relative path is relative to the instance directory.
 - `demand.relative_delay_cost`: legacy default of `cost.passenger_delay_weight`
 - `max_delay`: the maximum extra time a request spends over the direct transportation from origin to destination, in seconds, including the waiting times. Either `mode: absolute` with `seconds`, or `mode: relative` with `relative` (a proportion of the minimal travel time). `max_prolongation` (plain seconds) and `max_travel_time_delay` are deprecated aliases. Example: `300`
+- `max_pickup_delay`: the maximum waiting time of a request for its pickup [s]: the pickup window is `[time, time + max_pickup_delay]`, while the drop-off window stays `[time + min travel time, time + min travel time + max delay]` (a late pickup eats into the delay budget). Without it, the pickup window is as long as the drop-off window. The CSV requests file can override it per request in the column `max_pickup_delay`: an empty cell inherits the instance value, a number is the delay in seconds, `-1` or `off` disables the separate pickup delay for the request. Solvers must support it explicitly (`supports_max_pickup_delay()`); the benchmark refuses the other solvers for an instance that sets it (in the configuration or for a request). Supported by `ih`, `min_revenue_ih` and the VGA family of [darp_solvers](https://github.com/aicenter/darp_solvers), not by `halns`.
+- `online_mode`: the online (dynamic) mode, see [Online mode](#online-mode) below. Keys: `on` (default `false`), `batch_period` (seconds, required when on), `allow_delay_promised_pickup` (default `false`). Solvers must support the online mode explicitly (`supports_online_mode()`); the benchmark refuses the other solvers for an online instance.
 - `problem`: `DARP` (default) or `fleet-sizing` (vehicles are not loaded, the solver creates them; IH and `min_revenue_ih` create a vehicle at the pickup of the first request of its plan, at the vehicle operation start, with the capacity `vehicles.capacity`)
 - `request_revenue`: the revenue of a served request, in the unit of the cost (default 0)
 - `min_plan_revenue`: the minimum revenue of a non-empty plan, i.e., of the requests it serves (default 0 = no minimum). Solvers must support it explicitly (`supports_min_plan_revenue()`); the benchmark refuses the other solvers for an instance with a minimum. Only `min_revenue_ih` supports it.
@@ -166,13 +168,21 @@ There are two variants of the speed computation:
 - the speed is computed from the historical data (this is use in the experiments)
 - Flat speed of 14 meters per second (about 50km/h).
 
+### Online mode
+In the online mode (`online_mode.on`), a request is known only from its time on (the `time` of the request is its announcement, the passenger wants to leave immediately). A solver re-plans in batches of `batch_period` seconds: the batch at time `T` plans all requests announced by `T` (not the ones announced in `(T, T + batch_period]`) from the states of the vehicles at `T`, and it may change only what happens after `T`: the actions already executed or departing by `T` are fixed. A vehicle that is idle at `T` may be sent anywhere; a vehicle driving to its next node continues there (the travel time matrix has no positions on the edges).
+
+Once a batch assigns a pickup time to a request, that time is promised to the passenger: a later batch may serve the request earlier, but not later, unless `allow_delay_promised_pickup` is `true`, in which case any time within the request window stays allowed. The promise is kept in the latest time of the pickup action of the plans (`ActionData::get_max_time()`), so it also holds for post-processing of the plans, e.g. the chaining never delays a promised pickup.
+
+The rolling-horizon solvers of [darp_solvers](https://github.com/aicenter/darp_solvers) support the online mode (`rolling_horizon_vga`, `rolling_horizon_vga_chaining`); their batch period is the `batch_period` of the instance. The solution checker checks only the request windows, not the promises.
 
 ## Overview Table
 | Parameter | Descripton | Implementation prop. name | DARP Benchmark format | Classic format  | 
 |-----------|------------|----------------|-----------------------|----------------|
 | travel requests | The set of travel requests (origin, destination, min time) | `requests` |`trips.di` file, each row is a request | instance file, each row is a request |
 | vehicles | The set of vehicles (start position, capacity) | `vehicles` | `vehicles.csv` file, each row is a vehicle | TODO |
-| max delay | The maximum extra time a request spend over the direct transportation from origin to destination, in seconds. | `request.drop_off.max_time` | `max_prolongation` in `config.yaml` | each request has a specific max delay, it is defined in the request row in the instance file |
+| max delay | The maximum extra time a request spend over the direct transportation from origin to destination, in seconds. | `request.drop_off.max_time` | `max_delay` in `config.yaml` (`max_prolongation` deprecated) | each request has a specific max delay, it is defined in the request row in the instance file |
+| max pickup delay | The maximum waiting time of a request for its pickup, in seconds; without it the pickup window is as long as the drop-off window. | `request.pickup.max_time` | `max_pickup_delay` in `config.yaml` or the request column | not present |
+| online mode | Requests are known from their time on and planned in batches; a promised pickup is never delayed. | `darp_instance_configuration.online_mode` | `online_mode` in `config.yaml`, default off | not present |
 | max ride time | The maximum ride time of a single request | `darp_insrtance_configuration.max_ride_time` | `max_ride_time` in `config.yaml`, default 0 (unconstrained) | TODO |
 | max route time | The maximum route time of a single vehicle | `darp_insrtance_configuration.max_route_time` | `max_route_duration` in `config.yaml`, default 0 (unconstrained) | TODO |
 | return to depot | Whether the vehicle has to return to depot | `darp_insrtance_configuration.return_to_depot` | `return_to_depot` in `config.yaml`, default `false` | not present, set to `true` |

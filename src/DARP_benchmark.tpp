@@ -55,12 +55,21 @@ std::unique_ptr<DARP_benchmark_solver_interface<N>> Solver_registry<NO...>::crea
 			method,
 			problem_str));
 	}
-	const double min_plan_revenue = darp_instance.get_darp_instance_configuration()->get_min_plan_revenue();
+	const auto& configuration = *darp_instance.get_darp_instance_configuration();
+	const double min_plan_revenue = configuration.get_min_plan_revenue();
 	if (min_plan_revenue > 0 && !solver->supports_min_plan_revenue()) {
 		throw std::runtime_error(fmt::format(
 			R"(Solver method "{}" does not support the minimum plan revenue (min_plan_revenue: {}))",
 			method,
 			min_plan_revenue));
+	}
+	if (configuration.uses_separate_pickup_delay() && !solver->supports_max_pickup_delay()) {
+		throw std::runtime_error(fmt::format(
+			R"(Solver method "{}" does not support a separate pickup delay (max_pickup_delay))", method));
+	}
+	if (configuration.get_online_mode().on && !solver->supports_online_mode()) {
+		throw std::runtime_error(fmt::format(
+			R"(Solver method "{}" does not support the online mode (online_mode.on))", method));
 	}
 	return solver;
 }

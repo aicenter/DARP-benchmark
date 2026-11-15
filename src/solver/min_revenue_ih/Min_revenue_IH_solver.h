@@ -56,6 +56,11 @@ public:
 		return true;
 	}
 
+	/** Plans with the insertion heuristic, which checks the pickup and the drop-off windows separately. */
+	[[nodiscard]] bool supports_max_pickup_delay() const override {
+		return true;
+	}
+
 private:
 	Insertion_heuristic_solver<N> ih_solver;
 	const cost_type new_plan_penalty_step;

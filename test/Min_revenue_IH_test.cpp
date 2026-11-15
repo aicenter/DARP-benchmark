@@ -47,6 +47,8 @@ struct Fleet_sizing_instance_parameters {
 	unsigned short capacity{10};
 	unsigned long max_route_duration{0};
 	double min_plan_revenue{0};
+	std::optional<unsigned> max_pickup_delay{};
+	bool online{false};
 };
 
 /**
@@ -71,6 +73,10 @@ std::shared_ptr<DARP_instance<Cordeau_node>> fleet_sizing_instance(
 	configuration->set_vehicle_capacity(parameters.capacity);
 	configuration->set_request_revenue(60);
 	configuration->set_min_plan_revenue(parameters.min_plan_revenue);
+	configuration->set_max_pickup_delay(parameters.max_pickup_delay);
+	if(parameters.online) {
+		configuration->set_online_mode(Online_mode{.on = true, .batch_period = 30});
+	}
 	return std::make_shared<DARP_instance<Cordeau_node>>(
 		std::move(requests), std::make_unique<std::vector<Vehicle<Cordeau_node>>>(), travel_time_provider,
 		configuration);
@@ -218,6 +224,23 @@ TEST(Min_revenue_IH_solver_test, registry_refuses_solvers_without_the_minimum_pl
 
 	const auto without_minimum = fleet_sizing_instance({{0, 10}, {1, 11}});
 	EXPECT_NO_THROW((void) registry.create_solver("ih", *without_minimum, solver_config, fs::path{}));
+}
+
+TEST(Min_revenue_IH_solver_test, registry_checks_the_pickup_delay_and_online_mode_support) {
+	auto& registry = DARP::Default_solver_registry::get();
+	registry.register_solver<Insertion_heuristic_solver>("ih");
+	registry.register_solver<Min_revenue_IH_solver>("min_revenue_ih");
+	const auto solver_config = fc::load<DARP_benchmark_config>();
+
+	// the insertion heuristics check the pickup and the drop-off windows separately
+	const auto with_pickup_delay = fleet_sizing_instance({{0, 10}, {1, 11}}, {.max_pickup_delay = 120});
+	EXPECT_NO_THROW((void) registry.create_solver("ih", *with_pickup_delay, solver_config, fs::path{}));
+	EXPECT_NO_THROW((void) registry.create_solver("min_revenue_ih", *with_pickup_delay, solver_config, fs::path{}));
+
+	// no offline solver accepts an online instance
+	const auto online = fleet_sizing_instance({{0, 10}, {1, 11}}, {.online = true});
+	EXPECT_THROW((void) registry.create_solver("ih", *online, solver_config, fs::path{}), std::runtime_error);
+	EXPECT_THROW((void) registry.create_solver("min_revenue_ih", *online, solver_config, fs::path{}), std::runtime_error);
 }
 
 TEST(Min_revenue_IH_solver_test, fleet_sizing_needs_the_vehicle_capacity) {

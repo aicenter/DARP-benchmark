@@ -279,6 +279,60 @@ TEST(DARP_benchmark_reader_test, max_delay_not_provided) {
 	EXPECT_EQ(internal::load_max_delay(config).get(60), 0u);
 }
 
+TEST(DARP_benchmark_reader_test, max_pickup_delay_not_provided) {
+	YAML::Node config = YAML::Load("max_delay:\n  mode: absolute\n  seconds: 300\n");
+	EXPECT_FALSE(internal::load_max_pickup_delay(config).has_value());
+	const auto configuration = internal::load_instance_configuration(config);
+	EXPECT_FALSE(configuration->get_max_pickup_delay().has_value());
+	EXPECT_FALSE(configuration->uses_separate_pickup_delay());
+}
+
+TEST(DARP_benchmark_reader_test, max_pickup_delay_in_configuration) {
+	YAML::Node config = YAML::Load("max_delay:\n  mode: absolute\n  seconds: 300\nmax_pickup_delay: 120\n");
+	EXPECT_EQ(internal::load_max_pickup_delay(config), std::optional<unsigned>{120});
+	const auto configuration = internal::load_instance_configuration(config);
+	EXPECT_EQ(configuration->get_max_pickup_delay(), std::optional<unsigned>{120});
+	EXPECT_FALSE(configuration->has_request_pickup_delay_overrides());
+	EXPECT_TRUE(configuration->uses_separate_pickup_delay());
+}
+
+TEST(DARP_benchmark_reader_test, online_mode_not_provided) {
+	YAML::Node config = YAML::Load("{}");
+	const Online_mode online_mode = internal::load_online_mode(config);
+	EXPECT_FALSE(online_mode.on);
+	EXPECT_EQ(online_mode.batch_period, 0u);
+	EXPECT_FALSE(online_mode.allow_delay_promised_pickup);
+	EXPECT_FALSE(internal::load_instance_configuration(config)->get_online_mode().on);
+}
+
+TEST(DARP_benchmark_reader_test, online_mode_parsed) {
+	YAML::Node config = YAML::Load("online_mode:\n  on: true\n  batch_period: 30\n");
+	const Online_mode online_mode = internal::load_instance_configuration(config)->get_online_mode();
+	EXPECT_TRUE(online_mode.on);
+	EXPECT_EQ(online_mode.batch_period, 30u);
+	// a promised pickup is kept unless the instance allows delaying it
+	EXPECT_FALSE(online_mode.allow_delay_promised_pickup);
+
+	YAML::Node allowing = YAML::Load("online_mode:\n  on: true\n  batch_period: 60\n  allow_delay_promised_pickup: true\n");
+	EXPECT_TRUE(internal::load_online_mode(allowing).allow_delay_promised_pickup);
+
+	// the batch period is only used when the mode is on
+	YAML::Node off = YAML::Load("online_mode:\n  on: false\n  batch_period: 30\n");
+	EXPECT_FALSE(internal::load_online_mode(off).on);
+}
+
+TEST(DARP_benchmark_reader_test, online_mode_requires_the_batch_period) {
+	EXPECT_THROW(internal::load_online_mode(YAML::Load("online_mode:\n  on: true\n")), std::runtime_error);
+	EXPECT_THROW(
+		internal::load_online_mode(YAML::Load("online_mode:\n  on: true\n  batch_period: 0\n")), std::runtime_error);
+}
+
+TEST(DARP_benchmark_reader_test, online_mode_unknown_key) {
+	EXPECT_THROW(
+		internal::load_online_mode(YAML::Load("online_mode:\n  on: true\n  batch_period: 30\n  period: 30\n")),
+		std::runtime_error);
+}
+
 TEST(DARP_benchmark_reader_test, cost_weights_defaults) {
 	YAML::Node config = YAML::Load("{}");
 	const Cost_weights weights = internal::load_cost_weights(config);
@@ -375,6 +429,88 @@ TEST(DARP_benchmark_reader_test, request_loading_csv_max_delay) {
 	const unsigned expected_time_0 = 64813;
 	EXPECT_EQ(actual_requests[0].get_pickup().get_max_time(), expected_time_0 + 1000);
 	EXPECT_EQ(actual_requests[0].get_dropoff().get_max_time(), expected_time_0 + 1000);
+}
+
+TEST(DARP_benchmark_reader_test, request_loading_csv_max_pickup_delay) {
+	const std::string request_filepath = get_test_resource_path("requests.csv").generic_string();
+	const std::string yaml_string = std::format(R"(
+	{{
+		max_delay: {{
+			mode: absolute,
+			seconds: 1000
+		}},
+		max_pickup_delay: 120,
+		demand: {{
+			filepath: "{}"
+		}}
+	}})", request_filepath);
+	YAML::Node config = YAML::Load(yaml_string);
+
+	std::shared_ptr<Travel_time_provider<Amodsim_node>> travel_cost_provider
+		= std::make_shared<Zero_travel_time_provider>();
+
+	const auto instance_dir = get_test_resource_path("requests.csv").parent_path();
+	internal::Request_load_info info;
+	auto requests_ptr = DARP_benchmark_reader::load_requests(config, travel_cost_provider, instance_dir, &info);
+	const auto& actual_requests = *requests_ptr;
+
+	ASSERT_EQ(actual_requests.size(), 3);
+	EXPECT_FALSE(info.pickup_delay_overrides);
+	const unsigned expected_time_0 = 64813;
+	EXPECT_EQ(actual_requests[0].get_pickup().get_min_time(), expected_time_0);
+	EXPECT_EQ(actual_requests[0].get_pickup().get_max_time(), expected_time_0 + 120);
+	// the drop-off window keeps the maximum delay: a late pickup eats into the delay budget
+	EXPECT_EQ(actual_requests[0].get_dropoff().get_max_time(), expected_time_0 + 1000);
+}
+
+TEST(DARP_benchmark_reader_test, request_loading_csv_max_pickup_delay_column) {
+	// column cells: empty (the instance value 120), 60, off (no separate pickup delay: the maximum delay 1000)
+	const std::string request_filepath = get_test_resource_path("requests_max_pickup_delay.csv").generic_string();
+	const std::string yaml_string = std::format(R"(
+	{{
+		max_delay: {{
+			mode: absolute,
+			seconds: 1000
+		}},
+		max_pickup_delay: 120,
+		demand: {{
+			filepath: "{}"
+		}}
+	}})", request_filepath);
+	YAML::Node config = YAML::Load(yaml_string);
+
+	std::shared_ptr<Travel_time_provider<Amodsim_node>> travel_cost_provider
+		= std::make_shared<Zero_travel_time_provider>();
+
+	const auto instance_dir = get_test_resource_path("requests_max_pickup_delay.csv").parent_path();
+	internal::Request_load_info info;
+	auto requests_ptr = DARP_benchmark_reader::load_requests(config, travel_cost_provider, instance_dir, &info);
+	const auto& actual_requests = *requests_ptr;
+
+	ASSERT_EQ(actual_requests.size(), 3);
+	EXPECT_TRUE(info.pickup_delay_overrides);
+	EXPECT_EQ(actual_requests[0].get_pickup().get_max_time(), 64813u + 120);
+	EXPECT_EQ(actual_requests[1].get_pickup().get_max_time(), 64841u + 60);
+	EXPECT_EQ(actual_requests[2].get_pickup().get_max_time(), 64858u + 1000);
+	for (const auto& request : actual_requests) {
+		EXPECT_EQ(request.get_dropoff().get_max_time(), request.get_pickup().get_min_time() + 1000);
+	}
+
+	// without the instance value, an empty cell gives the maximum delay
+	YAML::Node config_without_baseline = YAML::Load(std::format(R"(
+	{{
+		max_delay: {{
+			mode: absolute,
+			seconds: 1000
+		}},
+		demand: {{
+			filepath: "{}"
+		}}
+	}})", request_filepath));
+	auto without_baseline
+		= DARP_benchmark_reader::load_requests(config_without_baseline, travel_cost_provider, instance_dir);
+	EXPECT_EQ((*without_baseline)[0].get_pickup().get_max_time(), 64813u + 1000);
+	EXPECT_EQ((*without_baseline)[1].get_pickup().get_max_time(), 64841u + 60);
 }
 
 TEST(DARP_benchmark_reader_test, request_loading_csv_service_times) {

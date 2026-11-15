@@ -65,6 +65,18 @@ class DARP_benchmark_solver_interface
 	[[nodiscard]] virtual bool supports_min_plan_revenue() const {
 		return false;
 	}
+
+	/** Whether the solver handles pickup windows set separately from the drop-off windows (`max_pickup_delay` of the
+	 * instance or of a request); the other solvers refuse such an instance. */
+	[[nodiscard]] virtual bool supports_max_pickup_delay() const {
+		return false;
+	}
+
+	/** Whether the solver plans online (`online_mode.on`: requests are known from their time on and the plans are
+	 * re-planned in batches, see Online_mode); the other solvers refuse an online instance. */
+	[[nodiscard]] virtual bool supports_online_mode() const {
+		return false;
+	}
 };
 
 template<template<typename, class...> class S, typename N>
@@ -130,8 +142,6 @@ protected:
 
 	/** Travel-time provider and instance configuration derived from the bound instance (immutable for the solver lifetime). */
 	const DARP_context<N> context;
-
-	unsigned short max_delay_time{0};
 
 	cost_type solution_cost{0};
 

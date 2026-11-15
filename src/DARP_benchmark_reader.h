@@ -75,6 +75,21 @@ Max_delay load_max_delay(const YAML::Node& config);
 
 /** The instance-wide service time [s] of the pickups and drop-offs (`service_time` key, default 0). */
 unsigned short load_service_time(const YAML::Node& config);
+
+/**
+ * The maximum pickup delay [s] (`max_pickup_delay` key), the length of the pickup window of every request; nullopt
+ * when the key is absent (the pickup window is then as long as the drop-off window, i.e. the maximum delay).
+ */
+std::optional<unsigned> load_max_pickup_delay(const YAML::Node& config);
+
+/** The `online_mode` section (keys on, batch_period, allow_delay_promised_pickup); all off when absent. */
+Online_mode load_online_mode(const YAML::Node& config);
+
+/** What the request loaders learn about the demand file, recorded in the instance configuration by read(). */
+struct Request_load_info {
+	/** A request of the CSV file sets its own pickup delay (a non-empty cell of the `max_pickup_delay` column). */
+	bool pickup_delay_overrides = false;
+};
 }
 
 class DARP_benchmark_reader : public Reader<Amodsim_node> {
@@ -82,10 +97,14 @@ public:
 	DARP_instance<Amodsim_node> read(std::filesystem::path filepath) override;
 
 	// Main dispatcher based on file extension. Relative demand.filepath is resolved against \p instance_directory.
+	// The pickup window of a request is [time, time + max_pickup_delay] when the instance sets `max_pickup_delay`
+	// (or the request overrides it, CSV only), otherwise as long as the drop-off window; \p info, if given, records
+	// the overrides.
 	static std::unique_ptr<std::vector<Request<Amodsim_node>>> load_requests(
 		const YAML::Node& config,
 		const std::shared_ptr<Travel_time_provider<Amodsim_node>>& travel_cost_provider,
-		const std::filesystem::path& instance_directory
+		const std::filesystem::path& instance_directory,
+		internal::Request_load_info* info = nullptr
 	);
 
 private:
@@ -93,17 +112,22 @@ private:
 	static std::unique_ptr<std::vector<Request<Amodsim_node>>> load_requests_di(
 		const std::string& request_filepath_str,
 		const internal::Max_delay& max_delay,
+		std::optional<unsigned> max_pickup_delay,
 		unsigned short service_time,
 		const std::shared_ptr<Travel_time_provider<Amodsim_node>>& travel_cost_provider
 	);
 
 	// Loader for .csv format using csv2. The service times of a request are the optional columns pickup_service_time
-	// and dropoff_service_time, otherwise service_time (both stops), otherwise the instance-wide service_time.
+	// and dropoff_service_time, otherwise service_time (both stops), otherwise the instance-wide service_time. The
+	// optional column max_pickup_delay overrides the pickup delay of a request: empty = the instance value, a number
+	// = that many seconds, -1 or off = no separate pickup delay (the pickup is bounded by the drop-off window only).
 	static std::unique_ptr<std::vector<Request<Amodsim_node>>> load_requests_csv(
 		const std::string& request_filepath_str,
 		const internal::Max_delay& max_delay,
+		std::optional<unsigned> max_pickup_delay,
 		unsigned short service_time,
-		const std::shared_ptr<Travel_time_provider<Amodsim_node>>& travel_cost_provider
+		const std::shared_ptr<Travel_time_provider<Amodsim_node>>& travel_cost_provider,
+		internal::Request_load_info& info
 	);
 
 	void load_vehicles(std::vector<Vehicle<Amodsim_node>>& vehicles, std::string file_path, unsigned instance_start_time) const;

@@ -122,3 +122,31 @@ void DARP_instance_configuration::set_request_revenue(double value) {
 void DARP_instance_configuration::set_min_plan_revenue(double value) {
 	min_plan_revenue = value;
 }
+
+std::optional<unsigned> DARP_instance_configuration::get_max_pickup_delay() const {
+	return max_pickup_delay;
+}
+
+bool DARP_instance_configuration::has_request_pickup_delay_overrides() const {
+	return request_pickup_delay_overrides;
+}
+
+bool DARP_instance_configuration::uses_separate_pickup_delay() const {
+	return max_pickup_delay.has_value() || request_pickup_delay_overrides;
+}
+
+const Online_mode& DARP_instance_configuration::get_online_mode() const {
+	return online_mode;
+}
+
+void DARP_instance_configuration::set_max_pickup_delay(std::optional<unsigned> value) {
+	max_pickup_delay = value;
+}
+
+void DARP_instance_configuration::set_request_pickup_delay_overrides(bool value) {
+	request_pickup_delay_overrides = value;
+}
+
+void DARP_instance_configuration::set_online_mode(Online_mode value) {
+	online_mode = value;
+}
